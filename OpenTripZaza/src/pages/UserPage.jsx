@@ -845,7 +845,7 @@ export function TripDetail({ tripId, trips, registrations, navigate, session, lo
   )
 }
 
-export function RegistrationPage({ tripId, trips, submitRegistration, navigate, session, logout, customerAccounts, registrations }) {
+export function RegistrationPage({ tripId, trips, submitRegistration, navigate, session, logout, customerAccounts, registrations, availableAddons = addonOptions }) {
   const { t, lang, dateLocale, statusLabel } = useCustomerLanguage()
   const trip = trips.find((item) => item.id === tripId)
   const customerProfile = customerAccounts.find((item) => item.email === session?.email) || session || {}
@@ -862,6 +862,8 @@ export function RegistrationPage({ tripId, trips, submitRegistration, navigate, 
     isPrivateTour: Boolean(trip?.isPrivateTrip),
     addons: [],
     transportFrom: '',
+    paymentProof: null,
+    paymentMethod: 'transfer',
     participantDetails: [buildParticipant({ ...customerProfile, name: session?.name || customerProfile.name })],
   })
   const [error, setError] = useState('')
@@ -1066,7 +1068,7 @@ export function RegistrationPage({ tripId, trips, submitRegistration, navigate, 
               </div>
             </div>
             <section className="addon-option-grid">
-              {addonOptions.map((option) => (
+              {availableAddons.map((option) => (
                 <label className="addon-option-card" key={option.id}>
                   <input type="checkbox" checked={form.addons.includes(option.id)} onChange={() => toggleAddon(option.id)} />
                   <span>
@@ -1081,6 +1083,13 @@ export function RegistrationPage({ tripId, trips, submitRegistration, navigate, 
                 <label className="full">{t('checkout.pickupPoint')}<input placeholder={t('checkout.pickupPlaceholder')} value={form.transportFrom} onChange={(e) => setForm({ ...form, transportFrom: e.target.value })} /></label>
               </div>
             )}
+
+            <div className="registration-fields">
+              <label className="full">Bukti pembayaran (opsional)
+                <input type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" onChange={(event) => setForm({ ...form, paymentProof: event.target.files?.[0] || null })} />
+                <small>Maksimal 5MB. Bukti dapat diunggah sekarang atau dikonfirmasi kepada admin.</small>
+              </label>
+            </div>
 
             <div className="participant-form-list">
               {resizeParticipants(form.participantDetails, participants, { name: form.name }).map((participant, index) => (
@@ -1309,7 +1318,7 @@ export function CustomerLoginPage({ loginCustomer, navigate, afterLoginPath = '/
       setError(t('error.loginRequired'))
       return
     }
-    if (!loginCustomer(form, afterLoginPath)) setError(t('error.loginFailed'))
+    if (!await loginCustomer(form, afterLoginPath)) setError(t('error.loginFailed'))
   }
 
   return (

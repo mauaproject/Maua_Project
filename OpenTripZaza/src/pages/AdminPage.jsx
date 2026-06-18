@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { accounts, addonOptions, registrationStatuses, tripStatuses } from '../config/constants'
+import { addonOptions, registrationStatuses, tripStatuses } from '../config/constants'
 import { formatCurrency, formatDate, tripName } from '../utils/formatters'
 import { getCustomerJobStatusLabel, getJobAddonLabel, getJobCompletedAt, getJobResultLink, getJobWorkerName, getRegistrationResultJobs } from '../utils/jobResults'
 import { localizedList, localizedText, multilingualLines, multilingualText, textToLines } from '../utils/localization'
@@ -319,6 +319,7 @@ export function AdminTrips(props) {
 export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
   const selected = trips.find((item) => item.id === tripId)
   const [form, setForm] = useState(normalizeTripForm(selected))
+  const [imageFiles, setImageFiles] = useState([])
   const [formError, setFormError] = useState('')
   const isPrivateTrip = Boolean(form.isPrivateTrip)
   const previewImage = parseImageUrls(form.imageUrlsText || form.imageUrl)[0]
@@ -487,6 +488,7 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
       sessions: isPrivateTrip ? form.sessions.map((session, index) => newSession(index, session)) : [],
       imageUrl: imageUrls[0] || '',
       imageUrls,
+      imageFiles,
     })
   }
 
@@ -578,6 +580,10 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
               <div><h3>Media</h3><p>Tambahkan satu atau beberapa URL gambar, pisahkan dengan baris baru.</p></div>
             </div>
             <div className="data-form section-fields">
+              <label className="full">Upload gambar trip
+                <input type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" multiple onChange={(event) => setImageFiles(Array.from(event.target.files || []))} />
+                <small>Maksimal 5MB per file. Format JPG, PNG, atau WebP.</small>
+              </label>
               <label className="full">Link gambar trip<textarea placeholder={'https://static.uc.ac.id/htb/2019/01/maxresdefault.jpg\nhttps://contoh.com/gambar-kedua.jpg'} value={form.imageUrlsText} onChange={(e) => setForm({ ...form, imageUrlsText: e.target.value })} /></label>
               {previewImage && <div className="media-preview full"><img src={previewImage} alt="Preview trip" /><span>Preview gambar utama</span></div>}
             </div>
@@ -1266,7 +1272,7 @@ export function AdminWorkers(props) {
   const [form, setForm] = useState({ name: '', email: '', password: '' })
   const [error, setError] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const workers = [accounts.worker, ...workerAccounts]
+  const workers = workerAccounts
 
   const onSubmit = async (event) => {
     event.preventDefault()

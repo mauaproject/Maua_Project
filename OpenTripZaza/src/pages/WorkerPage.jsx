@@ -131,6 +131,7 @@ function JobCompletionChecklist({ job, updateJobStatus, session, compact = false
   const [checked, setChecked] = useState(initialChecked)
   const [driveLink, setDriveLink] = useState(initialDriveLink)
   const [photoName, setPhotoName] = useState(job.proofPhotoName || '')
+  const [proofPhotoFile, setProofPhotoFile] = useState(null)
   const [error, setError] = useState('')
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false)
 
@@ -182,6 +183,7 @@ function JobCompletionChecklist({ job, updateJobStatus, session, compact = false
         resultStatus: 'completed',
         transportCompleted: true,
         proofPhotoName: photoName,
+        proofPhotoFile,
         completedAt,
         completedByName: session?.name || job.worker || '',
         completedById: session?.email || job.workerId || '',
@@ -212,10 +214,14 @@ function JobCompletionChecklist({ job, updateJobStatus, session, compact = false
         <div className="completion-field">
           <span>Kirim Foto Bukti</span>
           <label className="proof-upload-btn">Pilih Foto
-            <input type="file" accept="image/*" disabled={isDone} onChange={(event) => setPhotoName(event.target.files?.[0]?.name || '')} />
+            <input type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" disabled={isDone} onChange={(event) => {
+              const file = event.target.files?.[0] || null
+              setProofPhotoFile(file)
+              setPhotoName(file?.name || '')
+            }} />
           </label>
           {photoName && <small className="proof-file-name">{photoName}</small>}
-          <small>Upload foto masih berupa formalitas dan akan disimpan setelah fitur database tersedia.</small>
+          <small>Foto bukti akan disimpan saat pekerjaan diselesaikan.</small>
         </div>
       )}
 

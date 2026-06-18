@@ -11,11 +11,23 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+.env.*
+!.env.example
+api/config/database.local.php
 
 # Local secrets and service account keys
 src/privatekeyfirebase/
 *service-account*.json
 *firebase-adminsdk*.json
+
+# Runtime uploads
+uploads/*
+!uploads/.htaccess
+!uploads/trips/
+!uploads/payment-proofs/
+!uploads/worker-proofs/
+!uploads/**/.gitkeep
 
 # Editor directories and files
 .vscode/*

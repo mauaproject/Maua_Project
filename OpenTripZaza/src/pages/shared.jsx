@@ -2,16 +2,14 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import loadingVideo from '../assets/videoloading.mp4'
 import horizontalLogo from '../assets/desainHorizontal.png'
-import { accounts } from '../config/constants'
 
 export function LoginPage({ role, login, navigate }) {
-  const account = role === 'admin' ? accounts.admin : accounts.worker
-  const [form, setForm] = useState({ email: account.email, password: account.password })
+  const [form, setForm] = useState({ email: '', password: '' })
   const [error, setError] = useState('')
 
-  const onSubmit = (event) => {
+  const onSubmit = async (event) => {
     event.preventDefault()
-    if (!login(role, form)) setError('Email atau password tidak sesuai.')
+    if (!await login(role, form)) setError('Email atau password tidak sesuai.')
   }
 
   const isAdmin = role === 'admin'
@@ -40,7 +38,7 @@ export function LoginPage({ role, login, navigate }) {
           <div className="auth-panel-head">
             <p className="eyebrow">{eyebrow}</p>
             <h1>{title}</h1>
-            <p className="muted">Demo: {account.email} / {account.password}</p>
+            <p className="muted">Gunakan akun yang tersimpan pada database.</p>
           </div>
           <form className="auth-form" onSubmit={onSubmit}>
             {error && <p className="form-error">{error}</p>}

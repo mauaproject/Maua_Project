@@ -1,35 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
-import { collection, deleteDoc, doc, onSnapshot, orderBy, query, setDoc, updateDoc } from 'firebase/firestore'
 import './App.css'
 import i18n from './i18n'
-import { accounts, addonOptions } from './config/constants'
-import { db } from './firebase'
+import { addonOptions } from './config/constants'
 import { AdminDashboard, AdminSchedule, AdminTrips, AdminWorkers, TripForm } from './pages/AdminPage'
 import { CustomerAccountPage, CustomerCatalog, CustomerLoginPage, CustomerSignupPage, DestinationPage, RegistrationPage, TripDetail } from './pages/UserPage'
 import { MyJobs, WorkerDashboard, WorkerJobDetail, WorkerJobs } from './pages/WorkerPage'
 import { LoginPage, NotFound } from './pages/shared'
+import * as api from './services/api'
 import { ABOVE_MAX_PAX_RULE, getPrivatePricePerPerson, normalizePricePerPersonTiers } from './utils/pricing'
 import {
   getOpenTripScheduleOptions,
   getPrivateSessionOptions,
   isDateWithinPrivateRange,
-  getRegistrationDate,
-  getScheduleBookedCount,
-  getTripSchedules,
   isPrivateSessionBooked,
 } from './utils/schedules'
-
-const collections = {
-  trips: 'trips',
-  registrations: 'registrations',
-  jobs: 'jobs',
-  customers: 'customers',
-  workers: 'workers',
-}
-
-const sortById = (items) => [...items].sort((a, b) => Number(a.id) - Number(b.id))
-const withNumericId = (snapshot) => snapshot.docs.map((item) => ({ id: Number(item.data().id || item.id), ...item.data() }))
-const approvedStatuses = ['Disetujui', 'Selesai']
 
 const getJobScope = (job) => job.registrationId ? `registration-${job.registrationId}` : `trip-${job.tripId}`
 
@@ -39,6 +23,7 @@ function App() {
   const [trips, setTrips] = useState([])
   const [registrations, setRegistrations] = useState([])
   const [jobs, setJobs] = useState([])
+  const [addons, setAddons] = useState(addonOptions)
   const [customerAccounts, setCustomerAccounts] = useState([])
   const [workerAccounts, setWorkerAccounts] = useState([])
   const [toast, setToast] = useState('')
@@ -60,56 +45,60 @@ function App() {
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
 
-  useEffect(() => {
-    const unsubscribers = [
-      onSnapshot(query(collection(db, collections.trips), orderBy('id')), (snapshot) => {
-        setTrips(sortById(withNumericId(snapshot)))
-      }),
-      onSnapshot(query(collection(db, collections.registrations), orderBy('id', 'desc')), (snapshot) => setRegistrations(withNumericId(snapshot))),
-      onSnapshot(query(collection(db, collections.jobs), orderBy('id')), (snapshot) => setJobs(sortById(withNumericId(snapshot)))),
-      onSnapshot(collection(db, collections.customers), (snapshot) => setCustomerAccounts(snapshot.docs.map((item) => item.data()))),
-      onSnapshot(collection(db, collections.workers), (snapshot) => setWorkerAccounts(snapshot.docs.map((item) => item.data()))),
-    ]
-
-    return () => unsubscribers.forEach((unsubscribe) => unsubscribe())
-  }, [])
-
-  const login = (role, form) => {
-    const account = role === 'admin'
-      ? accounts.admin
-      : workerAccounts.find((item) => item.email === form.email && item.password === form.password) || accounts.worker
-
-    if (form.email === account.email && form.password === account.password) {
-      const nextSession = { role: account.role, name: account.name, email: account.email }
-      setSession(nextSession)
-      navigate(role === 'admin' ? '/admin/dashboard' : '/pekerja/dashboard')
-      return true
-    }
-    return false
+  const refreshData = async () => {
+    const detailMatch = window.location.pathname.match(/^\/open-trip\/(\d+)$/)
+    const [tripData, bookingData, taskData, customerData, workerData, addonData, detailTrip] = await Promise.all([
+      api.getTrips(true),
+      api.getBookings(),
+      api.getWorkerTasks(),
+      api.getUsers('customer'),
+      api.getUsers('worker'),
+      api.getAddons(),
+      detailMatch ? api.getTripDetail(Number(detailMatch[1])) : Promise.resolve(null),
+    ])
+    setTrips(detailTrip ? tripData.map((trip) => trip.id === detailTrip.id ? detailTrip : trip) : tripData)
+    setRegistrations(bookingData)
+    setJobs(taskData)
+    setCustomerAccounts(customerData)
+    setWorkerAccounts(workerData)
+    setAddons(addonData.length ? addonData : addonOptions)
   }
 
-  const loginCustomer = (form, redirectTo = '/open-trip') => {
-    const account = customerAccounts.find((item) => item.email === form.email && item.password === form.password)
-    if (!account) return false
-    const nextSession = {
-      role: 'customer',
-      name: account.name,
-      email: account.email,
-      whatsapp: account.whatsapp || '',
-      address: account.address || '',
-      age: account.age || '',
-      gender: account.gender || '',
-      healthNotes: account.healthNotes || '',
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      refreshData().catch((error) => showToast(error.message))
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [])
+
+  const login = async (role, form) => {
+    try {
+      const account = await api.loginUser(form.email, form.password, role)
+      setSession(account)
+      await refreshData()
+      navigate(role === 'admin' ? '/admin/dashboard' : '/pekerja/dashboard')
+      return true
+    } catch {
+      return false
     }
-    setSession(nextSession)
-    navigate(redirectTo)
-    return true
+  }
+
+  const loginCustomer = async (form, redirectTo = '/open-trip') => {
+    try {
+      const account = await api.loginUser(form.email, form.password, 'customer')
+      setSession(account)
+      setRegistrations(await api.getUserBookings(account.email))
+      navigate(redirectTo)
+      return true
+    } catch {
+      return false
+    }
   }
 
   const signupCustomer = async (form) => {
     const exists = customerAccounts.some((item) => item.email === form.email)
     if (exists) return false
-    const nextAccount = {
+    const nextAccount = await api.createUser({
       name: form.name,
       whatsapp: form.whatsapp,
       email: form.email,
@@ -119,8 +108,8 @@ function App() {
       age: form.age || '',
       gender: form.gender || '',
       healthNotes: form.healthNotes || '',
-    }
-    await setDoc(doc(db, collections.customers, form.email), nextAccount)
+    })
+    setCustomerAccounts((current) => [...current, nextAccount])
     setSession({ role: 'customer', name: form.name, email: form.email, whatsapp: form.whatsapp, address: form.address || '', age: form.age || '', gender: form.gender || '', healthNotes: form.healthNotes || '' })
     navigate('/open-trip')
     showToast(i18n.t('toast.signupSuccess'))
@@ -129,17 +118,16 @@ function App() {
 
   const createWorkerAccount = async (form) => {
     const normalizedEmail = form.email.trim().toLowerCase()
-    const exists = workerAccounts.some((item) => item.email === normalizedEmail) || accounts.worker.email === normalizedEmail
+    const exists = workerAccounts.some((item) => item.email === normalizedEmail)
     if (exists) return false
 
-    const nextWorker = {
+    const nextWorker = await api.createUser({
       name: form.name.trim(),
       email: normalizedEmail,
       password: form.password,
       role: 'pekerja',
-    }
-
-    await setDoc(doc(db, collections.workers, normalizedEmail), nextWorker)
+    })
+    setWorkerAccounts((current) => [...current, nextWorker])
     showToast('Akun pekerja berhasil dibuat.')
     return true
   }
@@ -157,30 +145,6 @@ function App() {
       return result
     }, {})
   }, [registrations])
-
-  const updateTripSlots = async (tripId, nextRegistrations = registrations) => {
-    const trip = trips.find((item) => item.id === tripId)
-    if (!trip) return
-    if (trip.isPrivateTrip) {
-      await updateDoc(doc(db, collections.trips, String(tripId)), { slots: trip.quota, status: trip.status === 'Selesai' ? 'Selesai' : 'Tersedia' })
-      return
-    }
-
-    const schedules = getTripSchedules(trip).map((schedule) => {
-      const bookedCount = getScheduleBookedCount(nextRegistrations, tripId, schedule)
-      const remaining = Math.max(Number(schedule.quota || 0) - bookedCount, 0)
-      return {
-        ...schedule,
-        bookedCount,
-        status: schedule.status === 'inactive' ? 'inactive' : remaining <= 0 ? 'full' : 'active',
-      }
-    })
-    const slots = schedules.reduce((total, schedule) => total + Math.max(Number(schedule.quota || 0) - Number(schedule.bookedCount || 0), 0), 0)
-    const quota = schedules.reduce((total, schedule) => total + Number(schedule.quota || 0), 0) || Number(trip.quota || 0)
-    const status = trip.status === 'Selesai' ? 'Selesai' : slots === 0 ? 'Penuh' : 'Tersedia'
-    const firstSchedule = schedules[0]
-    await updateDoc(doc(db, collections.trips, String(tripId)), { schedules, slots, quota, date: firstSchedule?.date || trip.date || '', status })
-  }
 
   const submitRegistration = async (form) => {
     const trip = trips.find((item) => item.id === Number(form.tripId))
@@ -215,15 +179,13 @@ function App() {
       : [{ name: form.name, address: form.address || '', age: form.age || '', gender: form.gender || '', healthNotes: form.healthNotes || '' }]
     const primaryParticipant = participantDetails[0] || {}
     const addons = Array.isArray(form.addons)
-      ? form.addons.filter((addonId) => addonOptions.some((option) => option.id === addonId))
+      ? form.addons.filter((addonId) => addons.some((option) => option.id === addonId))
       : []
-    const id = Date.now()
     const hargaPerOrang = isPrivateTour
       ? getPrivatePricePerPerson(trip, participantCount)
       : Number(trip.price || 0)
     const totalHarga = participantCount * hargaPerOrang
     const nextItem = {
-      id,
       name: form.name,
       whatsapp: form.whatsapp,
       email: form.email,
@@ -255,19 +217,14 @@ function App() {
       totalPrice: totalHarga,
       status: 'Menunggu Approval',
     }
-    await Promise.all([
-      setDoc(doc(db, collections.registrations, String(id)), nextItem),
-      setDoc(doc(db, collections.customers, form.email), {
-        name: form.name,
-        whatsapp: form.whatsapp,
-        email: form.email,
-        role: 'customer',
-        address: primaryParticipant.address || '',
-        age: primaryParticipant.age || '',
-        gender: primaryParticipant.gender || '',
-        healthNotes: primaryParticipant.healthNotes || '',
-      }, { merge: true }),
-    ])
+    const createdBooking = await api.createBooking(nextItem)
+    if (form.paymentProof instanceof File) {
+      await api.uploadPaymentProof(form.paymentProof, createdBooking.id, {
+        amount: totalHarga,
+        paymentMethod: form.paymentMethod || 'transfer',
+      })
+    }
+    await refreshData()
     setSession((current) => current?.email === form.email ? {
       ...current,
       name: form.name,
@@ -277,76 +234,20 @@ function App() {
       gender: primaryParticipant.gender || '',
       healthNotes: primaryParticipant.healthNotes || '',
     } : current)
-    if (!isPrivateTour) await updateTripSlots(trip.id, [...registrations, nextItem])
     showToast(i18n.t('toast.registrationSuccess'))
     navigate('/open-trip')
     return true
   }
 
-  const buildAddonJob = (id, registration, trip, addon, slot, totalWorkers) => ({
-    id,
-    tripId: Number(registration.tripId),
-    registrationId: Number(registration.id),
-    bookingId: Number(registration.id),
-    tripType: registration.tripType || (registration.isPrivateTrip || registration.isPrivateTour || trip?.isPrivateTrip ? 'private' : 'open'),
-    scheduleId: registration.scheduleId || '',
-    selectedDate: getRegistrationDate(registration) || '',
-    sessionId: registration.sessionId || '',
-    sessionName: registration.sessionName || '',
-    startTime: registration.startTime || '',
-    endTime: registration.endTime || '',
-    addonId: addon.id,
-    addonType: addon.id,
-    addonLabel: addon.label,
-    customerName: registration.name,
-    requestedDate: getRegistrationDate(registration) || trip?.date || '',
-    slot,
-    totalWorkers,
-    task: addon.id === 'transport' && registration.transportFrom
-      ? `${addon.task} Titik jemput: ${registration.transportFrom}.`
-      : addon.task,
-    status: 'Tersedia',
-    worker: '',
-  })
-
-  const syncRegistrationAddonJobs = async (registration, status) => {
-    const selectedAddons = Array.isArray(registration?.addons)
-      ? addonOptions.filter((option) => registration.addons.includes(option.id))
-      : []
-    const relatedJobs = jobs.filter((job) => Number(job.registrationId) === Number(registration.id))
-
-    if (!approvedStatuses.includes(status) || !selectedAddons.length) {
-      const removableJobs = relatedJobs.filter((job) => !job.worker && job.status === 'Tersedia')
-      await Promise.all(removableJobs.map((job) => deleteDoc(doc(db, collections.jobs, String(job.id)))))
-      return
-    }
-
-    const existingAddonIds = new Set(relatedJobs.map((job) => job.addonId))
-    const missingAddons = selectedAddons.filter((addon) => !existingAddonIds.has(addon.id))
-    if (!missingAddons.length) return
-
-    const baseId = Date.now()
-    const trip = trips.find((item) => item.id === Number(registration.tripId))
-    await Promise.all(missingAddons.map((addon, index) => {
-      const slot = relatedJobs.length + index + 1
-      const nextJob = buildAddonJob(baseId + index + 1, registration, trip, addon, slot, relatedJobs.length + missingAddons.length)
-      return setDoc(doc(db, collections.jobs, String(nextJob.id)), nextJob)
-    }))
-  }
-
   const setRegistrationStatus = async (id, status) => {
-    const current = registrations.find((item) => item.id === id)
-    const next = registrations.map((item) => (item.id === id ? { ...item, status } : item))
-    await updateDoc(doc(db, collections.registrations, String(id)), { status })
-    if (current) {
-      await Promise.all([
-        updateTripSlots(current.tripId, next),
-        syncRegistrationAddonJobs({ ...current, status }, status),
-      ])
-    }
+    await api.updateBookingStatus(id, status)
+    await refreshData()
   }
 
   const saveTrip = async (trip) => {
+    const imageFiles = Array.isArray(trip.imageFiles) ? trip.imageFiles : []
+    const tripData = { ...trip }
+    delete tripData.imageFiles
     const schedules = Array.isArray(trip.schedules)
       ? trip.schedules.map((schedule, index) => ({
         id: schedule.id || `schedule_${index + 1}`,
@@ -373,7 +274,7 @@ function App() {
     const aggregateQuota = schedules.reduce((total, schedule) => total + Number(schedule.quota || 0), 0)
     const aggregateSlots = schedules.reduce((total, schedule) => total + Math.max(Number(schedule.quota || 0) - Number(schedule.bookedCount || 0), 0), 0)
     const normalizedTrip = {
-      ...trip,
+      ...tripData,
       type: isPrivateTrip ? 'private' : 'open',
       experienceType: trip.experienceType === 'custom' ? 'custom' : 'cave',
       schedules: isPrivateTrip ? [] : schedules,
@@ -394,39 +295,39 @@ function App() {
     }
     if (trip.id) {
       const nextTrip = { ...normalizedTrip, id: Number(trip.id) }
-      await setDoc(doc(db, collections.trips, String(trip.id)), nextTrip)
+      const savedTrip = await api.updateTrip(nextTrip)
+      await Promise.all(imageFiles.map((file) => api.uploadTripImage(file, savedTrip.id)))
     } else {
-      const id = Date.now()
-      const nextTrip = { ...normalizedTrip, id }
-      await setDoc(doc(db, collections.trips, String(id)), nextTrip)
+      const savedTrip = await api.createTrip(normalizedTrip)
+      await Promise.all(imageFiles.map((file) => api.uploadTripImage(file, savedTrip.id)))
     }
+    await refreshData()
     navigate('/admin/open-trip')
   }
 
   const deleteTrip = async (id) => {
-    const relatedJobs = jobs.filter((item) => item.tripId === id)
-    await Promise.all([
-      deleteDoc(doc(db, collections.trips, String(id))),
-      ...relatedJobs.map((job) => deleteDoc(doc(db, collections.jobs, String(job.id)))),
-    ])
+    await api.deleteTrip(id)
+    await refreshData()
   }
 
   const takeJob = async (id) => {
     const job = jobs.find((item) => item.id === id)
     if (!job || job.status !== 'Tersedia') return
-    const workerName = session?.name || accounts.worker.name
+    const workerName = session?.name || 'Worker'
     const jobScope = getJobScope(job)
     const alreadyTookScope = jobs.some((item) => getJobScope(item) === jobScope && item.worker === workerName)
     if (alreadyTookScope) {
       showToast('Kamu sudah mengambil job untuk booking ini.')
       return
     }
-    await updateDoc(doc(db, collections.jobs, String(id)), { status: 'Diambil', worker: workerName })
+    await api.takeWorkerTask(id, { workerEmail: session?.email, workerName })
+    await refreshData()
     showToast('Job berhasil diambil.')
   }
 
   const updateJobStatus = async (id, status, extraFields = {}) => {
-    await updateDoc(doc(db, collections.jobs, String(id)), { status, ...extraFields })
+    await api.completeWorkerTask(id, { status, ...extraFields })
+    await refreshData()
   }
 
   const props = {
@@ -437,6 +338,7 @@ function App() {
     jobs,
     customerAccounts,
     workerAccounts,
+    availableAddons: addons,
     approvedByTrip,
     navigate,
     login,

@@ -100,7 +100,10 @@ export function getScheduleBookedCount(registrations = [], tripId, schedule) {
 }
 
 export function getScheduleAvailability(trip, registrations, schedule) {
-  const bookedCount = getScheduleBookedCount(registrations, trip?.id, schedule)
+  const bookedCount = Math.max(
+    getScheduleBookedCount(registrations, trip?.id, schedule),
+    Number(schedule?.bookedCount || 0),
+  )
   const quota = Number(schedule?.quota || 0)
   const status = normalizeScheduleStatus(schedule?.status)
   const remaining = Math.max(quota - bookedCount, 0)

@@ -32,8 +32,3 @@ export const addonOptions = [
     task: 'Menghubungi peserta, mengoordinasikan titik jemput, memastikan keberangkatan transportasi tepat waktu, dan melaporkan status perjalanan.',
   },
 ]
-
-export const accounts = {
-  admin: { email: 'admin@zazatrip.com', password: 'admin123', role: 'admin', name: 'Admin Zaza' },
-  worker: { email: 'pekerja@zazatrip.com', password: 'pekerja123', role: 'pekerja', name: 'Raka Field Crew' },
-}
