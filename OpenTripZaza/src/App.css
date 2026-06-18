@@ -33,14 +33,15 @@ body {
 .toast {
   position: fixed;
   right: 24px;
-  top: 24px;
-  z-index: 20;
+  top: 104px;
+  z-index: 1200;
   max-width: 360px;
   border-radius: 20px;
   background: var(--color-ink);
   color: var(--color-cream);
   padding: 14px 18px;
   box-shadow: 0 16px 34px rgba(8, 8, 8, 0.24);
+  pointer-events: none;
 }
 .loading-page {
   position: relative;
@@ -4715,6 +4716,7 @@ td {
     padding-top: 104px;
   }
   .toast {
+    top: 98px;
     right: 14px;
     left: 14px;
     max-width: none;
