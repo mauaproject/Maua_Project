@@ -635,15 +635,14 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
           <section className="form-section-card">
             <div className="form-section-title">
               <span>4</span>
-              <div><h3>Media</h3><p>Tambahkan satu atau beberapa URL gambar, pisahkan dengan baris baru.</p></div>
+              <div><h3>Media</h3><p>Upload satu atau beberapa gambar untuk ditampilkan pada katalog dan detail trip.</p></div>
             </div>
             <div className="data-form section-fields">
               <label className="full">Upload gambar trip
                 <input type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" multiple onChange={(event) => setImageFiles(Array.from(event.target.files || []))} />
                 <small>Maksimal 5MB per file. Format JPG, PNG, atau WebP.</small>
               </label>
-              <label className="full">Link gambar trip<textarea placeholder={'https://static.uc.ac.id/htb/2019/01/maxresdefault.jpg\nhttps://contoh.com/gambar-kedua.jpg'} value={form.imageUrlsText} onChange={(e) => setForm({ ...form, imageUrlsText: e.target.value })} /></label>
-              {previewImage && <div className="media-preview full"><img src={previewImage} alt="Preview trip" /><span>Preview gambar utama</span></div>}
+              {previewImage && <div className="media-preview full"><img src={previewImage} alt="Gambar trip saat ini" /><span>Gambar utama saat ini</span></div>}
             </div>
           </section>
 
