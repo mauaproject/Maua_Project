@@ -48,8 +48,8 @@ runEndpoint(function (PDO $pdo): void {
             );
             $addonsStatement->execute([$bookingId]);
             $insertTask = $pdo->prepare(
-                "INSERT INTO worker_tasks (booking_id, trip_id, addon_id, slot, total_workers, task, status)
-                 SELECT ?,?,?,?,?,?,'Tersedia' FROM DUAL
+                "INSERT INTO worker_tasks (booking_id, trip_id, addon_id, slot, task, status)
+                 SELECT ?,?,?,?,?,'Tersedia' FROM DUAL
                  WHERE NOT EXISTS (SELECT 1 FROM worker_tasks WHERE booking_id = ? AND addon_id = ? AND slot = ?)"
             );
             foreach ($addonsStatement->fetchAll() as $addon) {
@@ -60,7 +60,7 @@ runEndpoint(function (PDO $pdo): void {
                         $task .= ' Titik jemput: ' . $booking['transport_from'] . '.';
                     }
                     $insertTask->execute([
-                        $bookingId, (int) $booking['trip_id'], $addon['addon_id'], $slot, $quantity, $task,
+                        $bookingId, (int) $booking['trip_id'], $addon['addon_id'], $slot, $task,
                         $bookingId, $addon['addon_id'], $slot,
                     ]);
                 }

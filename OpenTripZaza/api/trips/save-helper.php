@@ -47,7 +47,7 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
     if ($tripId === null) {
         $statement = $pdo->prepare(
             'INSERT INTO trips
-            (name, type, experience_type, status, destination_id, destination_en, description_id, description_en,
+            (name, trip_type, experience_type, status, destination_id, destination_en, description_id, description_en,
              activities_id, activities_en, facilities_id, facilities_en, price, quota, slots, min_participants,
              max_participants, max_custom_pax, available_start_date, available_end_date, private_notes, flexible_schedule)
             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
@@ -56,7 +56,7 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
         $tripId = (int) $pdo->lastInsertId();
     } else {
         $statement = $pdo->prepare(
-            'UPDATE trips SET name=?, type=?, experience_type=?, status=?, destination_id=?, destination_en=?,
+            'UPDATE trips SET name=?, trip_type=?, experience_type=?, status=?, destination_id=?, destination_en=?,
              description_id=?, description_en=?, activities_id=?, activities_en=?, facilities_id=?, facilities_en=?,
              price=?, quota=?, slots=?, min_participants=?, max_participants=?, max_custom_pax=?,
              available_start_date=?, available_end_date=?, private_notes=?, flexible_schedule=?, updated_at=CURRENT_TIMESTAMP

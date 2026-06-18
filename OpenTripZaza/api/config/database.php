@@ -3,8 +3,19 @@ declare(strict_types=1);
 
 function loadLocalEnvironment(): void
 {
-    $envFile = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . '.env';
-    if (!is_file($envFile) || !is_readable($envFile)) {
+    $publicRoot = dirname(__DIR__, 2);
+    $candidates = [
+        dirname($publicRoot) . DIRECTORY_SEPARATOR . '.env',
+        $publicRoot . DIRECTORY_SEPARATOR . '.env',
+    ];
+    $envFile = null;
+    foreach ($candidates as $candidate) {
+        if (is_file($candidate) && is_readable($candidate)) {
+            $envFile = $candidate;
+            break;
+        }
+    }
+    if ($envFile === null) {
         return;
     }
 

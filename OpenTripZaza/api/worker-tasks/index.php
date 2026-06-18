@@ -4,7 +4,9 @@ require_once dirname(__DIR__) . '/config/helpers.php';
 requireMethod('GET');
 
 runEndpoint(function (PDO $pdo): void {
-    $sql = "SELECT wt.*, a.label addon_label, u.name worker_name
+    $sql = "SELECT wt.*, a.label addon_label, u.name worker_name,
+            (SELECT COUNT(*) FROM worker_tasks scope_tasks
+             WHERE scope_tasks.booking_id = wt.booking_id AND scope_tasks.addon_id = wt.addon_id) total_workers
             FROM worker_tasks wt
             LEFT JOIN addons a ON a.id = wt.addon_id
             LEFT JOIN users u ON u.id = wt.worker_id";
