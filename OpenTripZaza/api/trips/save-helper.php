@@ -192,10 +192,16 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
         $imageUrls = [(string) $data['imageUrl']];
     }
     if (array_key_exists('imageUrls', $data) || array_key_exists('imageUrl', $data)) {
+        $existingImageStatement = $pdo->prepare('SELECT image_url FROM trip_images WHERE trip_id = ?');
+        $existingImageStatement->execute([$tripId]);
+        $existingImageUrls = array_column($existingImageStatement->fetchAll(), 'image_url');
         $pdo->prepare('DELETE FROM trip_images WHERE trip_id = ?')->execute([$tripId]);
         $imageStatement = $pdo->prepare('INSERT INTO trip_images (trip_id, image_url, sort_order) VALUES (?,?,?)');
         foreach ($imageUrls as $index => $url) {
             $imageStatement->execute([$tripId, $url, $index]);
+        }
+        foreach (array_diff($existingImageUrls, $imageUrls) as $removedUrl) {
+            deleteStoredUpload((string) $removedUrl, 'trips');
         }
     }
     return $tripId;

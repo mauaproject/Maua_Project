@@ -332,7 +332,7 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
   const [imageFiles, setImageFiles] = useState([])
   const [formError, setFormError] = useState('')
   const isPrivateTrip = Boolean(form.isPrivateTrip)
-  const previewImage = parseImageUrls(form.imageUrlsText || form.imageUrl)[0]
+  const currentImages = Array.isArray(form.imageUrls) ? form.imageUrls : []
   const registrations = props.registrations || []
 
   const updateScheduleCount = (value) => {
@@ -435,6 +435,18 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
     setForm({ ...form, addons: (form.addons || []).filter((_, addonIndex) => addonIndex !== index) })
   }
 
+  const removeCurrentImage = (imageUrl) => {
+    setForm({
+      ...form,
+      imageUrl: form.imageUrl === imageUrl ? '' : form.imageUrl,
+      imageUrls: currentImages.filter((url) => url !== imageUrl),
+    })
+  }
+
+  const removeSelectedImage = (index) => {
+    setImageFiles((files) => files.filter((_, fileIndex) => fileIndex !== index))
+  }
+
   const onSubmit = async (event) => {
     event.preventDefault()
     if (!isPrivateTrip) {
@@ -467,7 +479,7 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
       setFormError('Setiap add-on wajib memiliki nama dan harga tidak boleh negatif.')
       return
     }
-    const imageUrls = parseImageUrls(form.imageUrlsText || form.imageUrl)
+    const imageUrls = Array.isArray(form.imageUrls) ? form.imageUrls.filter(Boolean) : []
     const tripForm = { ...form }
     delete tripForm.imageUrlsText
     delete tripForm.durationDays
@@ -639,10 +651,37 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
             </div>
             <div className="data-form section-fields">
               <label className="full">Upload gambar trip
-                <input type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" multiple onChange={(event) => setImageFiles(Array.from(event.target.files || []))} />
+                <input type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" multiple onChange={(event) => setImageFiles((files) => [...files, ...Array.from(event.target.files || [])])} />
                 <small>Maksimal 5MB per file. Format JPG, PNG, atau WebP.</small>
               </label>
-              {previewImage && <div className="media-preview full"><img src={previewImage} alt="Gambar trip saat ini" /><span>Gambar utama saat ini</span></div>}
+              {currentImages.length > 0 && (
+                <div className="admin-trip-image-manager full">
+                  <h4>Gambar saat ini</h4>
+                  <div className="admin-trip-image-grid">
+                    {currentImages.map((imageUrl, index) => (
+                      <article className="admin-trip-image-item" key={imageUrl}>
+                        <img src={imageUrl} alt={`Gambar trip ${index + 1}`} />
+                        <div>
+                          <span>{index === 0 ? 'Gambar utama' : `Gambar ${index + 1}`}</span>
+                          <button className="outline-btn danger-btn" type="button" onClick={() => removeCurrentImage(imageUrl)}>Hapus</button>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {imageFiles.length > 0 && (
+                <div className="admin-selected-image-list full">
+                  <h4>Gambar baru yang akan di-upload</h4>
+                  {imageFiles.map((file, index) => (
+                    <div key={`${file.name}-${file.lastModified}-${index}`}>
+                      <span>{file.name}</span>
+                      <button className="outline-btn danger-btn" type="button" onClick={() => removeSelectedImage(index)}>Batalkan</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {!currentImages.length && !imageFiles.length && <p className="muted full">Belum ada gambar untuk paket ini.</p>}
             </div>
           </section>
 

@@ -98,6 +98,27 @@ function storeUploadedImage(array $file, string $folder): array
     return ['path' => publicUploadPath($folder, $filename), 'filename' => $filename];
 }
 
+function deleteStoredUpload(string $url, string $folder): void
+{
+    $path = parse_url($url, PHP_URL_PATH);
+    $expectedPrefix = '/uploads/' . trim($folder, '/') . '/';
+    if (!is_string($path) || !str_starts_with($path, $expectedPrefix)) {
+        return;
+    }
+
+    $filename = basename($path);
+    if ($filename === '' || $filename === '.' || $filename === '..') {
+        return;
+    }
+    $directory = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . trim($folder, '/');
+    $target = $directory . DIRECTORY_SEPARATOR . $filename;
+    $resolvedDirectory = realpath($directory);
+    $resolvedTarget = realpath($target);
+    if ($resolvedDirectory && $resolvedTarget && str_starts_with($resolvedTarget, $resolvedDirectory . DIRECTORY_SEPARATOR) && is_file($resolvedTarget)) {
+        unlink($resolvedTarget);
+    }
+}
+
 function mapTrip(PDO $pdo, array $trip): array
 {
     $tripId = (int) $trip['id'];
