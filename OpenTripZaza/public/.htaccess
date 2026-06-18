@@ -1,8 +1,14 @@
-<IfModule mod_rewrite.c>
-  RewriteEngine On
-  RewriteBase /
-  RewriteRule ^index\.html$ - [L]
-  RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteCond %{REQUEST_FILENAME} !-d
-  RewriteRule . /index.html [L]
-</IfModule>
+Options -MultiViews
+RewriteEngine On
+
+# Jangan arahkan endpoint PHP dan file upload ke React.
+RewriteRule ^api(?:/|$) - [L]
+RewriteRule ^uploads(?:/|$) - [L]
+
+# Layani file/folder asli secara langsung.
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Fallback routing React untuk URL seperti /admin dan /open-trip/123.
+RewriteRule ^ index.html [L]
