@@ -111,11 +111,6 @@ const isPendingRegistration = (registration) => {
   return status.includes('pending') || status.includes('menunggu')
 }
 
-const isReminderApprovedRegistration = (registration) => {
-  const status = String(registration?.status || '').trim().toLowerCase()
-  return status === 'approved' || status === 'disetujui'
-}
-
 const countParticipants = (items) => items.reduce((sum, item) => sum + Number(item.participants || 0), 0)
 
 function AdminShell({ title, children, navigate, logout, path, registrations = [] }) {
@@ -890,7 +885,7 @@ export function AdminSchedule(props) {
   )
 }
 
-function AdminPrivateScheduleDetail({ registration, trips, jobs, setRegistrationStatus, navigate, showToast, ...props }) {
+function AdminPrivateScheduleDetail({ registration, trips, jobs, setRegistrationStatus, navigate, ...props }) {
   const trip = trips.find((item) => item.id === registration.tripId)
   const tripJobs = jobs.filter((job) => Number(job.registrationId) === Number(registration.id))
   const assignedJobs = tripJobs.filter((job) => job.worker)
@@ -898,43 +893,6 @@ function AdminPrivateScheduleDetail({ registration, trips, jobs, setRegistration
     ? registration.participantDetails
     : [{ name: registration.name, address: registration.address, age: registration.age, gender: registration.gender, healthNotes: registration.healthNotes }]
   const registrationDate = getRegistrationDate(registration) || trip?.date
-  const [isReminderModalOpen, setIsReminderModalOpen] = useState(false)
-  const [isSendingReminder, setIsSendingReminder] = useState(false)
-  const canSendReminder = isReminderApprovedRegistration(registration) && Boolean(registration.email) && Boolean(trip)
-
-  const sendPrivateTripReminder = async () => {
-    if (isSendingReminder || !canSendReminder) return
-    setIsSendingReminder(true)
-    try {
-      const response = await fetch('/.netlify/functions/sendTripReminder', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          scheduleId: trip.id,
-          registrationId: registration.id,
-          selectedDate: registrationDate,
-        }),
-      })
-      const responseText = await response.text()
-      let result = {}
-      try {
-        result = responseText ? JSON.parse(responseText) : {}
-      } catch {
-        result = {}
-      }
-      if (!response.ok) {
-        throw new Error(result.message || responseText || 'Pengingat gagal dikirim.')
-      }
-      const sent = Number(result.sent || 0)
-      const failed = Number(result.failed || 0)
-      showToast?.(failed > 0 ? `${sent} berhasil, ${failed} gagal` : `Pengingat berhasil dikirim ke ${registration.name}`)
-      setIsReminderModalOpen(false)
-    } catch (error) {
-      showToast?.(error.message || 'Pengingat gagal dikirim.')
-    } finally {
-      setIsSendingReminder(false)
-    }
-  }
 
   return (
     <AdminShell title="Detail Jadwal Private" navigate={navigate} {...props}>
@@ -946,17 +904,6 @@ function AdminPrivateScheduleDetail({ registration, trips, jobs, setRegistration
             <p className="muted">{adminText(trip?.destination)} - {formatDate(registrationDate)} - {registration.sessionName ? `${registration.sessionName} ` : ''}{registration.startTime && registration.endTime ? `(${registration.startTime} - ${registration.endTime}) - ` : ''}{registration.name}</p>
           </div>
           <div className="registration-management-actions">
-            <div className="reminder-action-wrap">
-              <button
-                className="primary-btn"
-                type="button"
-                disabled={!canSendReminder || isSendingReminder}
-                onClick={() => setIsReminderModalOpen(true)}
-              >
-                {isSendingReminder ? 'Mengirim...' : 'Kirim Pengingat'}
-              </button>
-              {!canSendReminder && <span>Booking harus disetujui dan punya email</span>}
-            </div>
             <button className="outline-btn" onClick={() => navigate('/admin/jadwal')}>Kembali ke jadwal</button>
           </div>
         </div>
@@ -1003,25 +950,6 @@ function AdminPrivateScheduleDetail({ registration, trips, jobs, setRegistration
           </DataPanel>
         </section>
 
-        <AppModal
-          isOpen={isReminderModalOpen}
-          title="Kirim Pengingat Private Trip?"
-          description="Pengingat akan dikirim hanya ke peserta pada booking private ini."
-          confirmText={isSendingReminder ? 'Mengirim...' : 'Kirim pengingat'}
-          cancelText="Batal"
-          variant="warning"
-          confirmDisabled={isSendingReminder}
-          cancelDisabled={isSendingReminder}
-          onConfirm={sendPrivateTripReminder}
-          onCancel={() => {
-            if (!isSendingReminder) setIsReminderModalOpen(false)
-          }}
-        >
-          <div className="reminder-modal-count">
-            <span>Penerima email</span>
-            <strong>{registration.email || '-'}</strong>
-          </div>
-        </AppModal>
       </section>
     </AdminShell>
   )
@@ -1081,14 +1009,12 @@ function AdminPrivateTripScheduleDetail({ trip, registrations, jobs, setRegistra
   )
 }
 
-function AdminScheduleDetail({ trip, scheduleId, registrations, jobs, setRegistrationStatus, navigate, showToast, ...props }) {
+function AdminScheduleDetail({ trip, scheduleId, registrations, jobs, setRegistrationStatus, navigate, ...props }) {
   const selectedSchedule = scheduleId ? getTripSchedules(trip).find((schedule) => schedule.id === scheduleId) : null
   const tripRegistrations = registrations
     .filter((item) => item.tripId === trip.id)
     .filter((item) => !selectedSchedule || isSameScheduleRegistration(item, selectedSchedule))
   const approvedParticipants = tripRegistrations.filter((item) => item.status === 'Disetujui' || item.status === 'Selesai')
-  const reminderRecipients = tripRegistrations.filter((item) => isReminderApprovedRegistration(item) && item.email)
-  const hasApprovedReminderParticipant = tripRegistrations.some(isReminderApprovedRegistration)
   const waitingRegistrations = tripRegistrations.filter(isPendingRegistration)
   const rejectedRegistrations = tripRegistrations.filter((item) => item.status === 'Ditolak')
   const tripJobs = jobs.filter((job) => job.tripId === trip.id && (!selectedSchedule || !job.registrationId || tripRegistrations.some((registration) => Number(registration.id) === Number(job.registrationId))))
@@ -1102,8 +1028,6 @@ function AdminScheduleDetail({ trip, scheduleId, registrations, jobs, setRegistr
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
   const [selectedRegistration, setSelectedRegistration] = useState(null)
-  const [isReminderModalOpen, setIsReminderModalOpen] = useState(false)
-  const [isSendingReminder, setIsSendingReminder] = useState(false)
   const statusTabs = [
     ['Menunggu Approval', waitingRegistrations.length],
     ['Disetujui', approvedParticipants.length],
@@ -1130,40 +1054,6 @@ function AdminScheduleDetail({ trip, scheduleId, registrations, jobs, setRegistr
         .includes(searchTerm)
     })
 
-  const sendTripReminder = async () => {
-    if (isSendingReminder || !hasApprovedReminderParticipant) return
-    setIsSendingReminder(true)
-    try {
-      const response = await fetch('/.netlify/functions/sendTripReminder', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          scheduleId: trip.id,
-          tripScheduleId: selectedSchedule?.id || '',
-          selectedDate: selectedSchedule?.date || '',
-        }),
-      })
-      const responseText = await response.text()
-      let result = {}
-      try {
-        result = responseText ? JSON.parse(responseText) : {}
-      } catch {
-        result = {}
-      }
-      if (!response.ok) {
-        throw new Error(result.message || responseText || 'Pengingat gagal dikirim.')
-      }
-      const sent = Number(result.sent || 0)
-      const failed = Number(result.failed || 0)
-      showToast?.(failed > 0 ? `${sent} berhasil, ${failed} gagal` : `Pengingat berhasil dikirim ke ${sent} peserta`)
-      setIsReminderModalOpen(false)
-    } catch (error) {
-      showToast?.(error.message || 'Pengingat gagal dikirim.')
-    } finally {
-      setIsSendingReminder(false)
-    }
-  }
-
   return (
     <AdminShell title="Manajemen Pendaftaran" navigate={navigate} {...props}>
       <section className="admin-page-stack registration-management-page">
@@ -1174,17 +1064,6 @@ function AdminScheduleDetail({ trip, scheduleId, registrations, jobs, setRegistr
             <p className="muted">{trip.name} - {adminText(trip.destination)} - {selectedSchedule ? formatDate(selectedSchedule.date) : `${tripSchedules.length} jadwal`}</p>
           </div>
           <div className="registration-management-actions">
-            <div className="reminder-action-wrap">
-              <button
-                className="primary-btn"
-                type="button"
-                disabled={!hasApprovedReminderParticipant || isSendingReminder}
-                onClick={() => setIsReminderModalOpen(true)}
-              >
-                {isSendingReminder ? 'Mengirim...' : 'Kirim Pengingat'}
-              </button>
-              {!hasApprovedReminderParticipant && <span>Belum ada peserta disetujui</span>}
-            </div>
             <button className="outline-btn" onClick={() => navigate('/admin/jadwal')}>Kembali ke jadwal</button>
           </div>
         </div>
@@ -1275,25 +1154,6 @@ function AdminScheduleDetail({ trip, scheduleId, registrations, jobs, setRegistr
             onClose={() => setSelectedRegistration(null)}
           />
         )}
-        <AppModal
-          isOpen={isReminderModalOpen}
-          title="Kirim Pengingat Trip?"
-          description="Pengingat akan dikirim ke semua peserta yang sudah disetujui pada jadwal ini."
-          confirmText={isSendingReminder ? 'Mengirim...' : 'Kirim pengingat'}
-          cancelText="Batal"
-          variant="warning"
-          confirmDisabled={isSendingReminder}
-          cancelDisabled={isSendingReminder}
-          onConfirm={sendTripReminder}
-          onCancel={() => {
-            if (!isSendingReminder) setIsReminderModalOpen(false)
-          }}
-        >
-          <div className="reminder-modal-count">
-            <span>Jumlah penerima email</span>
-            <strong>{reminderRecipients.length} peserta</strong>
-          </div>
-        </AppModal>
       </section>
     </AdminShell>
   )
