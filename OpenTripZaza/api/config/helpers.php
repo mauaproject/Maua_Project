@@ -110,6 +110,7 @@ function mapTrip(PDO $pdo, array $trip): array
     $schedules = $query('SELECT id, schedule_code, schedule_date, quota, booked_count, status FROM trip_schedules WHERE trip_id = ? ORDER BY schedule_date, id');
     $sessions = $query('SELECT id, session_code, name, start_time, end_time, status FROM trip_sessions WHERE trip_id = ? ORDER BY start_time, id');
     $tiers = $query('SELECT pax_count, price_per_person FROM private_price_tiers WHERE trip_id = ? ORDER BY pax_count');
+    $addons = $query("SELECT id, name, price, worker_action, status, sort_order FROM trip_addons WHERE trip_id = ? AND status = 'active' ORDER BY sort_order, id");
     $tierMap = [];
     foreach ($tiers as $tier) {
         $tierMap[(string) $tier['pax_count']] = (float) $tier['price_per_person'];
@@ -158,6 +159,15 @@ function mapTrip(PDO $pdo, array $trip): array
         'schedules' => $mappedSchedules,
         'sessions' => $mappedSessions,
         'pricePerPersonTiers' => $tierMap,
+        'addons' => array_map(static fn(array $item): array => [
+            'id' => (int) $item['id'],
+            'name' => $item['name'],
+            'label' => $item['name'],
+            'price' => (float) $item['price'],
+            'workerAction' => $item['worker_action'],
+            'status' => $item['status'],
+            'sortOrder' => (int) $item['sort_order'],
+        ], $addons),
     ];
 }
 
@@ -167,8 +177,18 @@ function mapBooking(PDO $pdo, array $booking): array
     $participantsStmt = $pdo->prepare('SELECT name, address, age, gender, health_notes FROM booking_participants WHERE booking_id = ? ORDER BY id');
     $participantsStmt->execute([$id]);
     $participants = $participantsStmt->fetchAll();
-    $addonsStmt = $pdo->prepare('SELECT addon_id FROM booking_addons WHERE booking_id = ? ORDER BY id');
+    $addonsStmt = $pdo->prepare(
+        "SELECT ba.addon_id, ba.trip_addon_id, ba.price,
+                COALESCE(ta.name, a.label, ba.addon_id) addon_name,
+                COALESCE(ta.worker_action, 'none') worker_action
+         FROM booking_addons ba
+         LEFT JOIN trip_addons ta ON ta.id = ba.trip_addon_id
+         LEFT JOIN addons a ON a.id = ba.addon_id
+         WHERE ba.booking_id = ?
+         ORDER BY ba.id"
+    );
     $addonsStmt->execute([$id]);
+    $bookingAddons = $addonsStmt->fetchAll();
     $schedule = null;
     if ($booking['schedule_id']) {
         $statement = $pdo->prepare('SELECT schedule_code FROM trip_schedules WHERE id = ?');
@@ -222,7 +242,14 @@ function mapBooking(PDO $pdo, array $booking): array
             'gender' => $item['gender'] ?? '',
             'healthNotes' => $item['health_notes'] ?? '',
         ], $participants),
-        'addons' => array_column($addonsStmt->fetchAll(), 'addon_id'),
+        'addons' => array_map(static fn(array $item): int|string => $item['trip_addon_id'] ? (int) $item['trip_addon_id'] : $item['addon_id'], $bookingAddons),
+        'addonDetails' => array_map(static fn(array $item): array => [
+            'id' => $item['trip_addon_id'] ? (int) $item['trip_addon_id'] : $item['addon_id'],
+            'name' => $item['addon_name'],
+            'label' => $item['addon_name'],
+            'price' => (float) $item['price'],
+            'workerAction' => $item['worker_action'],
+        ], $bookingAddons),
     ];
 }
 
@@ -234,8 +261,10 @@ function mapWorkerTask(array $task): array
         'registrationId' => (int) $task['booking_id'],
         'tripId' => (int) $task['trip_id'],
         'addonId' => $task['addon_id'],
-        'addonType' => $task['addon_id'],
-        'addonLabel' => $task['addon_label'] ?? $task['addon_id'],
+        'tripAddonId' => nullableInt($task['trip_addon_id'] ?? null),
+        'addonType' => $task['trip_addon_id'] ?? $task['addon_id'],
+        'addonLabel' => $task['addon_name'] ?? $task['addon_label'] ?? $task['addon_id'],
+        'workerAction' => $task['worker_action'] ?? 'none',
         'workerId' => nullableInt($task['worker_id']),
         'worker' => $task['worker_name'] ?? '',
         'slot' => (int) $task['slot'],

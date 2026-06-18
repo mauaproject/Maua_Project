@@ -44,13 +44,27 @@ runEndpoint(function (PDO $pdo): void {
 
         if (in_array($data['status'], ['Disetujui', 'Selesai'], true)) {
             $addonsStatement = $pdo->prepare(
-                'SELECT ba.addon_id, ba.quantity, a.task FROM booking_addons ba JOIN addons a ON a.id = ba.addon_id WHERE ba.booking_id = ?'
+                "SELECT ba.addon_id, ba.trip_addon_id, ba.quantity,
+                        COALESCE(ta.name, a.label, ba.addon_id) addon_name,
+                        COALESCE(ta.worker_action, 'none') worker_action,
+                        COALESCE(a.task, CONCAT('Kerjakan add-on ', ta.name, ' untuk booking ini.')) task
+                 FROM booking_addons ba
+                 LEFT JOIN trip_addons ta ON ta.id = ba.trip_addon_id
+                 LEFT JOIN addons a ON a.id = ba.addon_id
+                 WHERE ba.booking_id = ?"
             );
             $addonsStatement->execute([$bookingId]);
             $insertTask = $pdo->prepare(
-                "INSERT INTO worker_tasks (booking_id, trip_id, addon_id, slot, task, status)
-                 SELECT ?,?,?,?,?,'Tersedia' FROM DUAL
-                 WHERE NOT EXISTS (SELECT 1 FROM worker_tasks WHERE booking_id = ? AND addon_id = ? AND slot = ?)"
+                "INSERT INTO worker_tasks
+                 (booking_id, trip_id, addon_id, trip_addon_id, addon_name, worker_action, slot, task, status)
+                 SELECT ?,?,?,?,?,?,?,?,'Tersedia' FROM DUAL
+                 WHERE NOT EXISTS (
+                    SELECT 1 FROM worker_tasks
+                    WHERE booking_id = ?
+                      AND COALESCE(trip_addon_id, 0) = COALESCE(?, 0)
+                      AND COALESCE(addon_id, '') = COALESCE(?, '')
+                      AND slot = ?
+                 )"
             );
             foreach ($addonsStatement->fetchAll() as $addon) {
                 $quantity = max(1, (int) $addon['quantity']);
@@ -60,8 +74,9 @@ runEndpoint(function (PDO $pdo): void {
                         $task .= ' Titik jemput: ' . $booking['transport_from'] . '.';
                     }
                     $insertTask->execute([
-                        $bookingId, (int) $booking['trip_id'], $addon['addon_id'], $slot, $task,
-                        $bookingId, $addon['addon_id'], $slot,
+                        $bookingId, (int) $booking['trip_id'], $addon['addon_id'], nullableInt($addon['trip_addon_id']),
+                        $addon['addon_name'], $addon['worker_action'], $slot, $task,
+                        $bookingId, nullableInt($addon['trip_addon_id']), $addon['addon_id'], $slot,
                     ]);
                 }
             }

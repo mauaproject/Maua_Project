@@ -50,6 +50,40 @@ runEndpoint(function (PDO $pdo): void {
             throw new InvalidArgumentException('Trip tidak tersedia.');
         }
 
+        $participants = max(1, (int) $data['participants']);
+        $pricePerPerson = (float) $trip['price'];
+        if ($trip['trip_type'] === 'private') {
+            $tierStatement = $pdo->prepare(
+                'SELECT price_per_person FROM private_price_tiers
+                 WHERE trip_id = ? AND pax_count <= ? ORDER BY pax_count DESC LIMIT 1'
+            );
+            $tierStatement->execute([(int) $trip['id'], $participants]);
+            $tierPrice = $tierStatement->fetchColumn();
+            if ($tierPrice !== false) {
+                $pricePerPerson = (float) $tierPrice;
+            }
+        }
+
+        $requestedAddonIds = array_values(array_unique(array_filter(array_map(
+            static fn(mixed $value): int => (int) $value,
+            (array) ($data['addons'] ?? [])
+        ))));
+        $selectedAddons = [];
+        if ($requestedAddonIds) {
+            $placeholders = implode(',', array_fill(0, count($requestedAddonIds), '?'));
+            $addonLookup = $pdo->prepare(
+                "SELECT id, name, price, worker_action FROM trip_addons
+                 WHERE trip_id = ? AND status = 'active' AND id IN ($placeholders)"
+            );
+            $addonLookup->execute([(int) $trip['id'], ...$requestedAddonIds]);
+            $selectedAddons = $addonLookup->fetchAll();
+            if (count($selectedAddons) !== count($requestedAddonIds)) {
+                throw new InvalidArgumentException('Salah satu add-on tidak tersedia untuk trip ini.');
+            }
+        }
+        $addonTotal = array_sum(array_map(static fn(array $addon): float => (float) $addon['price'], $selectedAddons));
+        $totalPrice = ($participants * $pricePerPerson) + $addonTotal;
+
         $scheduleId = null;
         if (($data['tripType'] ?? 'open') === 'open') {
             $scheduleStatement = $pdo->prepare('SELECT * FROM trip_schedules WHERE trip_id = ? AND (schedule_code = ? OR id = ?) FOR UPDATE');
@@ -93,8 +127,7 @@ runEndpoint(function (PDO $pdo): void {
             $userId, (int) $data['tripId'], $scheduleId, $sessionId, $data['name'], strtolower($data['email']),
             $data['whatsapp'], $data['tripType'] ?? 'open', $data['experienceType'] ?? 'cave',
             $data['selectedDate'] ?? null, $data['startTime'] ?? null, $data['endTime'] ?? null,
-            (int) $data['participants'], (float) ($data['pricePerPerson'] ?? $data['hargaPerOrang'] ?? 0),
-            (float) ($data['totalPrice'] ?? $data['totalHarga'] ?? 0), 'Menunggu Approval',
+            $participants, $pricePerPerson, $totalPrice, 'Menunggu Approval',
             $data['notes'] ?? null, $data['transportFrom'] ?? null,
         ]);
         $bookingId = (int) $pdo->lastInsertId();
@@ -109,9 +142,11 @@ runEndpoint(function (PDO $pdo): void {
             ]);
         }
 
-        $addonStatement = $pdo->prepare('INSERT INTO booking_addons (booking_id, addon_id, quantity, price) VALUES (?,?,1,0)');
-        foreach (array_unique((array) ($data['addons'] ?? [])) as $addonId) {
-            $addonStatement->execute([$bookingId, $addonId]);
+        $addonStatement = $pdo->prepare(
+            'INSERT INTO booking_addons (booking_id, addon_id, trip_addon_id, quantity, price) VALUES (?,NULL,?,1,?)'
+        );
+        foreach ($selectedAddons as $addon) {
+            $addonStatement->execute([$bookingId, (int) $addon['id'], (float) $addon['price']]);
         }
 
         $pdo->commit();

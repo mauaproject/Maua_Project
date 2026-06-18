@@ -22,6 +22,25 @@ dibagikan di chat atau tempat publik, rotasi password database melalui hPanel.
 
 Endpoint seed tidak akan menambah data jika tabel terkait sudah terisi.
 
+## Migrasi add-on per trip
+
+Jalankan file berikut satu kali melalui menu SQL phpMyAdmin:
+
+`api/migrations/2026-06-18-trip-addons.sql`
+
+Migrasi ini:
+
+- membuat tabel `trip_addons`;
+- menambahkan relasi add-on trip pada `booking_addons`;
+- menyimpan nama dan aksi worker pada `worker_tasks`;
+- tetap mempertahankan kolom add-on lama agar booking lama tidak langsung rusak.
+
+Harga add-on adalah harga tetap per booking dan tidak dikalikan jumlah peserta.
+Pilihan aksi worker:
+
+- `drive_link`: worker wajib mengisi link hasil Google Drive;
+- `none`: worker cukup mencentang pekerjaan selesai tanpa upload.
+
 ## Tes cepat
 
 ```bash

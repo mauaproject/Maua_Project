@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import './App.css'
 import i18n from './i18n'
-import { addonOptions } from './config/constants'
 import { AdminDashboard, AdminSchedule, AdminTrips, AdminWorkers, TripForm } from './pages/AdminPage'
 import { CustomerAccountPage, CustomerCatalog, CustomerLoginPage, CustomerSignupPage, DestinationPage, RegistrationPage, TripDetail } from './pages/UserPage'
 import { MyJobs, WorkerDashboard, WorkerJobDetail, WorkerJobs } from './pages/WorkerPage'
@@ -23,7 +22,6 @@ function App() {
   const [trips, setTrips] = useState([])
   const [registrations, setRegistrations] = useState([])
   const [jobs, setJobs] = useState([])
-  const [addons, setAddons] = useState(addonOptions)
   const [customerAccounts, setCustomerAccounts] = useState([])
   const [workerAccounts, setWorkerAccounts] = useState([])
   const [toast, setToast] = useState('')
@@ -47,13 +45,12 @@ function App() {
 
   const refreshData = async () => {
     const detailMatch = window.location.pathname.match(/^\/open-trip\/(\d+)$/)
-    const [tripData, bookingData, taskData, customerData, workerData, addonData, detailTrip] = await Promise.all([
+    const [tripData, bookingData, taskData, customerData, workerData, detailTrip] = await Promise.all([
       api.getTrips(true),
       api.getBookings(),
       api.getWorkerTasks(),
       api.getUsers('customer'),
       api.getUsers('worker'),
-      api.getAddons(),
       detailMatch ? api.getTripDetail(Number(detailMatch[1])) : Promise.resolve(null),
     ])
     setTrips(detailTrip ? tripData.map((trip) => trip.id === detailTrip.id ? detailTrip : trip) : tripData)
@@ -61,7 +58,6 @@ function App() {
     setJobs(taskData)
     setCustomerAccounts(customerData)
     setWorkerAccounts(workerData)
-    setAddons(addonData.length ? addonData : addonOptions)
   }
 
   useEffect(() => {
@@ -178,8 +174,9 @@ function App() {
       ? form.participantDetails
       : [{ name: form.name, address: form.address || '', age: form.age || '', gender: form.gender || '', healthNotes: form.healthNotes || '' }]
     const primaryParticipant = participantDetails[0] || {}
-    const addons = Array.isArray(form.addons)
-      ? form.addons.filter((addonId) => addons.some((option) => option.id === addonId))
+    const tripAddons = Array.isArray(trip.addons) ? trip.addons : []
+    const selectedAddonIds = Array.isArray(form.addons)
+      ? form.addons.map(Number).filter((addonId) => tripAddons.some((option) => Number(option.id) === addonId))
       : []
     const hargaPerOrang = isPrivateTour
       ? getPrivatePricePerPerson(trip, participantCount)
@@ -209,8 +206,8 @@ function App() {
       gender: primaryParticipant.gender || '',
       healthNotes: primaryParticipant.healthNotes || '',
       participantDetails,
-      addons,
-      transportFrom: addons.includes('transport') ? form.transportFrom || '' : '',
+      addons: selectedAddonIds,
+      transportFrom: '',
       hargaPerOrang,
       totalHarga,
       pricePerPerson: hargaPerOrang,
@@ -338,7 +335,6 @@ function App() {
     jobs,
     customerAccounts,
     workerAccounts,
-    availableAddons: addons,
     approvedByTrip,
     navigate,
     login,

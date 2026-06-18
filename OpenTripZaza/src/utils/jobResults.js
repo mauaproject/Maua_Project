@@ -9,7 +9,7 @@ export const getJobCompletedAt = (job) => job?.completedAt || job?.finishedAt ||
 
 export const getJobWorkerName = (job) => job?.completedByName || job?.workerName || job?.worker || job?.assignedWorkerName || ''
 
-export const getJobAddonId = (job) => job?.addonId || job?.addonType || job?.jobType || ''
+export const getJobAddonId = (job) => job?.tripAddonId || job?.addonId || job?.addonType || job?.jobType || ''
 
 export const getJobAddonLabel = (job) => {
   const addonId = getJobAddonId(job)
@@ -44,7 +44,7 @@ const hasSelectedAddon = (registration, job) => {
   const addonId = getJobAddonId(job)
   if (!addonId) return true
   const selectedAddons = Array.isArray(registration?.addons) ? registration.addons : []
-  return selectedAddons.includes(addonId)
+  return selectedAddons.some((selectedId) => String(selectedId) === String(addonId))
 }
 
 const isSameOpenSchedule = (job, registration) => {
@@ -81,4 +81,3 @@ export const isJobForRegistration = (job, registration) => {
 export const getRegistrationResultJobs = (jobs = [], registration) => (
   jobs.filter((job) => isJobForRegistration(job, registration))
 )
-

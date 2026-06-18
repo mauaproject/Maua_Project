@@ -147,6 +147,46 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
         }
     }
 
+    $incomingAddonIds = [];
+    $addonInsert = $pdo->prepare(
+        "INSERT INTO trip_addons (trip_id, name, price, worker_action, status, sort_order)
+         VALUES (?,?,?,?, 'active', ?)"
+    );
+    $addonUpdate = $pdo->prepare(
+        "UPDATE trip_addons SET name=?, price=?, worker_action=?, status='active', sort_order=?
+         WHERE id=? AND trip_id=?"
+    );
+    foreach ((array) ($data['addons'] ?? []) as $index => $addon) {
+        $name = trim((string) ($addon['name'] ?? $addon['label'] ?? ''));
+        if ($name === '') {
+            throw new InvalidArgumentException('Nama add-on wajib diisi.');
+        }
+        $price = max(0, (float) ($addon['price'] ?? 0));
+        $workerAction = ($addon['workerAction'] ?? 'none') === 'drive_link' ? 'drive_link' : 'none';
+        $addonId = nullableInt($addon['id'] ?? null);
+        if ($addonId) {
+            $addonUpdate->execute([$name, $price, $workerAction, $index, $addonId, $tripId]);
+            if ($addonUpdate->rowCount() === 0) {
+                $exists = $pdo->prepare('SELECT id FROM trip_addons WHERE id=? AND trip_id=?');
+                $exists->execute([$addonId, $tripId]);
+                if (!$exists->fetch()) {
+                    throw new InvalidArgumentException('Add-on trip tidak ditemukan.');
+                }
+            }
+            $incomingAddonIds[] = $addonId;
+        } else {
+            $addonInsert->execute([$tripId, $name, $price, $workerAction, $index]);
+            $incomingAddonIds[] = (int) $pdo->lastInsertId();
+        }
+    }
+    if ($incomingAddonIds) {
+        $placeholders = implode(',', array_fill(0, count($incomingAddonIds), '?'));
+        $statement = $pdo->prepare("UPDATE trip_addons SET status='inactive' WHERE trip_id=? AND id NOT IN ($placeholders)");
+        $statement->execute([$tripId, ...$incomingAddonIds]);
+    } else {
+        $pdo->prepare("UPDATE trip_addons SET status='inactive' WHERE trip_id=?")->execute([$tripId]);
+    }
+
     $imageUrls = array_values(array_filter(array_map('trim', (array) ($data['imageUrls'] ?? []))));
     if (!$imageUrls && !empty($data['imageUrl'])) {
         $imageUrls = [(string) $data['imageUrl']];

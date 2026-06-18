@@ -698,6 +698,13 @@ const resizeParticipants = (items, count, profile) => {
 }
 
 const getSelectedAddons = (registration) => {
+  if (Array.isArray(registration?.addonDetails) && registration.addonDetails.length) {
+    return registration.addonDetails.map((addon) => ({
+      ...addon,
+      label: addon.name || addon.label,
+      detail: '',
+    }))
+  }
   const selectedIds = Array.isArray(registration?.addons) ? registration.addons : []
   return addonOptions
     .filter((option) => selectedIds.includes(option.id))
@@ -845,7 +852,7 @@ export function TripDetail({ tripId, trips, registrations, navigate, session, lo
   )
 }
 
-export function RegistrationPage({ tripId, trips, submitRegistration, navigate, session, logout, customerAccounts, registrations, availableAddons = addonOptions }) {
+export function RegistrationPage({ tripId, trips, submitRegistration, navigate, session, logout, customerAccounts, registrations }) {
   const { t, lang, dateLocale, statusLabel } = useCustomerLanguage()
   const trip = trips.find((item) => item.id === tripId)
   const customerProfile = customerAccounts.find((item) => item.email === session?.email) || session || {}
@@ -881,7 +888,11 @@ export function RegistrationPage({ tripId, trips, submitRegistration, navigate, 
   const pricePerPerson = selectedTrip
     ? isPrivateBooking ? getPrivatePricePerPerson(selectedTrip, participants) : Number(selectedTrip.price || 0)
     : 0
-  const estimatedTotal = participants * pricePerPerson
+  const availableAddons = Array.isArray(selectedTrip?.addons) ? selectedTrip.addons : []
+  const selectedAddonTotal = availableAddons
+    .filter((addon) => form.addons.includes(addon.id))
+    .reduce((total, addon) => total + Number(addon.price || 0), 0)
+  const estimatedTotal = (participants * pricePerPerson) + selectedAddonTotal
 
   if (!trip) return <NotFound navigate={navigate} />
 
@@ -931,10 +942,6 @@ export function RegistrationPage({ tripId, trips, submitRegistration, navigate, 
       }))
       return
     }
-    if (form.addons.includes('transport') && !form.transportFrom.trim()) {
-      setError(t('error.pickupRequired'))
-      return
-    }
     setPendingSubmission({
       ...form,
       participantDetails,
@@ -978,7 +985,6 @@ export function RegistrationPage({ tripId, trips, submitRegistration, navigate, 
     setForm({
       ...form,
       addons: nextAddons,
-      transportFrom: addonId === 'transport' && hasAddon ? '' : form.transportFrom,
     })
   }
 
@@ -1009,6 +1015,7 @@ export function RegistrationPage({ tripId, trips, submitRegistration, navigate, 
                 <div><dt><span className="asset-icon icon-currency" aria-hidden="true" />{t('common.pricePerPerson')}</dt><dd>{formatCurrency(pricePerPerson)}</dd></div>
                 {!isPrivateBooking && <div><dt><span className="asset-icon icon-ticket" aria-hidden="true" />{t('common.availableSlots')}</dt><dd>{selectedSchedule ? t('common.participantCount', { count: selectedSchedule.remaining }) : '-'}</dd></div>}
                 <div><dt>{t('common.type')}</dt><dd>{getTripTypeLabel(selectedTrip, { isPrivateTour: isPrivateBooking }, t)}</dd></div>
+                {selectedAddonTotal > 0 && <div><dt>Add-on</dt><dd>{formatCurrency(selectedAddonTotal)}</dd></div>}
                 <div><dt>{t('common.totalPrice')}</dt><dd>{formatCurrency(estimatedTotal)}</dd></div>
               </dl>
             </div>
@@ -1067,22 +1074,17 @@ export function RegistrationPage({ tripId, trips, submitRegistration, navigate, 
                 <p>{t('checkout.addonsHelp')}</p>
               </div>
             </div>
-            <section className="addon-option-grid">
+            {availableAddons.length ? <section className="addon-option-grid">
               {availableAddons.map((option) => (
                 <label className="addon-option-card" key={option.id}>
                   <input type="checkbox" checked={form.addons.includes(option.id)} onChange={() => toggleAddon(option.id)} />
                   <span>
-                    <strong>{t(`addons.${option.id}.label`, { defaultValue: option.label })}</strong>
-                    <small>{t(`addons.${option.id}.description`, { defaultValue: option.description })}</small>
+                    <strong>{option.name || option.label}</strong>
+                    <small>{formatCurrency(option.price)}</small>
                   </span>
                 </label>
               ))}
-            </section>
-            {form.addons.includes('transport') && (
-              <div className="registration-fields">
-                <label className="full">{t('checkout.pickupPoint')}<input placeholder={t('checkout.pickupPlaceholder')} value={form.transportFrom} onChange={(e) => setForm({ ...form, transportFrom: e.target.value })} /></label>
-              </div>
-            )}
+            </section> : <p className="muted">Trip ini tidak memiliki add-on.</p>}
 
             <div className="registration-fields">
               <label className="full">Bukti pembayaran (opsional)

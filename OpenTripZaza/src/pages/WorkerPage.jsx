@@ -12,6 +12,8 @@ const mediaAddonIds = ['drone', 'camera360', 'documentation']
 const workerText = (value) => localizedText(value, 'id') || '-'
 
 const getCompletionType = (job) => {
+  if (job.workerAction === 'drive_link') return 'drive'
+  if (job.tripAddonId && job.workerAction === 'none') return 'none'
   const typeText = [job.addonId, job.addonLabel, job.jobType, job.addonType, job.category]
     .filter(Boolean)
     .join(' ')
@@ -178,12 +180,20 @@ function JobCompletionChecklist({ job, updateJobStatus, session, compact = false
         bookingId: job.bookingId || job.registrationId || '',
         addonType: job.addonType || job.addonId || '',
       }
-      : {
+      : completionType === 'transport' ? {
         completionChecked: true,
         resultStatus: 'completed',
         transportCompleted: true,
         proofPhotoName: photoName,
         proofPhotoFile,
+        completedAt,
+        completedByName: session?.name || job.worker || '',
+        completedById: session?.email || job.workerId || '',
+        bookingId: job.bookingId || job.registrationId || '',
+        addonType: job.addonType || job.addonId || '',
+      } : {
+        completionChecked: true,
+        resultStatus: 'completed',
         completedAt,
         completedByName: session?.name || job.worker || '',
         completedById: session?.email || job.workerId || '',
@@ -203,14 +213,14 @@ function JobCompletionChecklist({ job, updateJobStatus, session, compact = false
       </div>
       <label className="completion-check">
         <input type="checkbox" checked={checked} disabled={isDone} onChange={(event) => setChecked(event.target.checked)} />
-        <span>{completionType === 'transport' ? 'Selesai mengantar customer' : 'Pekerjaan selesai dan link hasil siap dibagikan'}</span>
+        <span>{completionType === 'drive' ? 'Pekerjaan selesai dan link hasil siap dibagikan' : 'Pekerjaan sudah selesai'}</span>
       </label>
 
       {completionType === 'drive' ? (
         <label className="completion-field">Link hasil pekerjaan
           <input type="url" placeholder="Tempel link Google Drive hasil dokumentasi di sini" value={driveLink} disabled={isDone} onChange={(event) => setDriveLink(event.target.value)} />
         </label>
-      ) : (
+      ) : completionType === 'transport' ? (
         <div className="completion-field">
           <span>Kirim Foto Bukti</span>
           <label className="proof-upload-btn">Pilih Foto
@@ -223,7 +233,7 @@ function JobCompletionChecklist({ job, updateJobStatus, session, compact = false
           {photoName && <small className="proof-file-name">{photoName}</small>}
           <small>Foto bukti akan disimpan saat pekerjaan diselesaikan.</small>
         </div>
-      )}
+      ) : <p className="muted">Add-on ini tidak memerlukan upload hasil. Centang checklist untuk menyelesaikan pekerjaan.</p>}
 
       {error && <p className="form-error job-completion-error">{error}</p>}
       {!isDone && <button className="primary-btn" type="button" onClick={openCompletionConfirmation}>Selesaikan Pekerjaan</button>}

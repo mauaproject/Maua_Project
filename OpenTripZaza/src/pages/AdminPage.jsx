@@ -36,6 +36,12 @@ const newSession = (index, source = {}) => ({
 })
 const resizeScheduleList = (items, count) => Array.from({ length: Math.max(1, Number(count) || 1) }, (_, index) => newSchedule(index, items[index]))
 const resizeSessionList = (items, count) => Array.from({ length: Math.max(1, Number(count) || 1) }, (_, index) => newSession(index, items[index]))
+const newTripAddon = (source = {}) => ({
+  id: source.id || null,
+  name: source.name || source.label || '',
+  price: Number(source.price || 0),
+  workerAction: source.workerAction === 'drive_link' ? 'drive_link' : 'none',
+})
 
 const getActivityText = (trip) => {
   if (trip?.activities) return localizedList(trip.activities, 'id').join('\n')
@@ -90,6 +96,7 @@ const normalizeTripForm = (trip) => {
     facilitiesId: facilities.id,
     facilitiesEn: facilities.en,
     imageUrlsText: parseImageUrls(Array.isArray(trip?.imageUrls) && trip.imageUrls.length ? trip.imageUrls.join('\n') : trip?.imageUrl).join('\n'),
+    addons: Array.isArray(trip?.addons) ? trip.addons.map(newTripAddon) : [],
   }
 }
 
@@ -100,6 +107,9 @@ const registrationTripType = (item) => {
 }
 
 const getSelectedAddons = (registration) => {
+  if (Array.isArray(registration?.addonDetails) && registration.addonDetails.length) {
+    return registration.addonDetails.map((addon) => addon.name || addon.label).filter(Boolean)
+  }
   const selectedIds = Array.isArray(registration?.addons) ? registration.addons : []
   return addonOptions
     .filter((option) => selectedIds.includes(option.id))
@@ -408,6 +418,23 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
     setForm({ ...form, sessions })
   }
 
+  const addTripAddon = () => {
+    setForm({ ...form, addons: [...(form.addons || []), newTripAddon()] })
+  }
+
+  const updateTripAddon = (index, field, value) => {
+    const addons = [...(form.addons || [])]
+    addons[index] = {
+      ...addons[index],
+      [field]: field === 'price' ? value : value,
+    }
+    setForm({ ...form, addons })
+  }
+
+  const removeTripAddon = (index) => {
+    setForm({ ...form, addons: (form.addons || []).filter((_, addonIndex) => addonIndex !== index) })
+  }
+
   const onSubmit = async (event) => {
     event.preventDefault()
     if (!isPrivateTrip) {
@@ -435,6 +462,10 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
         setFormError('Semua harga per orang berdasarkan jumlah peserta wajib diisi dan harus lebih dari 0.')
         return
       }
+    }
+    if ((form.addons || []).some((addon) => !addon.name.trim() || Number(addon.price) < 0)) {
+      setFormError('Setiap add-on wajib memiliki nama dan harga tidak boleh negatif.')
+      return
     }
     const imageUrls = parseImageUrls(form.imageUrlsText || form.imageUrl)
     const tripForm = { ...form }
@@ -489,6 +520,11 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
       imageUrl: imageUrls[0] || '',
       imageUrls,
       imageFiles,
+      addons: (form.addons || []).map((addon) => ({
+        ...addon,
+        name: addon.name.trim(),
+        price: Number(addon.price || 0),
+      })),
     })
   }
 
@@ -577,6 +613,28 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
           <section className="form-section-card">
             <div className="form-section-title">
               <span>3</span>
+              <div><h3>Add-on Trip</h3><p>Add-on hanya tersedia pada paket ini dan dapat memiliki aturan hasil kerja yang berbeda.</p></div>
+            </div>
+            <div className="data-form section-fields">
+              {(form.addons || []).map((addon, index) => (
+                <div className="admin-nested-fields full" key={addon.id || `new-addon-${index}`}>
+                  <h4>Add-on {index + 1}</h4>
+                  <label>Nama add-on<input required value={addon.name} onChange={(event) => updateTripAddon(index, 'name', event.target.value)} /></label>
+                  <label>Harga add-on<input required type="number" min="0" value={addon.price} onChange={(event) => updateTripAddon(index, 'price', event.target.value)} /></label>
+                  <label>Aksi worker<select value={addon.workerAction} onChange={(event) => updateTripAddon(index, 'workerAction', event.target.value)}>
+                    <option value="drive_link">Worker upload link Google Drive</option>
+                    <option value="none">Worker tidak perlu upload apa pun</option>
+                  </select></label>
+                  <button className="outline-btn danger-btn" type="button" onClick={() => removeTripAddon(index)}>Hapus add-on</button>
+                </div>
+              ))}
+              <button className="outline-btn full" type="button" onClick={addTripAddon}>+ Tambah Add-on</button>
+            </div>
+          </section>
+
+          <section className="form-section-card">
+            <div className="form-section-title">
+              <span>4</span>
               <div><h3>Media</h3><p>Tambahkan satu atau beberapa URL gambar, pisahkan dengan baris baru.</p></div>
             </div>
             <div className="data-form section-fields">
@@ -591,7 +649,7 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
 
           <section className="form-section-card">
             <div className="form-section-title">
-              <span>4</span>
+              <span>5</span>
               <div><h3>Detail Trip</h3><p>Isi narasi dan fasilitas yang membantu customer memahami pengalaman trip.</p></div>
             </div>
             <div className="data-form section-fields">
