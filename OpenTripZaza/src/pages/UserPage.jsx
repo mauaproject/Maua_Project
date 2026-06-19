@@ -1202,30 +1202,48 @@ export function RegistrationPage({
   )
 }
 
-export function EmailVerificationPage({ path, navigate, verifyEmailToken, session }) {
+export function EmailVerificationPage({ path, navigate, verifyEmailOtp, resendVerification }) {
   const { t } = useCustomerLanguage()
-  const token = new URLSearchParams(window.location.search || path.split('?')[1] || '').get('token')
-  const [status, setStatus] = useState(token ? 'loading' : 'error')
-  const [message, setMessage] = useState(token ? t('verification.verifying') : t('verification.invalidLink'))
+  const queryEmail = new URLSearchParams(window.location.search || path.split('?')[1] || '').get('email') || ''
+  const [email, setEmail] = useState(queryEmail)
+  const [otp, setOtp] = useState('')
+  const [status, setStatus] = useState('idle')
+  const [message, setMessage] = useState(queryEmail ? t('verification.otpSent') : t('verification.enterEmail'))
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  useEffect(() => {
-    if (!token) return
-    verifyEmailToken(token)
-      .then(() => {
-        setStatus('success')
-        setMessage(t('verification.success'))
-      })
-      .catch((error) => {
-        setStatus('error')
-        setMessage(error.message || t('verification.failed'))
-      })
-  }, [t, token, verifyEmailToken])
+  const submitOtp = async (event) => {
+    event.preventDefault()
+    if (!email || !/^\d{6}$/.test(otp)) {
+      setStatus('error')
+      setMessage(t('verification.otpRequired'))
+      return
+    }
+    setIsSubmitting(true)
+    try {
+      await verifyEmailOtp(email, otp)
+      setStatus('success')
+      setMessage(t('verification.success'))
+      window.setTimeout(() => navigate('/login'), 1600)
+    } catch (error) {
+      setStatus('error')
+      setMessage(error.message || t('verification.failed'))
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
 
-  useEffect(() => {
-    if (status !== 'success') return undefined
-    const timer = window.setTimeout(() => navigate(session?.role === 'customer' ? '/akun' : '/login'), 1800)
-    return () => window.clearTimeout(timer)
-  }, [navigate, session?.role, status])
+  const resendOtp = async () => {
+    if (!email) {
+      setStatus('error')
+      setMessage(t('verification.enterEmail'))
+      return
+    }
+    setIsSubmitting(true)
+    const sent = await resendVerification(email)
+    setStatus(sent ? 'idle' : 'error')
+    setMessage(sent ? t('verification.resent') : t('verification.resendFailed'))
+    setIsSubmitting(false)
+  }
 
   return (
     <AuthShell navigate={navigate}>
@@ -1235,10 +1253,27 @@ export function EmailVerificationPage({ path, navigate, verifyEmailToken, sessio
           <h1>{status === 'success' ? t('verification.successTitle') : t('verification.title')}</h1>
           <p className={status === 'error' ? 'form-error' : 'muted'}>{message}</p>
         </div>
-        {status !== 'loading' && (
-          <button className="primary-btn" type="button" onClick={() => navigate(status === 'success' && session?.role === 'customer' ? '/akun' : '/login')}>
-            {status === 'success' ? t('verification.toAccount') : t('verification.toLogin')}
-          </button>
+        {status !== 'success' ? (
+          <form className="auth-form" onSubmit={submitOtp}>
+            <label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} readOnly={Boolean(queryEmail)} /></label>
+            <label>{t('verification.otpLabel')}
+              <input
+                inputMode="numeric"
+                maxLength="6"
+                placeholder="000000"
+                value={otp}
+                onChange={(event) => setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))}
+              />
+            </label>
+            <button className="primary-btn" type="submit" disabled={isSubmitting}>
+              {isSubmitting ? t('verification.loading') : t('verification.verifyOtp')}
+            </button>
+            <button className="outline-btn" type="button" disabled={isSubmitting} onClick={resendOtp}>
+              {t('verification.resendCode')}
+            </button>
+          </form>
+        ) : (
+          <button className="primary-btn" type="button" onClick={() => navigate('/login')}>{t('verification.toLogin')}</button>
         )}
       </section>
     </AuthShell>

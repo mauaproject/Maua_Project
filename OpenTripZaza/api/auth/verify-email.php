@@ -3,47 +3,73 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/config/helpers.php';
 require_once dirname(__DIR__) . '/config/email-verification.php';
-requireMethod('GET');
+requireMethod('POST');
 
 runEndpoint(function (PDO $pdo): void {
-    $rawToken = trim((string) ($_GET['token'] ?? ''));
-    if (!preg_match('/^[a-f0-9]{64}$/', $rawToken)) {
-        throw new InvalidArgumentException('Token verifikasi tidak valid.');
+    $data = jsonInput();
+    requiredFields($data, ['email', 'otp']);
+    $email = strtolower(trim((string) $data['email']));
+    $otp = trim((string) $data['otp']);
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL) || !preg_match('/^\d{6}$/', $otp)) {
+        throw new InvalidArgumentException('Email atau kode OTP tidak valid.');
     }
-    $tokenHash = hash('sha256', $rawToken);
 
     $pdo->beginTransaction();
     try {
         $statement = $pdo->prepare(
-            'SELECT evt.id token_id, evt.user_id, evt.expired_at, evt.used_at,
-                    (evt.expired_at < NOW()) is_expired, u.*
-             FROM email_verification_tokens evt
-             INNER JOIN users u ON u.id=evt.user_id
-             WHERE evt.token_hash=? LIMIT 1 FOR UPDATE'
+            'SELECT *, (expired_at < NOW()) is_expired
+             FROM pending_customer_registrations WHERE email=? LIMIT 1 FOR UPDATE'
         );
-        $statement->execute([$tokenHash]);
-        $token = $statement->fetch();
-        if (!$token) {
-            jsonError('Link verifikasi tidak ditemukan.', 404);
+        $statement->execute([$email]);
+        $pending = $statement->fetch();
+        if (!$pending) {
+            $pdo->rollBack();
+            jsonError('Pendaftaran sementara tidak ditemukan. Silakan daftar kembali.', 404);
         }
-        if ($token['used_at'] !== null) {
-            jsonError('Link verifikasi sudah pernah digunakan.', 410);
+        if ((bool) $pending['is_expired']) {
+            $pdo->rollBack();
+            jsonError('Kode OTP sudah kedaluwarsa. Silakan kirim ulang kode.', 410);
         }
-        if ((bool) $token['is_expired']) {
-            jsonError('Link verifikasi sudah kedaluwarsa. Silakan kirim ulang email verifikasi.', 410);
+        if ((int) $pending['attempts'] >= 5) {
+            $pdo->rollBack();
+            jsonError('Terlalu banyak percobaan. Silakan kirim ulang kode verifikasi.', 429);
+        }
+        if (!password_verify($otp, (string) $pending['otp_hash'])) {
+            $pdo->prepare(
+                'UPDATE pending_customer_registrations SET attempts=attempts+1 WHERE id=?'
+            )->execute([(int) $pending['id']]);
+            $pdo->commit();
+            jsonError('Kode OTP salah.', 422);
         }
 
-        $pdo->prepare(
-            'UPDATE users SET email_verified=1, email_verified_at=NOW(), updated_at=CURRENT_TIMESTAMP WHERE id=?'
-        )->execute([(int) $token['user_id']]);
-        $pdo->prepare(
-            'UPDATE email_verification_tokens SET used_at=NOW() WHERE id=?'
-        )->execute([(int) $token['token_id']]);
-        $pdo->prepare(
-            'UPDATE email_verification_tokens SET used_at=COALESCE(used_at, NOW())
-             WHERE user_id=? AND id<>? AND used_at IS NULL'
-        )->execute([(int) $token['user_id'], (int) $token['token_id']]);
+        $insert = $pdo->prepare(
+            "INSERT INTO users
+             (name, email, email_verified, email_verified_at, password_hash, whatsapp,
+              role, address, age, gender, health_notes)
+             VALUES (?,?,1,NOW(),?,?,'customer',?,?,?,?)"
+        );
+        $insert->execute([
+            $pending['name'],
+            $pending['email'],
+            $pending['password_hash'],
+            $pending['whatsapp'],
+            $pending['address'],
+            $pending['age'],
+            $pending['gender'],
+            $pending['health_notes'],
+        ]);
+        $userId = (int) $pdo->lastInsertId();
+        $pdo->prepare('DELETE FROM pending_customer_registrations WHERE id=?')
+            ->execute([(int) $pending['id']]);
         $pdo->commit();
+    } catch (PDOException $exception) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        if ((string) $exception->getCode() === '23000') {
+            jsonError('Email sudah berhasil terdaftar. Silakan login.', 409);
+        }
+        throw $exception;
     } catch (Throwable $exception) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
@@ -51,7 +77,10 @@ runEndpoint(function (PDO $pdo): void {
         throw $exception;
     }
 
-    $userStatement = $pdo->prepare('SELECT * FROM users WHERE id=?');
-    $userStatement->execute([(int) $token['user_id']]);
-    jsonSuccess(publicCustomerUser($userStatement->fetch()));
+    jsonSuccess([
+        'id' => $userId,
+        'email' => $email,
+        'emailVerified' => true,
+        'message' => 'Akun berhasil dibuat. Silakan login.',
+    ], 201);
 });

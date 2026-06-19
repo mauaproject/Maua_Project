@@ -105,9 +105,7 @@ function App() {
         gender: form.gender || '',
         healthNotes: form.healthNotes || '',
       })
-      setCustomerAccounts((current) => [...current, nextAccount])
-      setSession(nextAccount)
-      navigate('/open-trip')
+      navigate(`/verify-email?email=${encodeURIComponent(nextAccount.email)}`)
       showToast(i18n.t('toast.signupVerificationSent'))
       return true
     } catch {
@@ -115,10 +113,10 @@ function App() {
     }
   }
 
-  const resendVerification = async () => {
-    if (!session?.email) return false
+  const resendVerification = async (email = session?.email) => {
+    if (!email) return false
     try {
-      await api.resendEmailVerification(session.email)
+      await api.resendEmailVerification(email)
       showToast(i18n.t('toast.verificationResent'))
       return true
     } catch (error) {
@@ -140,11 +138,8 @@ function App() {
     }
   }
 
-  const verifyEmailToken = useCallback(async (token) => {
-    const account = await api.verifyEmail(token)
-    setCustomerAccounts((current) => current.map((item) => item.email === account.email ? account : item))
-    setSession((current) => current?.email === account.email ? account : current)
-    return account
+  const verifyEmailOtp = useCallback(async (email, otp) => {
+    return api.verifyEmail(email, otp)
   }, [])
 
   const createWorkerAccount = async (form) => {
@@ -379,7 +374,7 @@ function App() {
     signupCustomer,
     resendVerification,
     refreshEmailVerification,
-    verifyEmailToken,
+    verifyEmailOtp,
     createWorkerAccount,
     logout,
     submitRegistration,

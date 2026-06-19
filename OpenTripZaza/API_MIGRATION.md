@@ -127,21 +127,22 @@ Booking arsip dapat diambil melalui:
 
 1. Jalankan migrasi `api/migrations/2026-06-19-email-verification.sql`
    melalui phpMyAdmin.
-2. Pastikan konfigurasi SMTP dan `APP_BASE_URL` pada `.env` sudah benar.
-   `APP_BASE_URL` digunakan untuk membuat link seperti:
+2. Jalankan migrasi `api/migrations/2026-06-19-email-verification-otp.sql`.
+3. Pastikan konfigurasi SMTP pada `.env` sudah benar.
 
-```text
-https://DOMAIN/verify-email?token=TOKEN
-```
+Alur signup menggunakan OTP:
 
-Endpoint yang digunakan:
+1. Data signup disimpan sementara di `pending_customer_registrations`.
+2. Sistem mengirim kode OTP 6 digit ke email customer.
+3. OTP berlaku 30 menit dan maksimal lima percobaan.
+4. Record pada tabel `users` baru dibuat setelah OTP benar.
+5. Setelah akun dibuat, customer diarahkan ke halaman login.
 
 - `POST /api/auth/register.php`
 - `POST /api/auth/resend-verification.php`
-- `GET /api/auth/verify-email.php?token=...`
+- `POST /api/auth/verify-email.php`
 - `GET /api/auth/me.php?email=...`
 
-Token dibuat menggunakan random bytes, hanya hash SHA-256 yang disimpan di
-database, berlaku selama 30 menit, dan hanya dapat dipakai satu kali. Customer
-yang belum terverifikasi akan ditolak oleh endpoint pembuatan booking meskipun
+OTP disimpan sebagai password hash, bukan dalam bentuk angka asli. Customer yang
+belum terverifikasi tetap akan ditolak oleh endpoint pembuatan booking meskipun
 validasi frontend dilewati.

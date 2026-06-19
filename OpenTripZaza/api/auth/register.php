@@ -16,37 +16,51 @@ runEndpoint(function (PDO $pdo): void {
         throw new InvalidArgumentException('Password minimal 6 karakter.');
     }
 
+    $existing = $pdo->prepare('SELECT id FROM users WHERE email=? LIMIT 1');
+    $existing->execute([$email]);
+    if ($existing->fetchColumn()) {
+        jsonError('Email sudah terdaftar. Silakan login.', 409);
+    }
+
+    $recentPending = $pdo->prepare(
+        'SELECT COUNT(*) FROM pending_customer_registrations
+         WHERE email=? AND last_sent_at > DATE_SUB(NOW(), INTERVAL 60 SECOND)'
+    );
+    $recentPending->execute([$email]);
+    if ((int) $recentPending->fetchColumn() > 0) {
+        jsonError('Kode baru saja dikirim. Tunggu 60 detik atau buka halaman verifikasi.', 429);
+    }
+
+    $otp = generateVerificationOtp();
+    $values = [
+        trim((string) $data['name']),
+        $email,
+        password_hash((string) $data['password'], PASSWORD_DEFAULT),
+        $data['whatsapp'] ?? null,
+        $data['address'] ?? null,
+        nullableInt($data['age'] ?? null),
+        $data['gender'] ?? null,
+        $data['healthNotes'] ?? null,
+        password_hash($otp, PASSWORD_DEFAULT),
+    ];
+
     $pdo->beginTransaction();
     try {
         $statement = $pdo->prepare(
-            "INSERT INTO users
-             (name, email, email_verified, password_hash, whatsapp, role, address, age, gender, health_notes)
-             VALUES (?,?,0,?,?, 'customer',?,?,?,?)"
+            'INSERT INTO pending_customer_registrations
+             (name, email, password_hash, whatsapp, address, age, gender, health_notes,
+              otp_hash, expired_at, attempts, last_sent_at)
+             VALUES (?,?,?,?,?,?,?,?,?,DATE_ADD(NOW(), INTERVAL 30 MINUTE),0,NOW())
+             ON DUPLICATE KEY UPDATE
+                name=VALUES(name), password_hash=VALUES(password_hash), whatsapp=VALUES(whatsapp),
+                address=VALUES(address), age=VALUES(age), gender=VALUES(gender),
+                health_notes=VALUES(health_notes), otp_hash=VALUES(otp_hash),
+                expired_at=DATE_ADD(NOW(), INTERVAL 30 MINUTE), attempts=0,
+                last_sent_at=NOW(), updated_at=CURRENT_TIMESTAMP'
         );
-        $statement->execute([
-            trim((string) $data['name']),
-            $email,
-            password_hash((string) $data['password'], PASSWORD_DEFAULT),
-            $data['whatsapp'] ?? null,
-            $data['address'] ?? null,
-            nullableInt($data['age'] ?? null),
-            $data['gender'] ?? null,
-            $data['healthNotes'] ?? null,
-        ]);
-        $userId = (int) $pdo->lastInsertId();
-        $userStatement = $pdo->prepare('SELECT * FROM users WHERE id=?');
-        $userStatement->execute([$userId]);
-        $user = $userStatement->fetch();
-        createAndSendVerification($pdo, $user);
+        $statement->execute($values);
+        sendVerificationOtp($email, (string) $data['name'], $otp);
         $pdo->commit();
-    } catch (PDOException $exception) {
-        if ($pdo->inTransaction()) {
-            $pdo->rollBack();
-        }
-        if ((string) $exception->getCode() === '23000') {
-            jsonError('Email sudah terdaftar.', 409);
-        }
-        throw $exception;
     } catch (Throwable $exception) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
@@ -54,5 +68,9 @@ runEndpoint(function (PDO $pdo): void {
         throw $exception;
     }
 
-    jsonSuccess(publicCustomerUser($user), 201);
+    jsonSuccess([
+        'email' => $email,
+        'expiresInMinutes' => 30,
+        'message' => 'Kode verifikasi telah dikirim ke email.',
+    ], 201);
 });
