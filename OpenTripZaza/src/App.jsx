@@ -6,9 +6,9 @@ import { CustomerAccountPage, CustomerCatalog, CustomerLoginPage, CustomerSignup
 import { MyJobs, WorkerDashboard, WorkerJobDetail, WorkerJobs } from './pages/WorkerPage'
 import { LoginPage, NotFound } from './pages/shared'
 import * as api from './services/api'
-import { ABOVE_MAX_PAX_RULE, normalizePricePerPersonTiers } from './utils/pricing'
+import { ABOVE_MAX_PAX_RULE, getPrivatePricePerPerson, normalizePricePerPersonTiers } from './utils/pricing'
 import { getRequiredPaymentAmount } from './utils/payments'
-import { getPrivatePackages } from './utils/privatePackages'
+import { getPackagePricePerPerson, getPrivatePackages } from './utils/privatePackages'
 import {
   getOpenTripScheduleOptions,
   getPrivateSessionOptions,
@@ -243,11 +243,14 @@ function App() {
     const selectedPackage = isPrivateTour
       ? privatePackages.find((item) => String(item.id) === String(form.selectedPackageId))
       : null
-    if (isPrivateTour && !selectedPackage) return false
-    const hargaPerOrang = isPrivateTour ? 0 : Number(trip.price || 0)
-    const totalHarga = isPrivateTour
-      ? Number(selectedPackage.price) + selectedAddonTotal
-      : (participantCount * hargaPerOrang) + selectedAddonTotal
+    if (isPrivateTour && privatePackages.length > 0 && !selectedPackage) return false
+    const hargaPerOrang = isPrivateTour
+      ? selectedPackage
+        ? getPackagePricePerPerson(selectedPackage, participantCount)
+        : getPrivatePricePerPerson(trip, participantCount)
+      : Number(trip.price || 0)
+    const subtotalTrip = participantCount * hargaPerOrang
+    const totalHarga = subtotalTrip + selectedAddonTotal
     const requiredPaymentAmount = getRequiredPaymentAmount(totalHarga, form.paymentType)
     const nextItem = {
       name: form.name,
@@ -271,7 +274,9 @@ function App() {
       endTime: isPrivateTour ? selectedSession.endTime : '',
       selectedPackageId: selectedPackage?.id || null,
       selectedPackageName: selectedPackage?.name || '',
-      selectedPackagePrice: Number(selectedPackage?.price || 0),
+      selectedPackagePrice: selectedPackage ? hargaPerOrang : 0,
+      selectedPackagePricePerPerson: selectedPackage ? hargaPerOrang : 0,
+      selectedPackageSubtotal: selectedPackage ? subtotalTrip : 0,
       selectedPackageDestinations: selectedPackage?.destinations || [],
       address: primaryParticipant.address || '',
       age: primaryParticipant.age || '',

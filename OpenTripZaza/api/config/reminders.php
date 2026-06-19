@@ -76,10 +76,10 @@ function fetchReminderInvoice(PDO $pdo, array $booking): array
     $paymentStatement->execute([(int) $booking['id']]);
     $payments = $paymentStatement->fetchAll();
     $addonTotal = array_sum(array_column($addons, 'total'));
-    $packagePrice = (float) ($booking['selected_package_price'] ?? 0);
-    $tripSubtotal = $packagePrice > 0
-        ? $packagePrice
-        : (int) $booking['participants'] * (float) $booking['price_per_person'];
+    $tripSubtotal = (float) ($booking['selected_package_subtotal'] ?? 0);
+    if ($tripSubtotal <= 0) {
+        $tripSubtotal = (int) $booking['participants'] * (float) $booking['price_per_person'];
+    }
     $subtotal = (float) $booking['total_price'];
     if ($subtotal <= 0) {
         $subtotal = $tripSubtotal + $addonTotal;
@@ -112,7 +112,7 @@ function fetchReminderInvoice(PDO $pdo, array $booking): array
         'tripName' => (string) $booking['trip_name'],
         'packageName' => (string) ($booking['selected_package_name'] ?? ''),
         'participants' => (int) $booking['participants'],
-        'pricePerPerson' => $packagePrice > 0 ? $packagePrice : (float) $booking['price_per_person'],
+        'pricePerPerson' => (float) $booking['price_per_person'],
         'tripSubtotal' => $tripSubtotal,
         'addons' => $addons,
         'subtotal' => $subtotal,

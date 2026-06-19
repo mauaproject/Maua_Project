@@ -61,18 +61,21 @@ Jalankan `npm run build` kembali setiap kali nilai `VITE_...` frontend berubah.
 
 ## Migrasi Paket Private Trip
 
-Jalankan file berikut satu kali melalui phpMyAdmin:
+Jalankan file berikut secara berurutan melalui phpMyAdmin:
 
 `api/migrations/2026-06-19-private-trip-packages.sql`
 
-Migrasi ini membuat tabel paket yang terpisah dari sesi dan menambahkan snapshot
-paket pada booking. Setelah migrasi:
+`api/migrations/2026-06-19-package-price-tiers.sql`
 
-- admin wajib membuat minimal satu paket untuk private trip baru;
-- customer memilih satu paket dan satu sesi;
-- harga private trip memakai harga tetap paket ditambah total add-on;
-- private trip lama tanpa paket tetap tampil, tetapi checkout dinonaktifkan dengan
-  pesan bahwa paket belum tersedia.
+Migrasi ini membuat tabel paket serta tier harga paket yang terpisah dari sesi.
+Harga lama pada `private_price_tiers` tidak dihapus dan tetap digunakan oleh
+private trip tanpa paket. Setelah migrasi:
+
+- private trip tanpa paket memakai `private_price_tiers`;
+- private trip dengan paket memakai `package_price_tiers` milik paket terpilih;
+- customer memilih satu paket jika paket tersedia dan tetap memilih satu sesi;
+- subtotal trip dihitung dari harga per orang sesuai jumlah peserta dikali jumlah peserta;
+- total harga adalah subtotal trip ditambah total add-on.
 
 ## Tes cepat
 

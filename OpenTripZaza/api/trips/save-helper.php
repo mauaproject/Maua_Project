@@ -13,9 +13,6 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
     $schedules = $type === 'open' && is_array($data['schedules'] ?? null) ? $data['schedules'] : [];
     $sessions = $type === 'private' && is_array($data['sessions'] ?? null) ? $data['sessions'] : [];
     $packages = $type === 'private' && is_array($data['privatePackages'] ?? null) ? $data['privatePackages'] : [];
-    if ($type === 'private' && !$packages) {
-        throw new InvalidArgumentException('Private trip minimal harus memiliki satu paket.');
-    }
     $quota = $type === 'open'
         ? array_sum(array_map(static fn(array $item): int => (int) ($item['quota'] ?? 0), $schedules))
         : (int) ($data['quota'] ?? $data['maxParticipants'] ?? 1);
@@ -156,31 +153,40 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
     }
     $packageInsert = $pdo->prepare(
         'INSERT INTO private_trip_packages
-         (trip_id, package_code, name, price, destinations_json, description, status, sort_order)
-         VALUES (?,?,?,?,?,?,?,?)'
+         (trip_id, package_code, name, price, max_custom_pax, destinations_json, description, status, sort_order)
+         VALUES (?,?,?,?,?,?,?,?,?)'
     );
     $packageUpdate = $pdo->prepare(
         'UPDATE private_trip_packages
-         SET package_code=?, name=?, price=?, destinations_json=?, description=?, status=?, sort_order=?
+         SET package_code=?, name=?, price=?, max_custom_pax=?, destinations_json=?, description=?, status=?, sort_order=?
          WHERE id=? AND trip_id=?'
     );
     $retainedPackageCodes = [];
     foreach ($packages as $index => $package) {
         $code = trim((string) ($package['packageCode'] ?? $package['id'] ?? 'package_' . ($index + 1)));
         $name = trim((string) ($package['name'] ?? ''));
-        $price = (float) ($package['price'] ?? 0);
+        $fallbackTierCount = count((array) ($package['pricePerPersonTiers'] ?? []));
+        $maxCustomPax = max(1, (int) ($package['maxCustomPax'] ?? ($fallbackTierCount ?: 1)));
+        $tierPrices = [];
+        foreach ((array) ($package['pricePerPersonTiers'] ?? []) as $pax => $tierPrice) {
+            if ((int) $pax > 0 && (float) $tierPrice > 0) {
+                $tierPrices[(int) $pax] = (float) $tierPrice;
+            }
+        }
+        $price = $tierPrices ? min($tierPrices) : (float) ($package['price'] ?? 0);
         $destinations = array_values(array_filter(array_map(
             static fn(mixed $value): string => trim((string) $value),
             (array) ($package['destinations'] ?? [])
         )));
-        if ($name === '' || $price <= 0 || !$destinations) {
-            throw new InvalidArgumentException('Setiap paket private wajib memiliki nama, harga, dan minimal satu destinasi/aktivitas.');
+        if ($name === '' || $price <= 0 || count($tierPrices) < $maxCustomPax || !$destinations) {
+            throw new InvalidArgumentException('Setiap paket private wajib memiliki nama, tier harga per peserta, dan minimal satu destinasi/aktivitas.');
         }
         $retainedPackageCodes[] = $code;
         $values = [
             $code,
             $name,
             $price,
+            $maxCustomPax,
             jsonText($destinations),
             trim((string) ($package['description'] ?? '')),
             ($package['status'] ?? 'active') === 'inactive' ? 'inactive' : 'active',
@@ -190,6 +196,27 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
             $packageUpdate->execute([...$values, $existingPackages[$code], $tripId]);
         } else {
             $packageInsert->execute([$tripId, ...$values]);
+            $existingPackages[$code] = (int) $pdo->lastInsertId();
+        }
+        $packageId = $existingPackages[$code];
+        $existingTierStatement = $pdo->prepare('SELECT id, pax_count FROM package_price_tiers WHERE package_id=?');
+        $existingTierStatement->execute([$packageId]);
+        $existingPackageTiers = [];
+        foreach ($existingTierStatement->fetchAll() as $tier) {
+            $existingPackageTiers[(int) $tier['pax_count']] = (int) $tier['id'];
+        }
+        $tierInsert = $pdo->prepare(
+            'INSERT INTO package_price_tiers (package_id, pax_count, price_per_person) VALUES (?,?,?)'
+        );
+        $tierUpdate = $pdo->prepare(
+            'UPDATE package_price_tiers SET price_per_person=?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND package_id=?'
+        );
+        foreach ($tierPrices as $pax => $tierPrice) {
+            if (isset($existingPackageTiers[$pax])) {
+                $tierUpdate->execute([$tierPrice, $existingPackageTiers[$pax], $packageId]);
+            } else {
+                $tierInsert->execute([$packageId, $pax, $tierPrice]);
+            }
         }
     }
     foreach ($existingPackages as $code => $databaseId) {
@@ -206,11 +233,23 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
         }
     }
 
-    $pdo->prepare('DELETE FROM private_price_tiers WHERE trip_id = ?')->execute([$tripId]);
-    $tierStatement = $pdo->prepare('INSERT INTO private_price_tiers (trip_id, pax_count, price_per_person) VALUES (?,?,?)');
-    foreach (($data['pricePerPersonTiers'] ?? []) as $pax => $price) {
-        if ((int) $pax > 0 && (float) $price > 0) {
-            $tierStatement->execute([$tripId, (int) $pax, (float) $price]);
+    if (array_key_exists('pricePerPersonTiers', $data)) {
+        $existingTierStatement = $pdo->prepare('SELECT id, pax_count FROM private_price_tiers WHERE trip_id=?');
+        $existingTierStatement->execute([$tripId]);
+        $existingTiers = [];
+        foreach ($existingTierStatement->fetchAll() as $tier) {
+            $existingTiers[(int) $tier['pax_count']] = (int) $tier['id'];
+        }
+        $tierInsert = $pdo->prepare('INSERT INTO private_price_tiers (trip_id, pax_count, price_per_person) VALUES (?,?,?)');
+        $tierUpdate = $pdo->prepare('UPDATE private_price_tiers SET price_per_person=? WHERE id=? AND trip_id=?');
+        foreach ((array) $data['pricePerPersonTiers'] as $pax => $price) {
+            if ((int) $pax > 0 && (float) $price > 0) {
+                if (isset($existingTiers[(int) $pax])) {
+                    $tierUpdate->execute([(float) $price, $existingTiers[(int) $pax], $tripId]);
+                } else {
+                    $tierInsert->execute([$tripId, (int) $pax, (float) $price]);
+                }
+            }
         }
     }
 

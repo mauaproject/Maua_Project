@@ -130,7 +130,13 @@ function mapTrip(PDO $pdo, array $trip): array
     $images = $query('SELECT id, image_url, sort_order FROM trip_images WHERE trip_id = ? ORDER BY sort_order, id');
     $schedules = $query('SELECT id, schedule_code, schedule_date, visible_until, archived_at, quota, booked_count, status FROM trip_schedules WHERE trip_id = ? ORDER BY schedule_date, id');
     $sessions = $query('SELECT id, session_code, name, start_time, end_time, status FROM trip_sessions WHERE trip_id = ? ORDER BY start_time, id');
-    $packages = $query('SELECT id, package_code, name, price, destinations_json, description, status, sort_order FROM private_trip_packages WHERE trip_id = ? ORDER BY sort_order, id');
+    $packages = $query('SELECT id, package_code, name, price, max_custom_pax, destinations_json, description, status, sort_order FROM private_trip_packages WHERE trip_id = ? ORDER BY sort_order, id');
+    $packageTiers = $query(
+        'SELECT ppt.package_id, ppt.pax_count, ppt.price_per_person
+         FROM package_price_tiers ppt
+         INNER JOIN private_trip_packages ptp ON ptp.id = ppt.package_id
+         WHERE ptp.trip_id = ? ORDER BY ppt.package_id, ppt.pax_count'
+    );
     $tiers = $query('SELECT pax_count, price_per_person FROM private_price_tiers WHERE trip_id = ? ORDER BY pax_count');
     $addons = $query("SELECT id, name, price, worker_action, status, sort_order FROM trip_addons WHERE trip_id = ? AND status = 'active' ORDER BY sort_order, id");
     $tierMap = [];
@@ -190,16 +196,26 @@ function mapTrip(PDO $pdo, array $trip): array
         'imageUrls' => array_column($images, 'image_url'),
         'schedules' => $mappedSchedules,
         'sessions' => $mappedSessions,
-        'privatePackages' => array_map(static fn(array $item): array => [
-            'id' => (int) $item['id'],
-            'packageCode' => $item['package_code'],
-            'name' => $item['name'],
-            'price' => (float) $item['price'],
-            'destinations' => decodeText($item['destinations_json']) ?: [],
-            'description' => $item['description'] ?? '',
-            'status' => $item['status'],
-            'sortOrder' => (int) $item['sort_order'],
-        ], $packages),
+        'privatePackages' => array_map(static function (array $item) use ($packageTiers): array {
+            $tierMap = [];
+            foreach ($packageTiers as $tier) {
+                if ((int) $tier['package_id'] === (int) $item['id']) {
+                    $tierMap[(string) $tier['pax_count']] = (float) $tier['price_per_person'];
+                }
+            }
+            return [
+                'id' => (int) $item['id'],
+                'packageCode' => $item['package_code'],
+                'name' => $item['name'],
+                'price' => (float) $item['price'],
+                'maxCustomPax' => (int) $item['max_custom_pax'],
+                'pricePerPersonTiers' => $tierMap,
+                'destinations' => decodeText($item['destinations_json']) ?: [],
+                'description' => $item['description'] ?? '',
+                'status' => $item['status'],
+                'sortOrder' => (int) $item['sort_order'],
+            ];
+        }, $packages),
         'pricePerPersonTiers' => $tierMap,
         'addons' => array_map(static fn(array $item): array => [
             'id' => (int) $item['id'],
@@ -262,6 +278,7 @@ function mapBooking(PDO $pdo, array $booking): array
         'selectedPackageId' => nullableInt($booking['selected_package_id'] ?? null),
         'selectedPackageName' => $booking['selected_package_name'] ?? '',
         'selectedPackagePrice' => (float) ($booking['selected_package_price'] ?? 0),
+        'selectedPackageSubtotal' => (float) ($booking['selected_package_subtotal'] ?? 0),
         'selectedPackageDestinations' => decodeText($booking['selected_package_destinations'] ?? '') ?: [],
         'name' => $booking['customer_name'],
         'email' => $booking['customer_email'],

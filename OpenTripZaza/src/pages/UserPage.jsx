@@ -12,8 +12,8 @@ import { formatCurrency, formatDate, tripName } from '../utils/formatters'
 import { getCustomerJobStatusLabel, getJobAddonLabel, getJobCompletedAt, getJobResultLink, getJobWorkerName, getNormalizedJobStatus, getRegistrationResultJobs } from '../utils/jobResults'
 import { localizedList, localizedText } from '../utils/localization'
 import { DP_PERCENTAGE, getPaymentStatusLabel, getPaymentTypeLabel, getRequiredPaymentAmount, validatePaymentProof } from '../utils/payments'
-import { getPrivatePackages } from '../utils/privatePackages'
-import { getPrivatePriceRange, getTripStartingPrice } from '../utils/pricing'
+import { getPackagePricePerPerson, getPackagePriceRange, getPrivatePackages } from '../utils/privatePackages'
+import { getPrivatePricePerPerson, getPrivatePriceRange, getTripStartingPrice } from '../utils/pricing'
 import { getOpenTripScheduleOptions, getPrivateDateRange, getPrivateSessionOptions, getRegistrationDate, getTripSchedules, isDateWithinPrivateRange } from '../utils/schedules'
 import { AppModal, Badge, InfoBlock, NotFound } from './shared'
 
@@ -770,7 +770,7 @@ export function TripDetail({ tripId, trips, registrations, navigate, session, lo
   const privatePriceRange = trip.isPrivateTrip ? getPrivatePriceRange(trip) : null
   const privatePackages = trip.isPrivateTrip ? getPrivatePackages(trip, true) : []
   const isOpen = trip.isPrivateTrip
-    ? trip.status === 'Tersedia' && privatePackages.length > 0
+    ? trip.status === 'Tersedia'
     : trip.status === 'Tersedia' && scheduleOptions.some((schedule) => schedule.isSelectable)
   const startCheckout = () => {
     if (session?.role !== 'customer') {
@@ -804,13 +804,13 @@ export function TripDetail({ tripId, trips, registrations, navigate, session, lo
                   <div className="private-package-grid">
                     {privatePackages.map((item) => (
                       <article className="private-package-card" key={item.id}>
-                        <div><h3>{item.name}</h3><strong>{formatCurrency(item.price)}</strong></div>
+                        <div><h3>{item.name}</h3><strong>Mulai {formatCurrency(getPackagePriceRange(item).min)}/orang</strong></div>
                         {item.description && <p>{item.description}</p>}
                         <ul>{item.destinations.map((destination) => <li key={destination}>{destination}</li>)}</ul>
                       </article>
                     ))}
                   </div>
-                ) : <p className="private-package-unavailable">Paket belum tersedia. Silakan hubungi admin.</p>}
+                ) : <p className="private-package-unavailable">Private trip ini menggunakan harga berdasarkan jumlah peserta tanpa pilihan paket.</p>}
               </section>
             )}
             <InfoBlock title={t('detail.description')} text={getTripDescription(trip, lang)} />
@@ -850,7 +850,7 @@ export function TripDetail({ tripId, trips, registrations, navigate, session, lo
                         : `${formatCurrency(privatePriceRange.min)} - ${formatCurrency(privatePriceRange.max)}`}
                     </strong>
                   </div>
-                  <p className="price-range-note">Harga sesuai paket yang dipilih, belum termasuk add-on.</p>
+                  <p className="price-range-note">Harga per orang menyesuaikan jumlah peserta, belum termasuk add-on.</p>
                 </>
               ) : (
                 <>
@@ -936,15 +936,18 @@ export function RegistrationPage({
   const isPrivateTrip = Boolean(selectedTrip?.isPrivateTrip)
   const isPrivateBooking = isPrivateTrip || form.isPrivateTour
   const pricePerPerson = selectedTrip
-    ? isPrivateBooking ? 0 : Number(selectedTrip.price || 0)
+    ? isPrivateBooking
+      ? selectedPackage
+        ? getPackagePricePerPerson(selectedPackage, participants)
+        : getPrivatePricePerPerson(selectedTrip, participants)
+      : Number(selectedTrip.price || 0)
     : 0
   const availableAddons = Array.isArray(selectedTrip?.addons) ? selectedTrip.addons : []
   const selectedAddonTotal = availableAddons
     .filter((addon) => form.addons.includes(addon.id))
     .reduce((total, addon) => total + Number(addon.price || 0), 0)
-  const estimatedTotal = isPrivateBooking
-    ? Number(selectedPackage?.price || 0) + selectedAddonTotal
-    : (participants * pricePerPerson) + selectedAddonTotal
+  const tripSubtotal = participants * pricePerPerson
+  const estimatedTotal = tripSubtotal + selectedAddonTotal
 
   if (!trip) return <NotFound navigate={navigate} />
 
@@ -965,7 +968,7 @@ export function RegistrationPage({
       setError('Pilih pembayaran DP atau Lunas terlebih dahulu.')
       return
     }
-    if (isPrivateBooking && !selectedPackage) {
+    if (isPrivateBooking && privatePackages.length > 0 && !selectedPackage) {
       setError('Pilih salah satu Paket Private Trip terlebih dahulu.')
       return
     }
@@ -1015,7 +1018,9 @@ export function RegistrationPage({
       selectedAddonDetails: availableAddons.filter((addon) => form.addons.includes(addon.id)),
       selectedPackageId: selectedPackage?.id || '',
       selectedPackageName: selectedPackage?.name || '',
-      selectedPackagePrice: Number(selectedPackage?.price || 0),
+      selectedPackagePrice: selectedPackage ? pricePerPerson : 0,
+      selectedPackagePricePerPerson: selectedPackage ? pricePerPerson : 0,
+      selectedPackageSubtotal: selectedPackage ? tripSubtotal : 0,
       selectedPackageDestinations: selectedPackage?.destinations || [],
       participantDetails,
       participants: isPrivateBooking ? participants : 1,
@@ -1112,10 +1117,10 @@ export function RegistrationPage({
               <dl className="summary-list">
                 <div><dt><span className="asset-icon icon-calendar" aria-hidden="true" />{t('common.date')}</dt><dd>{isPrivateBooking ? form.requestedDate ? formatDate(form.requestedDate, dateLocale) : t('common.chooseDate') : selectedSchedule ? formatDate(selectedSchedule.date, dateLocale) : t('schedule.chooseSchedule')}</dd></div>
                 {isPrivateBooking && selectedSession && <div><dt>{t('schedule.session')}</dt><dd>{getSessionLabel(selectedSession, t)}</dd></div>}
-                {isPrivateBooking && <div><dt>Paket</dt><dd>{selectedPackage?.name || 'Belum dipilih'}</dd></div>}
+                {isPrivateBooking && privatePackages.length > 0 && <div><dt>Paket</dt><dd>{selectedPackage?.name || 'Belum dipilih'}</dd></div>}
                 <div><dt>{t('checkout.participantTotal')}</dt><dd>{t('common.participantCount', { count: participants })}</dd></div>
-                {!isPrivateBooking && <div><dt><span className="asset-icon icon-currency" aria-hidden="true" />{t('common.pricePerPerson')}</dt><dd>{formatCurrency(pricePerPerson)}</dd></div>}
-                {isPrivateBooking && <div><dt>Harga paket</dt><dd>{selectedPackage ? formatCurrency(selectedPackage.price) : '-'}</dd></div>}
+                <div><dt><span className="asset-icon icon-currency" aria-hidden="true" />{t('common.pricePerPerson')}</dt><dd>{formatCurrency(pricePerPerson)}</dd></div>
+                {isPrivateBooking && <div><dt>Subtotal trip</dt><dd>{formatCurrency(tripSubtotal)}</dd></div>}
                 {!isPrivateBooking && <div><dt><span className="asset-icon icon-ticket" aria-hidden="true" />{t('common.availableSlots')}</dt><dd>{selectedSchedule ? t('common.participantCount', { count: selectedSchedule.remaining }) : '-'}</dd></div>}
                 <div><dt>{t('common.type')}</dt><dd>{getTripTypeLabel(selectedTrip, { isPrivateTour: isPrivateBooking }, t)}</dd></div>
                 {selectedAddonTotal > 0 && <div><dt>Add-on</dt><dd>{formatCurrency(selectedAddonTotal)}</dd></div>}
@@ -1157,7 +1162,8 @@ export function RegistrationPage({
               )}
               {isPrivateBooking && (
                 <>
-                  <div className="full private-package-checkout-section">
+                  <label>{t('checkout.participantTotal')}<input type="number" min={selectedTrip.minParticipants || 1} max={selectedTrip.maxParticipants || selectedTrip.quota || undefined} value={form.participants} onChange={(e) => updateParticipantCount(e.target.value)} /></label>
+                  {privatePackages.length > 0 && <div className="full private-package-checkout-section">
                     <h3>Pilih Paket Private Trip</h3>
                     <p>Paket menentukan rute, destinasi/aktivitas, dan harga. Pilihan sesi dilakukan setelahnya.</p>
                     {privatePackages.length ? (
@@ -1165,18 +1171,17 @@ export function RegistrationPage({
                         {privatePackages.map((item) => (
                           <label className={`private-package-card selectable-package-card ${String(form.selectedPackageId) === String(item.id) ? 'is-selected' : ''}`} key={item.id}>
                             <input type="radio" name="selectedPackageId" value={item.id} checked={String(form.selectedPackageId) === String(item.id)} onChange={(event) => setForm({ ...form, selectedPackageId: event.target.value })} />
-                            <div><h3>{item.name}</h3><strong>{formatCurrency(item.price)}</strong></div>
+                            <div><h3>{item.name}</h3><strong>{formatCurrency(getPackagePricePerPerson(item, participants))}/orang</strong></div>
                             {item.description && <p>{item.description}</p>}
                             <ul>{item.destinations.map((destination) => <li key={destination}>{destination}</li>)}</ul>
                           </label>
                         ))}
                       </div>
-                    ) : <p className="private-package-unavailable">Paket belum tersedia. Silakan hubungi admin.</p>}
-                  </div>
-                  <label>{t('checkout.participantTotal')}<input type="number" min={selectedTrip.minParticipants || 1} max={selectedTrip.maxParticipants || selectedTrip.quota || undefined} value={form.participants} onChange={(e) => updateParticipantCount(e.target.value)} /></label>
-                  <label>{t('checkout.privateDate')}<input type="date" disabled={!selectedPackage} min={privateRange.startDate || undefined} max={privateRange.endDate || undefined} value={form.requestedDate} onChange={(e) => setForm({ ...form, requestedDate: e.target.value, sessionId: '' })} />{(privateRange.startDate || privateRange.endDate) && <small>{t('schedule.availableRange')}: {privateRange.startDate ? formatDate(privateRange.startDate, dateLocale) : '-'} - {privateRange.endDate ? formatDate(privateRange.endDate, dateLocale) : '-'}</small>}</label>
-                  <label className="full">{t('schedule.session')}<select required value={form.sessionId} disabled={!selectedPackage || !form.requestedDate || !isPrivateDateInRange} onChange={(e) => setForm({ ...form, sessionId: e.target.value })}>
-                    <option value="">{!selectedPackage ? 'Pilih paket terlebih dahulu' : !form.requestedDate ? t('schedule.chooseDateFirst') : !isPrivateDateInRange ? t('schedule.dateUnavailable') : t('schedule.chooseSession')}</option>
+                    ) : null}
+                  </div>}
+                  <label>{t('checkout.privateDate')}<input type="date" disabled={privatePackages.length > 0 && !selectedPackage} min={privateRange.startDate || undefined} max={privateRange.endDate || undefined} value={form.requestedDate} onChange={(e) => setForm({ ...form, requestedDate: e.target.value, sessionId: '' })} />{(privateRange.startDate || privateRange.endDate) && <small>{t('schedule.availableRange')}: {privateRange.startDate ? formatDate(privateRange.startDate, dateLocale) : '-'} - {privateRange.endDate ? formatDate(privateRange.endDate, dateLocale) : '-'}</small>}</label>
+                  <label className="full">{t('schedule.session')}<select required value={form.sessionId} disabled={(privatePackages.length > 0 && !selectedPackage) || !form.requestedDate || !isPrivateDateInRange} onChange={(e) => setForm({ ...form, sessionId: e.target.value })}>
+                    <option value="">{privatePackages.length > 0 && !selectedPackage ? 'Pilih paket terlebih dahulu' : !form.requestedDate ? t('schedule.chooseDateFirst') : !isPrivateDateInRange ? t('schedule.dateUnavailable') : t('schedule.chooseSession')}</option>
                     {sessionOptions.map((sessionItem) => (
                       <option disabled={!sessionItem.isSelectable} key={sessionItem.id} value={sessionItem.id}>{getSessionLabel(sessionItem, t)}</option>
                     ))}
@@ -1407,10 +1412,12 @@ export function PaymentConfirmationPage({
               <h2>Ringkasan Trip</h2>
               <dl className="payment-summary-list">
                 <div><dt>Nama trip</dt><dd>{trip?.name || checkoutDraft.tripName || '-'}</dd></div>
-                {checkoutDraft.selectedPackageName && <div><dt>Paket</dt><dd>{checkoutDraft.selectedPackageName} — {formatCurrency(checkoutDraft.selectedPackagePrice || 0)}</dd></div>}
+                {checkoutDraft.selectedPackageName && <div><dt>Paket</dt><dd>{checkoutDraft.selectedPackageName}</dd></div>}
                 <div><dt>Tanggal trip</dt><dd>{checkoutDraft.selectedDate ? formatDate(checkoutDraft.selectedDate, dateLocale) : '-'}</dd></div>
                 {checkoutDraft.sessionName && <div><dt>Sesi</dt><dd>{checkoutDraft.sessionName}{checkoutDraft.startTime && checkoutDraft.endTime ? ` (${checkoutDraft.startTime} - ${checkoutDraft.endTime})` : ''}</dd></div>}
                 <div><dt>Jumlah peserta</dt><dd>{checkoutDraft.participants || 1} orang</dd></div>
+                <div><dt>Harga per orang</dt><dd>{formatCurrency(checkoutDraft.hargaPerOrang || checkoutDraft.pricePerPerson || 0)}</dd></div>
+                <div><dt>Subtotal trip</dt><dd>{formatCurrency((checkoutDraft.participants || 1) * (checkoutDraft.hargaPerOrang || checkoutDraft.pricePerPerson || 0))}</dd></div>
                 <div><dt>Add-on</dt><dd>{selectedAddons.length ? selectedAddons.map((addon) => addon.name || addon.label).join(', ') : '-'}</dd></div>
                 <div><dt>Total harga</dt><dd>{formatCurrency(totalPrice)}</dd></div>
                 <div><dt>Pilihan pembayaran</dt><dd>{getPaymentTypeLabel(checkoutDraft.paymentType)}</dd></div>
@@ -1706,6 +1713,8 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], navigate,
                   {(selectedOrder.tripType === 'private' || selectedOrder.isPrivateTrip || selectedOrder.isPrivateTour) && selectedOrder.sessionName && <div><dt>{t('schedule.session')}</dt><dd>{selectedOrder.sessionName}{selectedOrder.startTime && selectedOrder.endTime ? ` (${selectedOrder.startTime} - ${selectedOrder.endTime})` : ''}</dd></div>}
                   {(selectedOrder.tripType === 'private' || selectedOrder.isPrivateTrip || selectedOrder.isPrivateTour) && <div><dt>Paket private</dt><dd>{selectedOrder.selectedPackageName || '-'}</dd></div>}
                   {selectedOrder.selectedPackageDestinations?.length > 0 && <div><dt>Destinasi / aktivitas paket</dt><dd>{selectedOrder.selectedPackageDestinations.join(', ')}</dd></div>}
+                  {(selectedOrder.tripType === 'private' || selectedOrder.isPrivateTrip || selectedOrder.isPrivateTour) && <div><dt>Harga per orang</dt><dd>{formatCurrency(selectedOrder.pricePerPerson || 0)}</dd></div>}
+                  {(selectedOrder.tripType === 'private' || selectedOrder.isPrivateTrip || selectedOrder.isPrivateTour) && <div><dt>Subtotal trip</dt><dd>{formatCurrency((selectedOrder.participants || 1) * (selectedOrder.pricePerPerson || 0))}</dd></div>}
                   <div><dt>{t('checkout.participantTotal')}</dt><dd>{t('common.participantCount', { count: selectedOrder.participants || 1 })}</dd></div>
                   <div><dt>{t('account.approvalStatus')}</dt><dd><Badge status={selectedOrder.status} label={statusLabel(selectedOrder.status)} /></dd></div>
                 </dl>

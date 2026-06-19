@@ -38,7 +38,10 @@ export function getTripStartingPrice(trip) {
 
 export function getPrivatePriceRange(trip) {
   const packagePrices = getPrivatePackages(trip, true)
-    .map((item) => Number(item.price))
+    .flatMap((item) => {
+      const tiers = Object.values(item.pricePerPersonTiers || {}).map(Number)
+      return tiers.length ? tiers : [Number(item.price || 0)]
+    })
     .filter((price) => Number.isFinite(price) && price >= 0)
   if (packagePrices.length) {
     return { min: Math.min(...packagePrices), max: Math.max(...packagePrices) }

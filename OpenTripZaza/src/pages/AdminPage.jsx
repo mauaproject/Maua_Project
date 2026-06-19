@@ -90,7 +90,7 @@ const normalizeTripForm = (trip) => {
     availableEndDate: trip?.availableEndDate || trip?.privateEndDate || '',
     schedules: schedules.length ? schedules.map((schedule, index) => newSchedule(index, schedule)) : [newSchedule(0, { date: trip?.date || '', quota: trip?.quota || 10, bookedCount: 0 })],
     sessions: sessions.length ? sessions.map((session, index) => newSession(index, session)) : [newSession(0)],
-    privatePackages: privatePackages.length ? privatePackages.map((item, index) => newPrivatePackage(item, index)) : [newPrivatePackage({}, 0)],
+    privatePackages: privatePackages.map((item, index) => newPrivatePackage(item, index)),
     descriptionId: description.id,
     descriptionEn: description.en,
     destinationId: destination.id,
@@ -363,7 +363,11 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
   }
 
   const addPrivatePackage = () => {
-    const nextPackage = newPrivatePackage({}, (form.privatePackages || []).length)
+    const tierCount = Math.min(Math.max(1, Number(form.maxCustomPax) || 1), Math.max(1, Number(form.maxParticipants) || 1))
+    const nextPackage = newPrivatePackage({
+      maxCustomPax: tierCount,
+      pricePerPersonTiers: Object.fromEntries(Array.from({ length: tierCount }, (_, index) => [index + 1, ''])),
+    }, (form.privatePackages || []).length)
     nextPackage.packageCode = `package_${Date.now()}`
     setForm({
       ...form,
@@ -378,11 +382,48 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
   }
 
   const removePrivatePackage = (index) => {
-    if ((form.privatePackages || []).length <= 1) {
-      setFormError('Private trip minimal harus memiliki 1 paket.')
-      return
-    }
     setForm({ ...form, privatePackages: form.privatePackages.filter((_, itemIndex) => itemIndex !== index) })
+  }
+
+  const updatePriceTierCount = (value) => {
+    const maxParticipants = Math.max(1, Number(form.maxParticipants) || 1)
+    const nextCount = Math.min(Math.max(1, Number(value) || 1), maxParticipants)
+    const nextTiers = Object.fromEntries(
+      Array.from({ length: nextCount }, (_, index) => {
+        const pax = index + 1
+        return [pax, form.pricePerPersonTiers?.[pax] ?? '']
+      }),
+    )
+    setForm({ ...form, maxCustomPax: nextCount, pricePerPersonTiers: nextTiers })
+  }
+
+  const updatePriceTier = (pax, value) => {
+    setForm({ ...form, pricePerPersonTiers: { ...form.pricePerPersonTiers, [pax]: value } })
+  }
+
+  const updatePackageTierCount = (packageIndex, value) => {
+    const maxParticipants = Math.max(1, Number(form.maxParticipants) || 1)
+    const nextCount = Math.min(Math.max(1, Number(value) || 1), maxParticipants)
+    const item = form.privatePackages[packageIndex]
+    const pricePerPersonTiers = Object.fromEntries(
+      Array.from({ length: nextCount }, (_, index) => {
+        const pax = index + 1
+        return [pax, item.pricePerPersonTiers?.[pax] ?? '']
+      }),
+    )
+    const privatePackages = [...form.privatePackages]
+    privatePackages[packageIndex] = { ...item, maxCustomPax: nextCount, pricePerPersonTiers }
+    setForm({ ...form, privatePackages })
+  }
+
+  const updatePackageTier = (packageIndex, pax, value) => {
+    const privatePackages = [...form.privatePackages]
+    const item = privatePackages[packageIndex]
+    privatePackages[packageIndex] = {
+      ...item,
+      pricePerPersonTiers: { ...item.pricePerPersonTiers, [pax]: value },
+    }
+    setForm({ ...form, privatePackages })
   }
 
   const updateMaxParticipants = (value) => {
@@ -401,6 +442,19 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
       slots: value,
       maxCustomPax,
       pricePerPersonTiers: nextTiers,
+      privatePackages: (form.privatePackages || []).map((item) => {
+        const packageMax = Math.min(Math.max(1, Number(item.maxCustomPax) || 1), maxParticipants)
+        return {
+          ...item,
+          maxCustomPax: packageMax,
+          pricePerPersonTiers: Object.fromEntries(
+            Array.from({ length: packageMax }, (_, index) => {
+              const pax = index + 1
+              return [pax, item.pricePerPersonTiers?.[pax] ?? '']
+            }),
+          ),
+        }
+      }),
     })
   }
 
@@ -461,15 +515,26 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
       }
     }
     if (isPrivateTrip) {
-      const invalidPackage = !form.privatePackages?.length || form.privatePackages.some((item) => (
+      const hasPrivatePackages = Boolean(form.privatePackages?.length)
+      const invalidPackage = hasPrivatePackages && form.privatePackages.some((item) => (
         !item.name.trim()
-        || !Number.isFinite(Number(item.price))
-        || Number(item.price) <= 0
+        || Array.from({ length: Math.max(1, Number(item.maxCustomPax) || 1) }, (_, index) => Number(item.pricePerPersonTiers?.[index + 1]))
+          .some((price) => !Number.isFinite(price) || price <= 0)
         || !textToLines(item.destinationsText).length
       ))
       if (invalidPackage) {
-        setFormError('Private trip minimal punya 1 paket. Nama, harga, dan minimal 1 destinasi/aktivitas wajib diisi.')
+        setFormError('Setiap paket wajib memiliki nama, harga per orang berdasarkan jumlah peserta, dan minimal 1 destinasi/aktivitas.')
         return
+      }
+      if (!hasPrivatePackages) {
+        const legacyPrices = Array.from(
+          { length: Math.max(1, Number(form.maxCustomPax) || 1) },
+          (_, index) => Number(form.pricePerPersonTiers?.[index + 1]),
+        )
+        if (legacyPrices.some((price) => !Number.isFinite(price) || price <= 0)) {
+          setFormError('Harga private trip berdasarkan jumlah peserta wajib diisi dan harus lebih dari 0.')
+          return
+        }
       }
       const invalidSession = !form.sessions.length || form.sessions.some((session) => !session.startTime || !session.endTime || session.endTime <= session.startTime)
       if (invalidSession) {
@@ -504,12 +569,16 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
       id: Number(item.id) || null,
       packageCode: item.packageCode || `package_${index + 1}`,
       name: item.name.trim(),
-      price: Number(item.price),
+      price: Math.min(...Object.values(normalizePricePerPersonTiers(item.pricePerPersonTiers, item.price, item.maxCustomPax)).map(Number)),
+      maxCustomPax: Number(item.maxCustomPax),
+      pricePerPersonTiers: normalizePricePerPersonTiers(item.pricePerPersonTiers, item.price, item.maxCustomPax),
       destinations: textToLines(item.destinationsText),
       description: item.description.trim(),
       status: item.status === 'inactive' ? 'inactive' : 'active',
     }))
-    const privateStartingPrice = Math.min(...normalizedPrivatePackages.map((item) => item.price))
+    const privateStartingPrice = normalizedPrivatePackages.length
+      ? Math.min(...normalizedPrivatePackages.map((item) => item.price))
+      : Math.min(...Object.values(normalizedPriceTiers).map(Number))
     await saveTrip({
       ...tripForm,
       description: {
@@ -609,11 +678,26 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
                   <label>Jadwal fleksibel<input disabled value="Customer memilih tanggal saat checkout" /><small>Gunakan jadwal fleksibel karena customer dapat request tanggal sendiri.</small></label>
                   <label>Minimal peserta<input required type="number" min="1" value={form.minParticipants} onChange={(e) => setForm({ ...form, minParticipants: e.target.value })} /></label>
                   <label>Maksimal peserta<input required type="number" min="1" value={form.maxParticipants} onChange={(e) => updateMaxParticipants(e.target.value)} /></label>
+                  {!form.privatePackages?.length && (
+                    <div className="admin-nested-fields price-tier-editor full">
+                      <h4>Harga Private Trip Berdasarkan Jumlah Peserta</h4>
+                      <p className="muted full">Digunakan untuk private trip biasa yang tidak memiliki pilihan paket.</p>
+                      <label className="full">Atur harga sampai berapa peserta?
+                        <input required type="number" min="1" max={Math.max(1, Number(form.maxParticipants) || 1)} value={form.maxCustomPax} onChange={(e) => updatePriceTierCount(e.target.value)} />
+                        <small>Peserta di atas batas ini menggunakan tier harga terakhir.</small>
+                      </label>
+                      {Array.from({ length: Math.max(1, Number(form.maxCustomPax) || 1) }, (_, index) => index + 1).map((pax) => (
+                        <label key={pax}>Jika {pax} peserta, harga per orang
+                          <input required type="number" min="1" value={form.pricePerPersonTiers?.[pax] ?? ''} onChange={(e) => updatePriceTier(pax, e.target.value)} />
+                        </label>
+                      ))}
+                    </div>
+                  )}
                   <div className="admin-private-config-section full">
                     <div className="admin-private-config-head">
                       <div>
                         <h4>Paket Private Trip</h4>
-                        <p>Paket berisi pilihan rute, destinasi/aktivitas, dan harga tetap. Paket tidak menentukan jam keberangkatan.</p>
+                        <p>Paket berisi pilihan rute dan tier harga per orang berdasarkan jumlah peserta. Paket tidak menentukan jam keberangkatan.</p>
                       </div>
                       <button className="outline-btn" type="button" onClick={addPrivatePackage}>+ Tambah Paket</button>
                     </div>
@@ -622,8 +706,17 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
                         <div className="admin-nested-fields admin-private-package-card" key={item.id || item.packageCode || index}>
                           <h4>Paket {index + 1}</h4>
                           <label>Nama paket<input required value={item.name} onChange={(e) => updatePrivatePackage(index, 'name', e.target.value)} /></label>
-                          <label>Harga paket<input required type="number" min="1" value={item.price} onChange={(e) => updatePrivatePackage(index, 'price', e.target.value)} /></label>
                           <label>Status paket<select value={item.status} onChange={(e) => updatePrivatePackage(index, 'status', e.target.value)}><option value="active">Active</option><option value="inactive">Inactive</option></select></label>
+                          <label>Atur harga sampai berapa peserta?
+                            <input required type="number" min="1" max={Math.max(1, Number(form.maxParticipants) || 1)} value={item.maxCustomPax} onChange={(e) => updatePackageTierCount(index, e.target.value)} />
+                          </label>
+                          <div className="package-tier-grid full">
+                            {Array.from({ length: Math.max(1, Number(item.maxCustomPax) || 1) }, (_, tierIndex) => tierIndex + 1).map((pax) => (
+                              <label key={pax}>Jika {pax} peserta, harga per orang
+                                <input required type="number" min="1" value={item.pricePerPersonTiers?.[pax] ?? ''} onChange={(e) => updatePackageTier(index, pax, e.target.value)} />
+                              </label>
+                            ))}
+                          </div>
                           <label className="full">Daftar destinasi / aktivitas<textarea required placeholder="Satu destinasi atau aktivitas per baris." value={item.destinationsText} onChange={(e) => updatePrivatePackage(index, 'destinationsText', e.target.value)} /></label>
                           <label className="full">Deskripsi singkat (opsional)<textarea value={item.description} onChange={(e) => updatePrivatePackage(index, 'description', e.target.value)} /></label>
                           <button className="outline-btn danger-btn" type="button" onClick={() => removePrivatePackage(index)}>Hapus paket</button>
@@ -1382,6 +1475,8 @@ function RegistrationDetailModal({ item, trip, jobs = [], setRegistrationStatus,
               <div><dt>Tanggal</dt><dd>{formatDate(registrationDate)}</dd></div>
               {item.sessionName && <div><dt>Sesi</dt><dd>{item.sessionName}{item.startTime && item.endTime ? ` (${item.startTime} - ${item.endTime})` : ''}</dd></div>}
               {(item.isPrivateTrip || item.isPrivateTour || item.tripType === 'private') && <div><dt>Paket private</dt><dd>{item.selectedPackageName || '-'}</dd></div>}
+              {(item.isPrivateTrip || item.isPrivateTour || item.tripType === 'private') && <div><dt>Harga per orang</dt><dd>{formatCurrency(item.pricePerPerson || 0)}</dd></div>}
+              {(item.isPrivateTrip || item.isPrivateTour || item.tripType === 'private') && <div><dt>Subtotal trip</dt><dd>{formatCurrency((item.participants || 1) * (item.pricePerPerson || 0))}</dd></div>}
               {item.selectedPackageDestinations?.length > 0 && <div><dt>Destinasi / aktivitas</dt><dd>{item.selectedPackageDestinations.join(', ')}</dd></div>}
               <div><dt>Add-on</dt><dd>{getSelectedAddons(item).join(', ') || '-'}</dd></div>
             </dl>

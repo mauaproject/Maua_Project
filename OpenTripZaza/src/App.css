@@ -2051,6 +2051,13 @@ button:disabled {
   border-color: rgba(184, 132, 43, 0.28);
   background: #ffffff;
 }
+.package-tier-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  border-top: 1px solid var(--color-line);
+  padding-top: 14px;
+}
 .detail-private-packages {
   display: grid;
   gap: 16px;
@@ -5052,6 +5059,7 @@ td {
   .payment-choice-grid,
   .payment-method-grid,
   .private-package-grid,
+  .package-tier-grid,
   .admin-trip-grid,
   .account-summary-grid,
   .account-registration-list,
