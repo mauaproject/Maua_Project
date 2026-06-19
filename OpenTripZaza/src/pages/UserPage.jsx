@@ -507,7 +507,7 @@ export function CustomerCatalog({ trips, reviews = [], navigate, session, logout
         )}
       </div>
 
-      <section className="section-head compact-section-head" id="testimoni-list">
+      <section className="section-head compact-section-head testimonial-section-head" id="testimoni-list">
         <div>
           <p className="eyebrow">{t('catalog.testimonialEyebrow')}</p>
           <h2>{t('catalog.testimonialTitle')}</h2>

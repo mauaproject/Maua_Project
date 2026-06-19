@@ -1133,6 +1133,15 @@ button:disabled {
   display: grid;
   gap: clamp(26px, 4vw, 50px);
 }
+.home-page .catalog-section-list {
+  margin-top: -1px;
+  background: linear-gradient(
+    180deg,
+    var(--color-cream) 0,
+    rgba(243, 240, 238, 0.78) 90px,
+    rgba(243, 240, 238, 0) 240px
+  );
+}
 .catalog-trip-section {
   min-width: 0;
 }
@@ -1252,6 +1261,9 @@ button:disabled {
 }
 .visitor-review-preview {
   margin-top: clamp(46px, 7vw, 82px);
+}
+.visitor-review-preview > .section-head {
+  padding: 0 0 22px;
 }
 .visitor-review-grid {
   display: grid;
@@ -1671,6 +1683,9 @@ button:disabled {
 }
 .compact-section-head {
   padding-top: 4px;
+}
+.testimonial-section-head {
+  margin-top: clamp(42px, 6vw, 76px);
 }
 .trip-card h3,
 .job-card h3,
