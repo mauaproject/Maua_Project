@@ -4,11 +4,28 @@ require_once dirname(__DIR__) . '/config/helpers.php';
 requireMethod('POST');
 
 runEndpoint(function (PDO $pdo): void {
-    $data = jsonInput();
+    $isMultipart = isset($_POST['booking_data']);
+    if ($isMultipart) {
+        $data = json_decode((string) $_POST['booking_data'], true);
+        if (!is_array($data)) {
+            throw new InvalidArgumentException('Data checkout tidak valid.');
+        }
+    } else {
+        $data = jsonInput();
+    }
     requiredFields($data, ['userId', 'tripId', 'name', 'email', 'whatsapp', 'participants']);
     if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
         throw new InvalidArgumentException('Email customer tidak valid.');
     }
+    $paymentType = trim((string) ($data['paymentType'] ?? ''));
+    $hasPayment = $paymentType !== '' || isset($_FILES['proof']);
+    if ($hasPayment && !in_array($paymentType, ['dp', 'full'], true)) {
+        throw new InvalidArgumentException('Pilihan pembayaran harus DP atau Lunas.');
+    }
+    if ($hasPayment && !isset($_FILES['proof'])) {
+        throw new InvalidArgumentException('Bukti pembayaran wajib diunggah.');
+    }
+    $storedPaymentProof = null;
     $pdo->beginTransaction();
     try {
         $primary = is_array($data['participantDetails'] ?? null) ? ($data['participantDetails'][0] ?? []) : [];
@@ -77,6 +94,11 @@ runEndpoint(function (PDO $pdo): void {
         }
         $addonTotal = array_sum(array_map(static fn(array $addon): float => (float) $addon['price'], $selectedAddons));
         $totalPrice = ($participants * $pricePerPerson) + $addonTotal;
+        $requiredPaymentAmount = $paymentType === 'full'
+            ? $totalPrice
+            : round($totalPrice * 0.5);
+        $paymentStatus = $hasPayment ? 'waiting_verification' : null;
+        $bcaAccountNumber = trim((string) (getenv('VITE_BCA_ACCOUNT_NUMBER') ?: ($data['bcaAccountNumber'] ?? '')));
 
         $scheduleId = null;
         if (($data['tripType'] ?? 'open') === 'open') {
@@ -114,15 +136,19 @@ runEndpoint(function (PDO $pdo): void {
             'INSERT INTO bookings
             (user_id, trip_id, schedule_id, session_id, customer_name, customer_email, customer_whatsapp,
              trip_type, experience_type, selected_date, visible_until, start_time, end_time, participants, price_per_person,
-             total_price, status, notes, transport_from)
-            VALUES (?,?,?,?,?,?,?,?,?,?,DATE_ADD(?, INTERVAL 7 DAY),?,?,?,?,?,?,?,?)'
+             total_price, payment_type, payment_status, required_payment_amount, paid_amount, bca_account_number,
+             status, notes, transport_from)
+            VALUES (?,?,?,?,?,?,?,?,?,?,DATE_ADD(?, INTERVAL 7 DAY),?,?,?,?,?,?,?,?,?,?,?,?,?)'
         );
         $statement->execute([
             $userId, (int) $data['tripId'], $scheduleId, $sessionId, $data['name'], strtolower($data['email']),
             $data['whatsapp'], $data['tripType'] ?? 'open', $data['experienceType'] ?? 'cave',
             $data['selectedDate'] ?? null, $data['selectedDate'] ?? null,
             $data['startTime'] ?? null, $data['endTime'] ?? null,
-            $participants, $pricePerPerson, $totalPrice, 'Menunggu Approval',
+            $participants, $pricePerPerson, $totalPrice,
+            $hasPayment ? $paymentType : null, $paymentStatus,
+            $hasPayment ? $requiredPaymentAmount : 0, $hasPayment ? $requiredPaymentAmount : 0,
+            $hasPayment ? $bcaAccountNumber : null, 'Menunggu Approval',
             $data['notes'] ?? null, $data['transportFrom'] ?? null,
         ]);
         $bookingId = (int) $pdo->lastInsertId();
@@ -144,12 +170,33 @@ runEndpoint(function (PDO $pdo): void {
             $addonStatement->execute([$bookingId, (int) $addon['id'], (float) $addon['price']]);
         }
 
+        if ($hasPayment) {
+            $storedPaymentProof = storeUploadedImage($_FILES['proof'], 'payment-proofs');
+            $paymentStatement = $pdo->prepare(
+                "INSERT INTO payments
+                 (booking_id, amount, payment_method, payment_proof_url, payment_status, submitted_at)
+                 VALUES (?,?,?,?,?,NOW())"
+            );
+            $paymentStatement->execute([
+                $bookingId,
+                $requiredPaymentAmount,
+                trim((string) ($data['paymentChannel'] ?? 'qris_or_bca')),
+                $storedPaymentProof['path'],
+                $paymentStatus,
+            ]);
+        }
+
         $pdo->commit();
         $bookingStatement = $pdo->prepare('SELECT * FROM bookings WHERE id = ?');
         $bookingStatement->execute([$bookingId]);
         jsonSuccess(mapBooking($pdo, $bookingStatement->fetch()), 201);
     } catch (Throwable $exception) {
-        $pdo->rollBack();
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        if (is_array($storedPaymentProof) && !empty($storedPaymentProof['path'])) {
+            deleteStoredUpload((string) $storedPaymentProof['path'], 'payment-proofs');
+        }
         throw $exception;
     }
 });

@@ -6,10 +6,12 @@ import testimoni3 from '../assets/testimoni3.png'
 import backgroundLandingPageUser from '../assets/backgroundlandingpageuser.png'
 import horizontalLogo from '../assets/desainHorizontal.png'
 import verticalLogo from '../assets/desainvertikal.png'
+import qrisDummy from '../assets/Qris-Dummy.jpg'
 import { addonOptions } from '../config/constants'
 import { formatCurrency, formatDate, tripName } from '../utils/formatters'
 import { getCustomerJobStatusLabel, getJobAddonLabel, getJobCompletedAt, getJobResultLink, getJobWorkerName, getNormalizedJobStatus, getRegistrationResultJobs } from '../utils/jobResults'
 import { localizedList, localizedText } from '../utils/localization'
+import { DP_PERCENTAGE, getPaymentStatusLabel, getPaymentTypeLabel, getRequiredPaymentAmount, validatePaymentProof } from '../utils/payments'
 import { getPrivatePricePerPerson, getPrivatePriceRange, getTripStartingPrice } from '../utils/pricing'
 import { getOpenTripScheduleOptions, getPrivateDateRange, getPrivateSessionOptions, getRegistrationDate, getTripSchedules, isDateWithinPrivateRange } from '../utils/schedules'
 import { AppModal, Badge, InfoBlock, NotFound } from './shared'
@@ -860,34 +862,39 @@ export function TripDetail({ tripId, trips, registrations, navigate, session, lo
 export function RegistrationPage({
   tripId,
   trips,
-  submitRegistration,
+  preparePayment,
   navigate,
   session,
   logout,
   customerAccounts,
   registrations,
+  checkoutDraft,
   resendVerification,
   refreshEmailVerification,
 }) {
   const { t, lang, dateLocale, statusLabel } = useCustomerLanguage()
   const trip = trips.find((item) => item.id === tripId)
   const customerProfile = customerAccounts.find((item) => item.email === session?.email) || session || {}
-  const [form, setForm] = useState({
-    name: session?.role === 'customer' ? session.name : '',
-    whatsapp: session?.whatsapp || customerProfile.whatsapp || '',
-    email: session?.role === 'customer' ? session.email : '',
-    participants: trip?.isPrivateTrip ? Number(trip.minParticipants) || 1 : 1,
-    requestedDate: '',
-    scheduleId: '',
-    sessionId: '',
-    tripId,
-    notes: '',
-    isPrivateTour: Boolean(trip?.isPrivateTrip),
-    addons: [],
-    transportFrom: '',
-    paymentProof: null,
-    paymentMethod: 'transfer',
-    participantDetails: [buildParticipant({ ...customerProfile, name: session?.name || customerProfile.name })],
+  const [form, setForm] = useState(() => {
+    const defaults = {
+      name: session?.role === 'customer' ? session.name : '',
+      whatsapp: session?.whatsapp || customerProfile.whatsapp || '',
+      email: session?.role === 'customer' ? session.email : '',
+      participants: trip?.isPrivateTrip ? Number(trip.minParticipants) || 1 : 1,
+      requestedDate: '',
+      scheduleId: '',
+      sessionId: '',
+      tripId,
+      notes: '',
+      isPrivateTour: Boolean(trip?.isPrivateTrip),
+      addons: [],
+      transportFrom: '',
+      paymentType: '',
+      participantDetails: [buildParticipant({ ...customerProfile, name: session?.name || customerProfile.name })],
+    }
+    return Number(checkoutDraft?.tripId) === Number(tripId)
+      ? { ...defaults, ...checkoutDraft, paymentProof: undefined }
+      : defaults
   })
   const [error, setError] = useState('')
   const [pendingSubmission, setPendingSubmission] = useState(null)
@@ -926,6 +933,10 @@ export function RegistrationPage({
     const hasIncompleteParticipant = participantDetails.some((item) => !item.name || !item.address || !item.age || !item.gender)
     if (!form.name || !form.whatsapp || !form.email || hasIncompleteParticipant) {
       setError(t('error.checkoutRequired'))
+      return
+    }
+    if (!['dp', 'full'].includes(form.paymentType)) {
+      setError('Pilih pembayaran DP atau Lunas terlebih dahulu.')
       return
     }
     if (isPrivateBooking && !form.requestedDate) {
@@ -969,6 +980,9 @@ export function RegistrationPage({
     setPendingSubmission({
       ...form,
       userId: session.id,
+      tripName: selectedTrip.name,
+      tripDestination: getTripDestination(selectedTrip, lang),
+      selectedAddonDetails: availableAddons.filter((addon) => form.addons.includes(addon.id)),
       participantDetails,
       participants: isPrivateBooking ? participants : 1,
       isPrivateTour: isPrivateBooking,
@@ -994,8 +1008,7 @@ export function RegistrationPage({
         setIsVerificationModalOpen(true)
         return
       }
-      const isSubmitted = await submitRegistration(pendingSubmission)
-      if (!isSubmitted) setError(t('error.submitFailed'))
+      preparePayment(pendingSubmission)
       setPendingSubmission(null)
     } catch (submissionError) {
       setPendingSubmission(null)
@@ -1140,12 +1153,23 @@ export function RegistrationPage({
               ))}
             </section> : <p className="muted">Trip ini tidak memiliki add-on.</p>}
 
-            <div className="registration-fields">
-              <label className="full">Bukti pembayaran (opsional)
-                <input type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" onChange={(event) => setForm({ ...form, paymentProof: event.target.files?.[0] || null })} />
-                <small>Maksimal 5MB. Bukti dapat diunggah sekarang atau dikonfirmasi kepada admin.</small>
-              </label>
+            <div className="form-section-head">
+              <span>4</span>
+              <div>
+                <h2>Pilihan pembayaran</h2>
+                <p>Pilih nominal yang akan dibayar pada langkah berikutnya.</p>
+              </div>
             </div>
+            <section className="payment-choice-grid">
+              <label className={`payment-choice-card ${form.paymentType === 'dp' ? 'is-selected' : ''}`}>
+                <input type="radio" name="paymentType" value="dp" checked={form.paymentType === 'dp'} onChange={(event) => setForm({ ...form, paymentType: event.target.value })} />
+                <span><strong>DP terlebih dahulu</strong><small>Bayar {DP_PERCENTAGE * 100}% sekarang: {formatCurrency(getRequiredPaymentAmount(estimatedTotal, 'dp'))}</small></span>
+              </label>
+              <label className={`payment-choice-card ${form.paymentType === 'full' ? 'is-selected' : ''}`}>
+                <input type="radio" name="paymentType" value="full" checked={form.paymentType === 'full'} onChange={(event) => setForm({ ...form, paymentType: event.target.value })} />
+                <span><strong>Langsung lunas</strong><small>Bayar seluruh total: {formatCurrency(estimatedTotal)}</small></span>
+              </label>
+            </section>
 
             <div className="participant-form-list">
               {resizeParticipants(form.participantDetails, participants, { name: form.name }).map((participant, index) => (
@@ -1173,16 +1197,16 @@ export function RegistrationPage({
                 <span>{t('common.totalPrice')}</span>
                 <strong>{formatCurrency(estimatedTotal)}</strong>
               </div>
-              <button className="primary-btn" type="submit">{t('checkout.submit')}</button>
+              <button className="primary-btn" type="submit" disabled={!form.paymentType}>Lanjut ke Pembayaran</button>
             </div>
           </form>
         </div>
       </section>
       <AppModal
         isOpen={Boolean(pendingSubmission)}
-        title={t('checkout.confirmTitle')}
-        description={t('checkout.confirmDescription')}
-        confirmText={t('checkout.confirmSubmit')}
+        title="Lanjut ke pembayaran?"
+        description="Data checkout akan disimpan sementara dan dapat diperiksa kembali di halaman pembayaran."
+        confirmText="Lanjut Pembayaran"
         cancelText={t('checkout.reviewAgain')}
         variant="warning"
         onConfirm={confirmSubmitRegistration}
@@ -1203,6 +1227,206 @@ export function RegistrationPage({
       >
         {verificationMessage && <p className="form-status">{verificationMessage}</p>}
       </AppModal>
+    </main>
+  )
+}
+
+const paymentTerms = [
+  'Pembayaran DP digunakan untuk mengamankan slot trip.',
+  'Pelunasan dilakukan sesuai ketentuan admin sebelum keberangkatan.',
+  'Bukti pembayaran wajib diunggah agar pendaftaran bisa diproses.',
+  'Pendaftaran akan berstatus Menunggu sampai diverifikasi oleh admin.',
+  'Jika bukti pembayaran tidak valid, admin berhak menolak pendaftaran.',
+  'Perubahan jadwal atau pembatalan mengikuti kebijakan dari admin.',
+  'Dengan melanjutkan checkout, user dianggap menyetujui syarat dan ketentuan.',
+]
+
+export function PaymentConfirmationPage({
+  checkoutDraft,
+  trips,
+  submitRegistration,
+  navigate,
+  session,
+  logout,
+}) {
+  const { dateLocale } = useCustomerLanguage()
+  const [paymentProof, setPaymentProof] = useState(null)
+  const [previewUrl, setPreviewUrl] = useState('')
+  const [termsAccepted, setTermsAccepted] = useState(false)
+  const [error, setError] = useState('')
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const trip = trips.find((item) => Number(item.id) === Number(checkoutDraft?.tripId))
+  const totalPrice = Number(checkoutDraft?.totalHarga || checkoutDraft?.totalPrice || 0)
+  const requiredPaymentAmount = getRequiredPaymentAmount(totalPrice, checkoutDraft?.paymentType)
+  const selectedAddons = Array.isArray(checkoutDraft?.selectedAddonDetails)
+    ? checkoutDraft.selectedAddonDetails
+    : (trip?.addons || []).filter((addon) => checkoutDraft?.addons?.includes(addon.id))
+  const bcaAccountNumber = import.meta.env.VITE_BCA_ACCOUNT_NUMBER || ''
+  const bcaAccountName = import.meta.env.VITE_BCA_ACCOUNT_NAME || ''
+
+  useEffect(() => () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
+  }, [previewUrl])
+
+  if (!checkoutDraft) {
+    return (
+      <main className="public-page">
+        <PublicNav navigate={navigate} session={session} logout={logout} />
+        <section className="payment-page payment-empty-state">
+          <h1>Data checkout tidak ditemukan</h1>
+          <p className="muted">Silakan pilih trip dan lengkapi checkout terlebih dahulu.</p>
+          <button className="primary-btn" type="button" onClick={() => navigate('/open-trip')}>Pilih Trip</button>
+        </section>
+      </main>
+    )
+  }
+
+  const handleProofChange = (event) => {
+    const file = event.target.files?.[0] || null
+    const validationError = validatePaymentProof(file)
+    if (validationError) {
+      setPaymentProof(null)
+      setPreviewUrl('')
+      setError(validationError)
+      event.target.value = ''
+      return
+    }
+    setPaymentProof(file)
+    setPreviewUrl(URL.createObjectURL(file))
+    setError('')
+  }
+
+  const requestSubmit = (event) => {
+    event.preventDefault()
+    const validationError = validatePaymentProof(paymentProof)
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+    if (!termsAccepted) {
+      setError('Kamu harus menyetujui Syarat dan Ketentuan terlebih dahulu.')
+      return
+    }
+    setError('')
+    setIsConfirmOpen(true)
+  }
+
+  const confirmSubmit = async () => {
+    if (isSubmitting) return
+    setIsSubmitting(true)
+    setError('')
+    try {
+      const submitted = await submitRegistration({
+        ...checkoutDraft,
+        paymentProof,
+        requiredPaymentAmount,
+        paidAmount: requiredPaymentAmount,
+        bcaAccountNumber,
+      })
+      if (!submitted) {
+        setError('Pendaftaran gagal dikirim. Periksa kembali slot, jadwal, dan sesi trip.')
+        setIsConfirmOpen(false)
+      }
+    } catch (submissionError) {
+      setError(submissionError.message || 'Upload atau pengiriman pendaftaran gagal. Silakan coba kembali.')
+      setIsConfirmOpen(false)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  return (
+    <main className="public-page">
+      <PublicNav navigate={navigate} session={session} logout={logout} />
+      <section className="payment-page">
+        <div className="payment-page-head">
+          <div>
+            <p className="eyebrow">Konfirmasi pembayaran</p>
+            <h1>Selesaikan Pembayaran Trip</h1>
+            <p className="muted">Periksa ringkasan, lakukan pembayaran melalui QRIS atau BCA, lalu unggah bukti pembayaran.</p>
+          </div>
+          <button className="outline-btn" type="button" onClick={() => navigate(`/daftar/${checkoutDraft.tripId}`)}>Kembali ke Checkout</button>
+        </div>
+
+        <form className="payment-layout" onSubmit={requestSubmit}>
+          <div className="payment-main-column">
+            <section className="payment-card">
+              <h2>Ringkasan Trip</h2>
+              <dl className="payment-summary-list">
+                <div><dt>Nama trip</dt><dd>{trip?.name || checkoutDraft.tripName || '-'}</dd></div>
+                <div><dt>Tanggal trip</dt><dd>{checkoutDraft.selectedDate ? formatDate(checkoutDraft.selectedDate, dateLocale) : '-'}</dd></div>
+                {checkoutDraft.sessionName && <div><dt>Sesi</dt><dd>{checkoutDraft.sessionName}{checkoutDraft.startTime && checkoutDraft.endTime ? ` (${checkoutDraft.startTime} - ${checkoutDraft.endTime})` : ''}</dd></div>}
+                <div><dt>Jumlah peserta</dt><dd>{checkoutDraft.participants || 1} orang</dd></div>
+                <div><dt>Add-on</dt><dd>{selectedAddons.length ? selectedAddons.map((addon) => addon.name || addon.label).join(', ') : '-'}</dd></div>
+                <div><dt>Total harga</dt><dd>{formatCurrency(totalPrice)}</dd></div>
+                <div><dt>Pilihan pembayaran</dt><dd>{getPaymentTypeLabel(checkoutDraft.paymentType)}</dd></div>
+                <div className="payment-total-row"><dt>Nominal yang harus dibayar</dt><dd>{formatCurrency(requiredPaymentAmount)}</dd></div>
+              </dl>
+            </section>
+
+            <section className="payment-card">
+              <h2>Metode Pembayaran</h2>
+              <div className="payment-method-grid">
+                <div className="qris-payment-panel">
+                  <h3>QRIS</h3>
+                  <img src={qrisDummy} alt="QRIS dummy untuk pembayaran trip" />
+                  <small>Scan QRIS menggunakan aplikasi pembayaran pilihanmu.</small>
+                </div>
+                <div className="bank-payment-panel">
+                  <span>Transfer Bank BCA</span>
+                  <strong>{bcaAccountNumber || 'Nomor rekening belum dikonfigurasi'}</strong>
+                  <p>{bcaAccountName || 'Nama rekening belum dikonfigurasi'}</p>
+                  <small>Pastikan nominal transfer sesuai dengan nominal yang harus dibayar.</small>
+                </div>
+              </div>
+            </section>
+
+            <section className="payment-card">
+              <h2>Upload Bukti Pembayaran</h2>
+              <label className="payment-proof-field">
+                <span>Pilih gambar nota atau bukti transfer</span>
+                <input type="file" required accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" onChange={handleProofChange} />
+                <small>Format JPG, JPEG, PNG, atau WebP. Maksimal 5MB.</small>
+              </label>
+              {previewUrl && (
+                <div className="payment-proof-preview">
+                  <img src={previewUrl} alt="Preview bukti pembayaran" />
+                  <div><strong>{paymentProof?.name}</strong><small>{Math.ceil((paymentProof?.size || 0) / 1024)} KB</small></div>
+                </div>
+              )}
+            </section>
+          </div>
+
+          <aside className="payment-side-column">
+            <section className="payment-card terms-card">
+              <h2>Syarat dan Ketentuan</h2>
+              <ol>{paymentTerms.map((term) => <li key={term}>{term}</li>)}</ol>
+              <label className="terms-checkbox">
+                <input type="checkbox" checked={termsAccepted} onChange={(event) => setTermsAccepted(event.target.checked)} />
+                <span>Saya sudah membaca dan menyetujui Syarat dan Ketentuan</span>
+              </label>
+            </section>
+            {error && <p className="form-error payment-error">{error}</p>}
+            <button className="primary-btn payment-submit-btn" type="submit" disabled={!termsAccepted || !paymentProof || isSubmitting}>
+              {isSubmitting ? 'Mengirim...' : 'Kirim Pendaftaran'}
+            </button>
+          </aside>
+        </form>
+      </section>
+
+      <AppModal
+        isOpen={isConfirmOpen}
+        title="Konfirmasi Pendaftaran"
+        description="Apakah data dan bukti pembayaran sudah benar?"
+        confirmText={isSubmitting ? 'Mengirim...' : 'Ya, Kirim Pendaftaran'}
+        cancelText="Periksa Lagi"
+        variant="warning"
+        confirmDisabled={isSubmitting}
+        cancelDisabled={isSubmitting}
+        onConfirm={confirmSubmit}
+        onCancel={() => setIsConfirmOpen(false)}
+      />
     </main>
   )
 }
@@ -1376,6 +1600,8 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], navigate,
                   <div><dt>{t('common.type')}</dt><dd>{getTripTypeLabel(trip, item, t)}</dd></div>
                   <div><dt><span className="asset-icon icon-people" aria-hidden="true" />{t('common.participants')}</dt><dd>{t('common.participantCount', { count: item.participants })}</dd></div>
                   <div><dt>{t('common.totalPrice')}</dt><dd>{trip || item.totalHarga != null || item.totalPrice != null ? formatCurrency(totalPrice) : '-'}</dd></div>
+                  <div><dt>Pembayaran</dt><dd>{item.paymentType ? getPaymentTypeLabel(item.paymentType) : '-'}</dd></div>
+                  <div><dt>Status pembayaran</dt><dd>{getPaymentStatusLabel(item.paymentStatus)}</dd></div>
                   <div><dt>{t('common.bookingCode')}</dt><dd>MAUA-{item.id}</dd></div>
                 </dl>
                 <CustomerWorkResults jobs={workResults} t={t} dateLocale={dateLocale} compact />
@@ -1426,6 +1652,16 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], navigate,
                   {(selectedOrder.tripType === 'private' || selectedOrder.isPrivateTrip || selectedOrder.isPrivateTour) && selectedOrder.sessionName && <div><dt>{t('schedule.session')}</dt><dd>{selectedOrder.sessionName}{selectedOrder.startTime && selectedOrder.endTime ? ` (${selectedOrder.startTime} - ${selectedOrder.endTime})` : ''}</dd></div>}
                   <div><dt>{t('checkout.participantTotal')}</dt><dd>{t('common.participantCount', { count: selectedOrder.participants || 1 })}</dd></div>
                   <div><dt>{t('account.approvalStatus')}</dt><dd><Badge status={selectedOrder.status} label={statusLabel(selectedOrder.status)} /></dd></div>
+                </dl>
+              </section>
+              <section>
+                <h3>Pembayaran</h3>
+                <dl>
+                  <div><dt>Jenis pembayaran</dt><dd>{selectedOrder.paymentType ? getPaymentTypeLabel(selectedOrder.paymentType) : '-'}</dd></div>
+                  <div><dt>Total harga</dt><dd>{formatCurrency(selectedOrder.totalPrice || selectedOrder.totalHarga || 0)}</dd></div>
+                  <div><dt>Nominal dibayar</dt><dd>{formatCurrency(selectedOrder.requiredPaymentAmount || selectedOrder.paidAmount || 0)}</dd></div>
+                  <div><dt>Status verifikasi</dt><dd>{getPaymentStatusLabel(selectedOrder.paymentStatus)}</dd></div>
+                  <div><dt>Bukti pembayaran</dt><dd>{selectedOrder.paymentProofUrl ? <a href={selectedOrder.paymentProofUrl} target="_blank" rel="noreferrer">Lihat bukti</a> : '-'}</dd></div>
                 </dl>
               </section>
             </div>

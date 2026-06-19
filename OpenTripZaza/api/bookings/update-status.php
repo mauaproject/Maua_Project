@@ -19,7 +19,16 @@ runEndpoint(function (PDO $pdo): void {
         if (!$booking) {
             jsonError('Booking tidak ditemukan.', 404);
         }
-        $pdo->prepare('UPDATE bookings SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')->execute([$data['status'], $bookingId]);
+        $paymentStatus = match ($data['status']) {
+            'Disetujui', 'Selesai' => 'verified',
+            'Ditolak' => 'rejected',
+            default => 'waiting_verification',
+        };
+        $pdo->prepare(
+            'UPDATE bookings SET status = ?, payment_status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+        )->execute([$data['status'], $paymentStatus, $bookingId]);
+        $pdo->prepare('UPDATE payments SET payment_status = ? WHERE booking_id = ?')
+            ->execute([$paymentStatus, $bookingId]);
 
         if ($booking['schedule_id']) {
             $countStatement = $pdo->prepare(

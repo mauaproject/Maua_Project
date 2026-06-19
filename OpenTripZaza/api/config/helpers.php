@@ -205,6 +205,12 @@ function mapTrip(PDO $pdo, array $trip): array
 function mapBooking(PDO $pdo, array $booking): array
 {
     $id = (int) $booking['id'];
+    $paymentStmt = $pdo->prepare(
+        'SELECT amount, payment_method, payment_proof_url, payment_status, submitted_at
+         FROM payments WHERE booking_id = ? ORDER BY id DESC LIMIT 1'
+    );
+    $paymentStmt->execute([$id]);
+    $payment = $paymentStmt->fetch() ?: [];
     $participantsStmt = $pdo->prepare('SELECT name, address, age, gender, health_notes FROM booking_participants WHERE booking_id = ? ORDER BY id');
     $participantsStmt->execute([$id]);
     $participants = $participantsStmt->fetchAll();
@@ -259,6 +265,15 @@ function mapBooking(PDO $pdo, array $booking): array
         'hargaPerOrang' => (float) $booking['price_per_person'],
         'totalPrice' => (float) $booking['total_price'],
         'totalHarga' => (float) $booking['total_price'],
+        'paymentType' => $booking['payment_type'] ?? '',
+        'paymentStatus' => $booking['payment_status'] ?? ($payment['payment_status'] ?? ''),
+        'paymentProofUrl' => $payment['payment_proof_url'] ?? '',
+        'paymentMethod' => $payment['payment_method'] ?? '',
+        'requiredPaymentAmount' => (float) ($booking['required_payment_amount'] ?? ($payment['amount'] ?? 0)),
+        'paidAmount' => (float) ($booking['paid_amount'] ?? ($payment['amount'] ?? 0)),
+        'bcaAccountNumber' => $booking['bca_account_number'] ?? '',
+        'paymentSubmittedAt' => $payment['submitted_at'] ?? null,
+        'createdAt' => $booking['created_at'] ?? null,
         'status' => $booking['status'],
         'notes' => $booking['notes'] ?? '',
         'transportFrom' => $booking['transport_from'] ?? '',

@@ -155,7 +155,8 @@ function createInvoicePdf(array $invoice): string
     $commands[] = pdfText('Sub-total :', 430, $summaryY, 9, false, 'right');
     $commands[] = pdfText(pdfMoney((float) $invoice['subtotal']), 525, $summaryY, 9, false, 'right');
     $summaryY -= 28;
-    $commands[] = pdfText('DP / Dibayar :', 430, $summaryY, 9, false, 'right');
+    $paymentLabel = ($invoice['paymentType'] ?? '') === 'full' ? 'Dibayar lunas :' : 'DP / Dibayar :';
+    $commands[] = pdfText($paymentLabel, 430, $summaryY, 9, false, 'right');
     $commands[] = pdfText(pdfMoney((float) $invoice['paidAmount']), 525, $summaryY, 9, false, 'right');
     $summaryY -= 28;
     $commands[] = pdfText('Sisa pembayaran :', 430, $summaryY, 10, true, 'right');

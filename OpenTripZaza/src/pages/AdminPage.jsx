@@ -3,6 +3,7 @@ import { addonOptions, registrationStatuses, tripStatuses } from '../config/cons
 import { formatCurrency, formatDate, tripName } from '../utils/formatters'
 import { getCustomerJobStatusLabel, getJobAddonLabel, getJobCompletedAt, getJobResultLink, getJobWorkerName, getRegistrationResultJobs } from '../utils/jobResults'
 import { localizedList, localizedText, multilingualLines, multilingualText, textToLines } from '../utils/localization'
+import { getPaymentStatusLabel, getPaymentTypeLabel } from '../utils/payments'
 import { ABOVE_MAX_PAX_RULE, normalizePricePerPersonTiers } from '../utils/pricing'
 import { getPrivateDateRange, getRegistrationDate, getTripSchedules, getTripSessions, hasScheduleRegistrations, isSameScheduleRegistration, scheduleStatusLabel } from '../utils/schedules'
 import { AppModal, Badge, DataPanel, Metric, Sidebar } from './shared'
@@ -1051,6 +1052,22 @@ function AdminPrivateScheduleDetail({ registration, trips, jobs, setRegistration
             <p className="muted">{registration.notes || '-'}</p>
           </DataPanel>
 
+          <DataPanel title="Pembayaran">
+            <div className="registration-status-list">
+              <article className="registration-status-card">
+                <div className="registration-card-main">
+                  <dl>
+                    <div><dt>Jenis</dt><dd>{registration.paymentType ? getPaymentTypeLabel(registration.paymentType) : '-'}</dd></div>
+                    <div><dt>Total</dt><dd>{formatCurrency(registration.totalPrice || 0)}</dd></div>
+                    <div><dt>Dibayar</dt><dd>{formatCurrency(registration.requiredPaymentAmount || registration.paidAmount || 0)}</dd></div>
+                    <div><dt>Verifikasi</dt><dd>{getPaymentStatusLabel(registration.paymentStatus)}</dd></div>
+                  </dl>
+                  {registration.paymentProofUrl && <a className="outline-btn" href={registration.paymentProofUrl} target="_blank" rel="noreferrer">Lihat Bukti Pembayaran</a>}
+                </div>
+              </article>
+            </div>
+          </DataPanel>
+
           <DataPanel title="Hasil Pekerjaan Worker">
             <AdminJobResultsPanel jobs={tripJobs} />
           </DataPanel>
@@ -1277,6 +1294,8 @@ function RegistrationApprovalCard({ item, setRegistrationStatus, onDetail }) {
         <div><dt>Tanggal</dt><dd>{formatDate(getRegistrationDate(item))}</dd></div>
         {item.sessionName && <div><dt>Sesi</dt><dd>{item.sessionName}{item.startTime && item.endTime ? ` (${item.startTime} - ${item.endTime})` : ''}</dd></div>}
         <div><dt>Peserta</dt><dd>{item.participants} orang</dd></div>
+        <div><dt>Pembayaran</dt><dd>{item.paymentType ? getPaymentTypeLabel(item.paymentType) : '-'}</dd></div>
+        <div><dt>Nominal dibayar</dt><dd>{formatCurrency(item.requiredPaymentAmount || item.paidAmount || 0)}</dd></div>
         <div><dt>Usia</dt><dd>{item.age ? `${item.age} tahun` : '-'}</dd></div>
         <div><dt>Domisili</dt><dd>{item.address || '-'}</dd></div>
         <div className="full"><dt>Add-on</dt><dd>{getSelectedAddons(item).join(', ') || '-'}</dd></div>
@@ -1343,6 +1362,18 @@ function RegistrationDetailModal({ item, trip, jobs = [], setRegistrationStatus,
                 </div>
               ))}
             </div>
+          </section>
+
+          <section>
+            <h3>Informasi Pembayaran</h3>
+            <dl>
+              <div><dt>Jenis pembayaran</dt><dd>{item.paymentType ? getPaymentTypeLabel(item.paymentType) : '-'}</dd></div>
+              <div><dt>Total harga</dt><dd>{formatCurrency(item.totalPrice || item.totalHarga || 0)}</dd></div>
+              <div><dt>Nominal yang harus dibayar</dt><dd>{formatCurrency(item.requiredPaymentAmount || item.paidAmount || 0)}</dd></div>
+              <div><dt>Status verifikasi</dt><dd>{getPaymentStatusLabel(item.paymentStatus)}</dd></div>
+              <div><dt>Rekening BCA</dt><dd>{item.bcaAccountNumber || '-'}</dd></div>
+              <div><dt>Bukti pembayaran</dt><dd>{item.paymentProofUrl ? <a href={item.paymentProofUrl} target="_blank" rel="noreferrer">Lihat bukti pembayaran</a> : '-'}</dd></div>
+            </dl>
           </section>
 
           <section>

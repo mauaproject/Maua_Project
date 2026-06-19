@@ -41,6 +41,24 @@ Pilihan aksi worker:
 - `drive_link`: worker wajib mengisi link hasil Google Drive;
 - `none`: worker cukup mencentang pekerjaan selesai tanpa upload.
 
+## Migrasi pembayaran checkout
+
+Jalankan file berikut satu kali melalui phpMyAdmin:
+
+`api/migrations/2026-06-19-booking-payments.sql`
+
+Tambahkan konfigurasi rekening publik ke `.env` sebelum menjalankan build frontend:
+
+```env
+VITE_BCA_ACCOUNT_NUMBER=1234567890
+VITE_BCA_ACCOUNT_NAME=MAUA PROJECT
+```
+
+Flow pembayaran menyimpan jenis pembayaran DP/Lunas, nominal yang dibayar,
+status verifikasi, snapshot nomor rekening BCA, dan URL bukti pembayaran.
+Bukti pembayaran disimpan di `uploads/payment-proofs`, bukan sebagai nama file lokal.
+Jalankan `npm run build` kembali setiap kali nilai `VITE_...` frontend berubah.
+
 ## Tes cepat
 
 ```bash

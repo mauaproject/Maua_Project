@@ -1975,6 +1975,266 @@ button:disabled {
   color: var(--color-text);
   font-size: clamp(22px, 3vw, 30px);
 }
+.payment-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.payment-choice-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  border: 1px solid var(--color-line);
+  border-radius: 20px;
+  background: #ffffff;
+  padding: 16px;
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease, transform 140ms ease;
+}
+.payment-choice-card:hover,
+.payment-choice-card.is-selected {
+  border-color: var(--color-gold);
+  background: var(--color-gold-soft);
+  transform: translateY(-1px);
+}
+.payment-choice-card input {
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  accent-color: var(--color-gold);
+}
+.payment-choice-card span {
+  display: grid;
+  gap: 5px;
+}
+.payment-choice-card strong {
+  color: var(--color-ink);
+}
+.payment-choice-card small {
+  color: var(--color-muted);
+  line-height: 1.45;
+}
+
+/* Payment confirmation */
+.payment-page {
+  display: grid;
+  gap: 24px;
+  width: min(1240px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: clamp(112px, 11vw, 148px) 0 56px;
+}
+.payment-empty-state {
+  justify-items: start;
+  min-height: 70vh;
+  align-content: center;
+}
+.payment-empty-state h1,
+.payment-page-head h1 {
+  margin: 0;
+  color: var(--color-ink);
+  font-size: clamp(34px, 5vw, 58px);
+  line-height: 1.02;
+  letter-spacing: -0.04em;
+}
+.payment-page-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+}
+.payment-page-head .muted {
+  max-width: 760px;
+  margin-top: 12px;
+  line-height: 1.65;
+}
+.payment-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.75fr);
+  gap: 20px;
+  align-items: start;
+}
+.payment-main-column,
+.payment-side-column {
+  display: grid;
+  gap: 16px;
+}
+.payment-side-column {
+  position: sticky;
+  top: 96px;
+}
+.payment-card {
+  border: 1px solid var(--color-line);
+  border-radius: 26px;
+  background: #ffffff;
+  padding: clamp(18px, 3vw, 26px);
+  box-shadow: var(--shadow-soft);
+}
+.payment-card h2,
+.payment-card h3 {
+  margin: 0;
+  color: var(--color-ink);
+}
+.payment-card h2 {
+  margin-bottom: 18px;
+  font-size: 24px;
+}
+.payment-summary-list {
+  display: grid;
+  margin: 0;
+}
+.payment-summary-list div {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.7fr) minmax(0, 1fr);
+  gap: 16px;
+  border-bottom: 1px solid var(--color-line);
+  padding: 12px 0;
+}
+.payment-summary-list dt {
+  color: var(--color-muted);
+}
+.payment-summary-list dd {
+  margin: 0;
+  color: var(--color-ink);
+  font-weight: 600;
+}
+.payment-summary-list .payment-total-row {
+  margin-top: 6px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--color-gold-soft);
+  padding: 16px;
+}
+.payment-total-row dd {
+  color: #8a5a00;
+  font-size: 20px;
+}
+.payment-method-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(240px, 1fr);
+  gap: 16px;
+}
+.qris-payment-panel,
+.bank-payment-panel {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  border: 1px solid var(--color-line);
+  border-radius: 20px;
+  background: #fffdf8;
+  padding: 18px;
+}
+.qris-payment-panel img {
+  display: block;
+  width: min(100%, 280px);
+  aspect-ratio: 1;
+  margin: 2px auto;
+  border-radius: 14px;
+  object-fit: contain;
+}
+.qris-payment-panel small,
+.bank-payment-panel small,
+.bank-payment-panel p {
+  color: var(--color-muted);
+  line-height: 1.5;
+}
+.bank-payment-panel span {
+  color: var(--color-muted);
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.bank-payment-panel strong {
+  overflow-wrap: anywhere;
+  color: var(--color-ink);
+  font-size: clamp(24px, 4vw, 34px);
+  letter-spacing: 0.04em;
+}
+.bank-payment-panel p {
+  margin: 0;
+  font-weight: 600;
+}
+.payment-proof-field {
+  display: grid;
+  gap: 8px;
+}
+.payment-proof-field > span {
+  color: var(--color-ink);
+  font-weight: 600;
+}
+.payment-proof-field input {
+  width: 100%;
+  border: 1px dashed var(--color-gold);
+  border-radius: 16px;
+  background: var(--color-gold-soft);
+  padding: 16px;
+}
+.payment-proof-field small {
+  color: var(--color-muted);
+}
+.payment-proof-preview {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 16px;
+  border: 1px solid var(--color-line);
+  border-radius: 18px;
+  padding: 12px;
+}
+.payment-proof-preview img {
+  width: 88px;
+  height: 88px;
+  border-radius: 12px;
+  object-fit: cover;
+}
+.payment-proof-preview div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.payment-proof-preview strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.payment-proof-preview small {
+  color: var(--color-muted);
+}
+.terms-card ol {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+  padding-left: 22px;
+  color: var(--color-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.terms-checkbox {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  margin-top: 20px;
+  border-top: 1px solid var(--color-line);
+  padding-top: 18px;
+  color: var(--color-ink);
+  font-weight: 600;
+  line-height: 1.45;
+  cursor: pointer;
+}
+.terms-checkbox input {
+  width: 19px;
+  height: 19px;
+  margin: 1px 0 0;
+  accent-color: var(--color-gold);
+}
+.payment-submit-btn {
+  width: 100%;
+  min-height: 52px;
+}
+.payment-error {
+  margin: 0;
+}
 
 /* Registration summary and brand media */
 .participant-form-list {
@@ -4621,6 +4881,7 @@ td {
   }
   .trip-detail-layout,
   .registration-layout,
+  .payment-layout,
   .auth-shell,
   .faq-section,
   .admin-card-grid,
@@ -4634,7 +4895,8 @@ td {
     grid-template-columns: 1fr;
   }
   .trip-detail-sidebar,
-  .registration-summary {
+  .registration-summary,
+  .payment-side-column {
     position: static;
   }
   .testimonial-carousel-track {
@@ -4651,6 +4913,8 @@ td {
   .data-form,
   .registration-fields,
   .addon-option-grid,
+  .payment-choice-grid,
+  .payment-method-grid,
   .admin-trip-grid,
   .account-summary-grid,
   .account-registration-list,
@@ -4682,6 +4946,7 @@ td {
     font-size: 34px;
   }
   .registration-hero,
+  .payment-page-head,
   .trip-detail-topline,
   .public-footer,
   .admin-page-head,
@@ -4719,6 +4984,13 @@ td {
   }
   .registration-submit .primary-btn {
     width: 100%;
+  }
+  .payment-summary-list div {
+    grid-template-columns: 1fr;
+    gap: 5px;
+  }
+  .qris-payment-panel img {
+    width: min(100%, 240px);
   }
   .registration-card-actions,
   .registration-approval-card dl {

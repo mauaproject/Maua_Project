@@ -26,7 +26,15 @@ export const createTrip = (data) => jsonPost('trips/create.php', data)
 export const updateTrip = (data) => jsonPost('trips/update.php', data)
 export const deleteTrip = (id) => jsonPost('trips/delete.php', { id })
 
-export const createBooking = (data) => jsonPost('bookings/create.php', data)
+export const createBooking = (data, paymentProof = null) => {
+  if (paymentProof instanceof File) {
+    const form = new FormData()
+    form.append('booking_data', JSON.stringify(data))
+    form.append('proof', paymentProof)
+    return request('bookings/create.php', { method: 'POST', body: form })
+  }
+  return jsonPost('bookings/create.php', data)
+}
 export const getBookings = (archived = false) => request(`bookings/index.php${archived ? '?archived=1' : ''}`)
 export const getUserBookings = (email, archived = false) => request(`bookings/user.php?email=${encodeURIComponent(email)}${archived ? '&archived=1' : ''}`)
 export const updateBookingStatus = (id, status) => jsonPost('bookings/update-status.php', { id, status })

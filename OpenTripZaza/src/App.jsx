@@ -2,11 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import './App.css'
 import i18n from './i18n'
 import { AdminDashboard, AdminSchedule, AdminTrips, AdminWorkers, TripForm } from './pages/AdminPage'
-import { CustomerAccountPage, CustomerCatalog, CustomerLoginPage, CustomerSignupPage, DestinationPage, EmailVerificationPage, RegistrationPage, TripDetail } from './pages/UserPage'
+import { CustomerAccountPage, CustomerCatalog, CustomerLoginPage, CustomerSignupPage, DestinationPage, EmailVerificationPage, PaymentConfirmationPage, RegistrationPage, TripDetail } from './pages/UserPage'
 import { MyJobs, WorkerDashboard, WorkerJobDetail, WorkerJobs } from './pages/WorkerPage'
 import { LoginPage, NotFound } from './pages/shared'
 import * as api from './services/api'
 import { ABOVE_MAX_PAX_RULE, getPrivatePricePerPerson, normalizePricePerPersonTiers } from './utils/pricing'
+import { getRequiredPaymentAmount } from './utils/payments'
 import {
   getOpenTripScheduleOptions,
   getPrivateSessionOptions,
@@ -15,6 +16,15 @@ import {
 } from './utils/schedules'
 
 const getJobScope = (job) => job.registrationId ? `registration-${job.registrationId}` : `trip-${job.tripId}`
+const CHECKOUT_DRAFT_KEY = 'mauaCheckoutDraft'
+
+const readCheckoutDraft = () => {
+  try {
+    return JSON.parse(window.sessionStorage.getItem(CHECKOUT_DRAFT_KEY) || 'null')
+  } catch {
+    return null
+  }
+}
 
 function App() {
   const [path, setPath] = useState(window.location.pathname)
@@ -24,6 +34,7 @@ function App() {
   const [jobs, setJobs] = useState([])
   const [customerAccounts, setCustomerAccounts] = useState([])
   const [workerAccounts, setWorkerAccounts] = useState([])
+  const [checkoutDraft, setCheckoutDraft] = useState(readCheckoutDraft)
   const [toast, setToast] = useState('')
 
   const navigate = (target) => {
@@ -160,7 +171,21 @@ function App() {
 
   const logout = () => {
     setSession(null)
+    setCheckoutDraft(null)
+    window.sessionStorage.removeItem(CHECKOUT_DRAFT_KEY)
     navigate('/')
+  }
+
+  const preparePayment = (draft) => {
+    const nextDraft = { ...draft, paymentProof: undefined }
+    setCheckoutDraft(nextDraft)
+    window.sessionStorage.setItem(CHECKOUT_DRAFT_KEY, JSON.stringify(nextDraft))
+    navigate('/payment-confirmation')
+  }
+
+  const clearCheckoutDraft = () => {
+    setCheckoutDraft(null)
+    window.sessionStorage.removeItem(CHECKOUT_DRAFT_KEY)
   }
 
   const approvedByTrip = useMemo(() => {
@@ -174,6 +199,7 @@ function App() {
 
   const submitRegistration = async (form) => {
     if (!session?.emailVerified || Number(session.id) !== Number(form.userId)) return false
+    if (!['dp', 'full'].includes(form.paymentType) || !(form.paymentProof instanceof File)) return false
     const trip = trips.find((item) => item.id === Number(form.tripId))
     if (!trip || trip.status !== 'Tersedia') return false
     const approvedRegistrations = registrations.filter((item) => item.tripId === Number(form.tripId) && (item.status === 'Disetujui' || item.status === 'Selesai'))
@@ -209,10 +235,14 @@ function App() {
     const selectedAddonIds = Array.isArray(form.addons)
       ? form.addons.map(Number).filter((addonId) => tripAddons.some((option) => Number(option.id) === addonId))
       : []
+    const selectedAddonTotal = tripAddons
+      .filter((option) => selectedAddonIds.includes(Number(option.id)))
+      .reduce((total, option) => total + Number(option.price || 0), 0)
     const hargaPerOrang = isPrivateTour
       ? getPrivatePricePerPerson(trip, participantCount)
       : Number(trip.price || 0)
-    const totalHarga = participantCount * hargaPerOrang
+    const totalHarga = (participantCount * hargaPerOrang) + selectedAddonTotal
+    const requiredPaymentAmount = getRequiredPaymentAmount(totalHarga, form.paymentType)
     const nextItem = {
       name: form.name,
       whatsapp: form.whatsapp,
@@ -244,15 +274,15 @@ function App() {
       totalHarga,
       pricePerPerson: hargaPerOrang,
       totalPrice: totalHarga,
+      paymentType: form.paymentType,
+      paymentStatus: 'waiting_verification',
+      paidAmount: requiredPaymentAmount,
+      requiredPaymentAmount,
+      bcaAccountNumber: form.bcaAccountNumber || '',
+      paymentChannel: 'qris_or_bca',
       status: 'Menunggu Approval',
     }
-    const createdBooking = await api.createBooking(nextItem)
-    if (form.paymentProof instanceof File) {
-      await api.uploadPaymentProof(form.paymentProof, createdBooking.id, {
-        amount: totalHarga,
-        paymentMethod: form.paymentMethod || 'transfer',
-      })
-    }
+    await api.createBooking(nextItem, form.paymentProof)
     await refreshData()
     setSession((current) => current?.email === form.email ? {
       ...current,
@@ -263,6 +293,7 @@ function App() {
       gender: primaryParticipant.gender || '',
       healthNotes: primaryParticipant.healthNotes || '',
     } : current)
+    clearCheckoutDraft()
     showToast(i18n.t('toast.registrationSuccess'))
     navigate('/open-trip')
     return true
@@ -377,6 +408,9 @@ function App() {
     verifyEmailOtp,
     createWorkerAccount,
     logout,
+    checkoutDraft,
+    preparePayment,
+    clearCheckoutDraft,
     submitRegistration,
     setRegistrationStatus,
     saveTrip,
@@ -416,6 +450,10 @@ function RouteRenderer(props) {
   if (path === '/signup' || path === '/customer/signup') return <CustomerSignupPage {...props} />
   if (path.startsWith('/verify-email')) return <EmailVerificationPage {...props} />
   if (parts[0] === 'open-trip' && id) return <TripDetail tripId={id} {...props} />
+  if (path === '/payment-confirmation') {
+    if (session?.role !== 'customer') return <CustomerLoginPage afterLoginPath="/payment-confirmation" {...props} />
+    return <PaymentConfirmationPage {...props} />
+  }
   if (parts[0] === 'daftar' && id) {
     if (session?.role !== 'customer') return <CustomerLoginPage afterLoginPath={`/daftar/${id}`} {...props} />
     return <RegistrationPage tripId={id} {...props} />

@@ -75,12 +75,19 @@ function fetchReminderInvoice(PDO $pdo, array $booking): array
     );
     $paymentStatement->execute([(int) $booking['id']]);
     $payments = $paymentStatement->fetchAll();
-    $paidAmount = array_sum(array_map(static fn(array $payment): float => (float) $payment['amount'], $payments));
     $addonTotal = array_sum(array_column($addons, 'total'));
     $tripSubtotal = (int) $booking['participants'] * (float) $booking['price_per_person'];
     $subtotal = (float) $booking['total_price'];
     if ($subtotal <= 0) {
         $subtotal = $tripSubtotal + $addonTotal;
+    }
+    $paymentType = (string) ($booking['payment_type'] ?? '');
+    if ($paymentType === 'full') {
+        $paidAmount = $subtotal;
+    } elseif ($paymentType === 'dp') {
+        $paidAmount = (float) ($booking['paid_amount'] ?? $booking['required_payment_amount'] ?? round($subtotal * 0.5));
+    } else {
+        $paidAmount = array_sum(array_map(static fn(array $payment): float => (float) $payment['amount'], $payments));
     }
     $paymentLines = array_map(static fn(array $payment): string => sprintf(
         '%s - %s (%s), %s',
@@ -107,6 +114,7 @@ function fetchReminderInvoice(PDO $pdo, array $booking): array
         'subtotal' => $subtotal,
         'paidAmount' => $paidAmount,
         'balanceDue' => max(0, $subtotal - $paidAmount),
+        'paymentType' => $paymentType,
         'paymentLines' => $paymentLines,
         'paymentInstructions' => trim((string) getenv('PAYMENT_DETAILS')),
     ];
@@ -136,7 +144,7 @@ function invoiceHtml(array $invoice): string
         . reminderEscape($invoice['customerEmail']) . '</p>'
         . '<table style="width:100%;border-collapse:collapse">' . $items . '</table>'
         . '<p style="text-align:right">Subtotal: <strong>' . reminderMoney($invoice['subtotal']) . '</strong><br>'
-        . 'DP / pembayaran tercatat: <strong>' . reminderMoney($invoice['paidAmount']) . '</strong><br>'
+        . 'Pembayaran ' . ($invoice['paymentType'] === 'full' ? 'Lunas' : 'DP') . ': <strong>' . reminderMoney($invoice['paidAmount']) . '</strong><br>'
         . 'Sisa pembayaran: <strong>' . reminderMoney($invoice['balanceDue']) . '</strong></p>'
         . '<h3>Payment details</h3>' . $payments . '</div>';
 }
