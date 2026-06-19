@@ -182,3 +182,13 @@ Alur signup menggunakan OTP:
 OTP disimpan sebagai password hash, bukan dalam bentuk angka asli. Customer yang
 belum terverifikasi tetap akan ditolak oleh endpoint pembuatan booking meskipun
 validasi frontend dilewati.
+
+## Review Pengunjung
+
+Jalankan migrasi berikut satu kali melalui phpMyAdmin:
+
+`api/migrations/2026-06-19-reviews.sql`
+
+Review baru langsung berstatus `approved`, tetapi hanya dapat dibuat untuk booking
+milik user yang berstatus `Disetujui` atau `Selesai`. Satu booking hanya dapat
+memiliki satu review. Review `hidden` dan `deleted` tidak dikirim ke halaman publik.

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import './App.css'
 import i18n from './i18n'
-import { AdminDashboard, AdminSchedule, AdminTrips, AdminWorkers, TripForm } from './pages/AdminPage'
-import { CustomerAccountPage, CustomerCatalog, CustomerLoginPage, CustomerSignupPage, DestinationPage, EmailVerificationPage, PaymentConfirmationPage, RegistrationPage, TripDetail } from './pages/UserPage'
+import { AdminDashboard, AdminReviews, AdminSchedule, AdminTrips, AdminWorkers, TripForm } from './pages/AdminPage'
+import { CustomerAccountPage, CustomerCatalog, CustomerLoginPage, CustomerSignupPage, DestinationPage, EmailVerificationPage, PaymentConfirmationPage, RegistrationPage, ReviewsPage, TripDetail } from './pages/UserPage'
 import { MyJobs, WorkerDashboard, WorkerJobDetail, WorkerJobs } from './pages/WorkerPage'
 import { LoginPage, NotFound } from './pages/shared'
 import * as api from './services/api'
@@ -35,6 +35,9 @@ function App() {
   const [jobs, setJobs] = useState([])
   const [customerAccounts, setCustomerAccounts] = useState([])
   const [workerAccounts, setWorkerAccounts] = useState([])
+  const [reviews, setReviews] = useState([])
+  const [userReviews, setUserReviews] = useState([])
+  const [adminReviews, setAdminReviews] = useState([])
   const [checkoutDraft, setCheckoutDraft] = useState(readCheckoutDraft)
   const [toast, setToast] = useState('')
 
@@ -57,12 +60,13 @@ function App() {
 
   const refreshData = async () => {
     const detailMatch = window.location.pathname.match(/^\/open-trip\/(\d+)$/)
-    const [tripData, bookingData, taskData, customerData, workerData, detailTrip] = await Promise.all([
+    const [tripData, bookingData, taskData, customerData, workerData, reviewData, detailTrip] = await Promise.all([
       api.getTrips(true),
       api.getBookings(),
       api.getWorkerTasks(),
       api.getUsers('customer'),
       api.getUsers('worker'),
+      api.getReviews(),
       detailMatch ? api.getTripDetail(Number(detailMatch[1])) : Promise.resolve(null),
     ])
     setTrips(detailTrip ? tripData.map((trip) => trip.id === detailTrip.id ? detailTrip : trip) : tripData)
@@ -70,6 +74,7 @@ function App() {
     setJobs(taskData)
     setCustomerAccounts(customerData)
     setWorkerAccounts(workerData)
+    setReviews(reviewData)
   }
 
   useEffect(() => {
@@ -84,6 +89,7 @@ function App() {
       const account = await api.loginUser(form.email, form.password, role)
       setSession(account)
       await refreshData()
+      if (role === 'admin') setAdminReviews(await api.getReviews(true, account.email))
       navigate(role === 'admin' ? '/admin/dashboard' : '/pekerja/dashboard')
       return true
     } catch {
@@ -95,7 +101,12 @@ function App() {
     try {
       const account = await api.loginUser(form.email, form.password, 'customer')
       setSession(account)
-      setRegistrations(await api.getUserBookings(account.email))
+      const [bookingData, reviewData] = await Promise.all([
+        api.getUserBookings(account.email),
+        api.getUserReviews(account.email, account.id),
+      ])
+      setRegistrations(bookingData)
+      setUserReviews(reviewData)
       navigate(redirectTo)
       return true
     } catch {
@@ -172,6 +183,8 @@ function App() {
 
   const logout = () => {
     setSession(null)
+    setUserReviews([])
+    setAdminReviews([])
     setCheckoutDraft(null)
     window.sessionStorage.removeItem(CHECKOUT_DRAFT_KEY)
     navigate('/')
@@ -319,6 +332,29 @@ function App() {
     await refreshData()
   }
 
+  const submitReview = async (form) => {
+    if (session?.role !== 'customer') return false
+    const created = await api.createReview({
+      userId: Number(session.id),
+      bookingId: Number(form.bookingId),
+      email: session.email,
+      rating: Number(form.rating),
+      content: form.content,
+    })
+    setUserReviews((current) => [created, ...current])
+    setReviews((current) => [created, ...current])
+    showToast('Review berhasil dikirim. Terima kasih atas ulasanmu.')
+    return true
+  }
+
+  const setReviewStatus = async (id, status) => {
+    if (session?.role !== 'admin') return
+    await api.updateReviewStatus(id, status, session.email)
+    const [publicData, allData] = await Promise.all([api.getReviews(), api.getReviews(true, session.email)])
+    setReviews(publicData)
+    setAdminReviews(allData)
+  }
+
   const saveTrip = async (trip) => {
     const imageFiles = Array.isArray(trip.imageFiles) ? trip.imageFiles : []
     const tripData = { ...trip }
@@ -413,6 +449,9 @@ function App() {
     jobs,
     customerAccounts,
     workerAccounts,
+    reviews,
+    userReviews,
+    adminReviews,
     approvedByTrip,
     navigate,
     login,
@@ -428,6 +467,8 @@ function App() {
     clearCheckoutDraft,
     submitRegistration,
     setRegistrationStatus,
+    submitReview,
+    setReviewStatus,
     saveTrip,
     deleteTrip,
     takeJob,
@@ -456,6 +497,7 @@ function RouteRenderer(props) {
   }
 
   if (path === '/' || path === '/open-trip') return <CustomerCatalog {...props} />
+  if (path === '/reviews') return <ReviewsPage {...props} />
   if (path.startsWith('/destinasi')) return <DestinationPage {...props} />
   if (path === '/akun') {
     if (session?.role !== 'customer') return <CustomerLoginPage afterLoginPath="/akun" {...props} />
@@ -475,6 +517,7 @@ function RouteRenderer(props) {
   }
   if (path === '/admin/login') return <LoginPage role="admin" {...props} />
   if (path === '/admin/dashboard') return <AdminDashboard {...props} />
+  if (path === '/admin/reviews') return <AdminReviews {...props} />
   if (path === '/admin/open-trip') return <AdminTrips {...props} />
   if (path === '/admin/open-trip/tambah') return <TripForm {...props} />
   if (parts[0] === 'admin' && parts[1] === 'open-trip' && parts[2] === 'edit') return <TripForm tripId={Number(parts[3])} {...props} />

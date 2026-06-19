@@ -136,6 +136,7 @@ function AdminShell({ title, children, navigate, logout, path, registrations = [
         ['/admin/dashboard', 'Dashboard'],
         ['/admin/open-trip', 'Paket Trip'],
         ['/admin/jadwal', 'Jadwal', pendingParticipants],
+        ['/admin/reviews', 'Review'],
         ['/admin/pekerja', 'Akun Pekerja'],
       ]} navigate={navigate} logout={logout} path={path} />
       <section className="workspace">
@@ -173,6 +174,82 @@ export function AdminDashboard(props) {
         </div>
         <section className="stat-grid dashboard-stats">{stats.map(([label, value]) => <Metric key={label} label={label} value={value} />)}</section>
       </section>
+    </AdminShell>
+  )
+}
+
+export function AdminReviews(props) {
+  const [activeStatus, setActiveStatus] = useState('all')
+  const [pendingAction, setPendingAction] = useState(null)
+  const reviews = props.adminReviews || []
+  const visibleReviews = reviews.filter((review) => activeStatus === 'all' || review.status === activeStatus)
+  const actionLabel = pendingAction?.status === 'hidden'
+    ? 'Hide review'
+    : pendingAction?.status === 'deleted'
+      ? 'Soft delete review'
+      : 'Restore review'
+
+  const confirmAction = async () => {
+    if (!pendingAction) return
+    await props.setReviewStatus(pendingAction.review.id, pendingAction.status)
+    setPendingAction(null)
+  }
+
+  return (
+    <AdminShell title="Review Pengunjung" {...props}>
+      <section className="admin-page-stack admin-review-page">
+        <div className="admin-page-head">
+          <div>
+            <p className="eyebrow">Moderasi review</p>
+            <h2>Kelola review yang tampil ke publik.</h2>
+            <p className="muted">Review baru langsung approved. Admin dapat menyembunyikan, memulihkan, atau melakukan soft delete.</p>
+          </div>
+        </div>
+        <div className="segmented-tabs" role="tablist" aria-label="Filter status review">
+          {[['all', 'Semua'], ['approved', 'Approved'], ['hidden', 'Hidden'], ['deleted', 'Deleted']].map(([value, label]) => (
+            <button className={activeStatus === value ? 'is-active' : ''} key={value} type="button" onClick={() => setActiveStatus(value)}>
+              {label}<span>{value === 'all' ? reviews.length : reviews.filter((review) => review.status === value).length}</span>
+            </button>
+          ))}
+        </div>
+        {visibleReviews.length ? (
+          <div className="admin-review-grid">
+            {visibleReviews.map((review) => (
+              <article className="admin-review-card" key={review.id}>
+                <div className="admin-review-card-head">
+                  <div><h3>{review.reviewerName}</h3><span>{review.reviewerEmail}</span></div>
+                  <Badge status={review.status} label={review.status} />
+                </div>
+                <dl>
+                  <div><dt>Trip</dt><dd>{review.tripName}</dd></div>
+                  <div><dt>Rating</dt><dd>{'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}</dd></div>
+                  <div><dt>Tanggal</dt><dd>{formatDate(review.createdAt)}</dd></div>
+                </dl>
+                <p>{review.content}</p>
+                <div className="admin-review-actions">
+                  {review.status === 'approved' && <button className="outline-btn" type="button" onClick={() => setPendingAction({ review, status: 'hidden' })}>Hide</button>}
+                  {(review.status === 'hidden' || review.status === 'deleted') && <button className="outline-btn" type="button" onClick={() => setPendingAction({ review, status: 'approved' })}>Restore</button>}
+                  {review.status !== 'deleted' && <button className="outline-btn danger-btn" type="button" onClick={() => setPendingAction({ review, status: 'deleted' })}>Soft Delete</button>}
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : <p className="empty-state">Belum ada review untuk filter ini.</p>}
+      </section>
+      <AppModal
+        isOpen={Boolean(pendingAction)}
+        title={`${actionLabel}?`}
+        description={pendingAction?.status === 'deleted'
+          ? 'Review akan disembunyikan dari publik dan ditandai sebagai deleted.'
+          : pendingAction?.status === 'hidden'
+            ? 'Review akan disembunyikan dari homepage dan halaman review.'
+            : 'Review akan dikembalikan menjadi approved dan tampil ke publik.'}
+        confirmText={actionLabel}
+        cancelText="Batal"
+        variant={pendingAction?.status === 'deleted' ? 'danger' : 'warning'}
+        onConfirm={confirmAction}
+        onCancel={() => setPendingAction(null)}
+      />
     </AdminShell>
   )
 }

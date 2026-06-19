@@ -39,6 +39,11 @@ export const getBookings = (archived = false) => request(`bookings/index.php${ar
 export const getUserBookings = (email, archived = false) => request(`bookings/user.php?email=${encodeURIComponent(email)}${archived ? '&archived=1' : ''}`)
 export const updateBookingStatus = (id, status) => jsonPost('bookings/update-status.php', { id, status })
 
+export const getReviews = (all = false, adminEmail = '') => request(`reviews/index.php${all ? `?all=1&admin_email=${encodeURIComponent(adminEmail)}` : ''}`)
+export const getUserReviews = (email, userId) => request(`reviews/index.php?mine=1&email=${encodeURIComponent(email)}&user_id=${encodeURIComponent(userId)}`)
+export const createReview = (data) => jsonPost('reviews/create.php', data)
+export const updateReviewStatus = (id, status, adminEmail) => jsonPost('reviews/update-status.php', { id, status, adminEmail })
+
 export const getAddons = () => request('addons/index.php')
 export const getWorkerTasks = () => request('worker-tasks/index.php')
 export const takeWorkerTask = (id, workerData) => jsonPost('worker-tasks/take.php', { id, ...workerData })

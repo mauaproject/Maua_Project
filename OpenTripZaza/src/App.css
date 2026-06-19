@@ -1243,6 +1243,207 @@ button:disabled {
   color: var(--color-muted);
   font-size: 13px;
 }
+.visitor-review-preview,
+.reviews-page {
+  display: grid;
+  gap: 20px;
+  width: min(1180px, calc(100% - 32px));
+  margin-inline: auto;
+}
+.visitor-review-preview {
+  margin-top: clamp(46px, 7vw, 82px);
+}
+.visitor-review-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.visitor-review-card {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+  border: 1px solid rgba(184, 132, 43, 0.22);
+  border-radius: 24px;
+  background: #fffdf8;
+  padding: 20px;
+  box-shadow: 0 14px 34px rgba(36, 26, 8, 0.07);
+}
+.visitor-review-head,
+.admin-review-card-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.visitor-review-head h3,
+.admin-review-card h3 {
+  margin: 0;
+  color: var(--color-ink);
+}
+.visitor-review-head > div > span,
+.visitor-review-card time,
+.admin-review-card-head span {
+  color: var(--color-muted);
+  font-size: 13px;
+}
+.review-rating-badge {
+  flex: none;
+  border-radius: 999px;
+  background: var(--color-gold-soft);
+  padding: 6px 9px;
+}
+.review-stars {
+  color: #c18416;
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+.visitor-review-content {
+  margin: 0;
+  color: var(--color-text);
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.visitor-review-card.is-compact .visitor-review-content {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+.review-all-button {
+  justify-self: center;
+}
+.review-empty-state {
+  border: 1px dashed rgba(184, 132, 43, 0.35);
+  border-radius: 20px;
+  background: rgba(255, 253, 248, 0.8);
+  color: var(--color-muted);
+  padding: 22px;
+  text-align: center;
+}
+.reviews-page {
+  padding: clamp(118px, 11vw, 154px) 0 64px;
+}
+.reviews-page-head h1 {
+  margin: 4px 0 10px;
+  color: var(--color-ink);
+  font-size: clamp(38px, 6vw, 64px);
+  letter-spacing: -0.04em;
+}
+.reviews-page-head > p:last-child {
+  max-width: 720px;
+  color: var(--color-muted);
+  font-size: 17px;
+  line-height: 1.65;
+}
+.review-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  border: 1px solid var(--color-line);
+  border-radius: 22px;
+  background: #ffffff;
+  padding: 14px;
+}
+.review-toolbar label {
+  display: grid;
+  gap: 6px;
+  min-width: 210px;
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+.review-toolbar select,
+.review-form-fields select,
+.review-form-fields textarea {
+  width: 100%;
+  border: 1px solid var(--color-line);
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 11px 12px;
+}
+.account-review-form {
+  display: grid;
+  gap: 18px;
+  border: 1px solid rgba(184, 132, 43, 0.22);
+  border-radius: 26px;
+  background: #fffdf8;
+  padding: clamp(20px, 3vw, 28px);
+  box-shadow: 0 14px 34px rgba(36, 26, 8, 0.06);
+}
+.account-review-form h2 {
+  margin: 4px 0 0;
+  color: var(--color-ink);
+}
+.account-review-form form {
+  display: grid;
+  gap: 16px;
+}
+.review-form-fields {
+  display: grid;
+  grid-template-columns: 1fr 180px;
+  gap: 14px;
+}
+.review-form-fields label {
+  display: grid;
+  gap: 7px;
+  color: var(--color-ink);
+  font-weight: 600;
+}
+.review-form-fields .full {
+  grid-column: 1 / -1;
+}
+.review-form-fields textarea {
+  min-height: 130px;
+  resize: vertical;
+}
+.review-form-fields small {
+  color: var(--color-muted);
+  text-align: right;
+}
+.admin-review-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.admin-review-card {
+  display: grid;
+  gap: 14px;
+  border: 1px solid var(--color-line);
+  border-radius: 22px;
+  background: #ffffff;
+  padding: 18px;
+}
+.admin-review-card dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+.admin-review-card dl div {
+  display: grid;
+  gap: 3px;
+}
+.admin-review-card dt {
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.admin-review-card dd {
+  margin: 0;
+  color: var(--color-text);
+  font-weight: 600;
+}
+.admin-review-card > p {
+  margin: 0;
+  color: var(--color-text);
+  line-height: 1.6;
+}
+.admin-review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 .faq-section {
   display: grid;
   grid-template-columns: minmax(220px, 0.45fr) minmax(0, 1fr);
@@ -1579,6 +1780,18 @@ button:disabled {
 .badge-selesai {
   background: #f4ead8;
   color: #6f5b2c;
+}
+.badge-approved {
+  background: rgba(47, 135, 93, 0.14);
+  color: #216d4a;
+}
+.badge-hidden {
+  background: rgba(184, 132, 43, 0.14);
+  color: #805a15;
+}
+.badge-deleted {
+  background: rgba(176, 55, 55, 0.13);
+  color: #933838;
 }
 .detail-panel {
   display: grid;
@@ -5019,6 +5232,7 @@ td {
   .admin-trip-grid,
   .account-summary-grid,
   .account-registration-list,
+  .visitor-review-grid,
   .stat-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -5063,6 +5277,9 @@ td {
   .admin-trip-grid,
   .account-summary-grid,
   .account-registration-list,
+  .visitor-review-grid,
+  .admin-review-grid,
+  .review-form-fields,
   .auth-form-grid {
     grid-template-columns: 1fr;
   }
@@ -5140,6 +5357,14 @@ td {
   .registration-card-actions,
   .registration-approval-card dl {
     grid-template-columns: 1fr;
+  }
+  .review-form-fields .full {
+    grid-column: auto;
+  }
+  .visitor-review-head,
+  .admin-review-card-head {
+    align-items: stretch;
+    flex-direction: column;
   }
   .admin-private-config-head,
   .private-package-card > div {

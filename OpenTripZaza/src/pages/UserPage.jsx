@@ -393,7 +393,32 @@ function TestimonialCarousel() {
   )
 }
 
-export function CustomerCatalog({ trips, navigate, session, logout }) {
+const reviewDate = (value, locale = 'id-ID') => {
+  if (!value) return '-'
+  return new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(value))
+}
+
+function ReviewStars({ rating }) {
+  return <span className="review-stars" aria-label={`${rating} dari 5 bintang`}>{'★'.repeat(rating)}{'☆'.repeat(5 - rating)}</span>
+}
+
+function ReviewCard({ review, dateLocale, compact = false }) {
+  return (
+    <article className={`visitor-review-card ${compact ? 'is-compact' : ''}`}>
+      <div className="visitor-review-head">
+        <div>
+          <h3>{review.reviewerName}</h3>
+          <span>{review.tripName}</span>
+        </div>
+        <span className="review-rating-badge"><ReviewStars rating={review.rating} /></span>
+      </div>
+      <p className="visitor-review-content">{review.content}</p>
+      <time dateTime={review.createdAt}>{reviewDate(review.createdAt, dateLocale)}</time>
+    </article>
+  )
+}
+
+export function CustomerCatalog({ trips, reviews = [], navigate, session, logout }) {
   const { t } = useCustomerLanguage()
   const activeTrips = trips.filter((trip) => !trip.isArchived && (trip.status === 'Tersedia' || trip.status === 'Penuh'))
   const featuredTrips = activeTrips
@@ -401,6 +426,9 @@ export function CustomerCatalog({ trips, navigate, session, logout }) {
   const openCaveTrips = activeTrips.filter((trip) => !isCustomExperience(trip) && !trip.isPrivateTrip)
   const privateCaveTrips = activeTrips.filter((trip) => !isCustomExperience(trip) && trip.isPrivateTrip)
   const otherTrips = activeTrips.filter((trip) => isCustomExperience(trip))
+  const featuredReviews = [...reviews]
+    .sort((a, b) => Number(b.rating) - Number(a.rating) || String(b.createdAt).localeCompare(String(a.createdAt)))
+    .slice(0, 3)
 
   useEffect(() => {
     const elements = document.querySelectorAll('.reveal-on-scroll')
@@ -488,6 +516,21 @@ export function CustomerCatalog({ trips, navigate, session, logout }) {
 
       <TestimonialCarousel />
 
+      <section className="visitor-review-preview">
+        <div className="section-head compact-section-head">
+          <div>
+            <p className="eyebrow">Cerita peserta</p>
+            <h2>Review Pengunjung</h2>
+          </div>
+        </div>
+        {featuredReviews.length ? (
+          <div className="visitor-review-grid">
+            {featuredReviews.map((review) => <ReviewCard review={review} dateLocale="id-ID" compact key={review.id} />)}
+          </div>
+        ) : <p className="review-empty-state">Belum ada review yang ditampilkan.</p>}
+        <button className="outline-btn review-all-button" type="button" onClick={() => navigate('/reviews')}>Lihat Semua Review</button>
+      </section>
+
       <section className="faq-section" id="faq-list">
         <div className="faq-head">
           <p className="eyebrow">{t('catalog.faqEyebrow')}</p>
@@ -513,6 +556,52 @@ export function CustomerCatalog({ trips, navigate, session, logout }) {
           <a href="https://wa.me/62882005881248" target="_blank" rel="noreferrer">0882005881248</a>
         </div>
       </footer>
+    </main>
+  )
+}
+
+export function ReviewsPage({ reviews = [], navigate, session, logout }) {
+  const { dateLocale } = useCustomerLanguage()
+  const [ratingFilter, setRatingFilter] = useState('all')
+  const [sortBy, setSortBy] = useState('latest')
+  const visibleReviews = [...reviews]
+    .filter((review) => {
+      if (ratingFilter === '5') return review.rating === 5
+      if (ratingFilter === '4') return review.rating === 4
+      if (ratingFilter === '3down') return review.rating <= 3
+      return true
+    })
+    .sort((a, b) => sortBy === 'rating'
+      ? Number(b.rating) - Number(a.rating) || String(b.createdAt).localeCompare(String(a.createdAt))
+      : String(b.createdAt).localeCompare(String(a.createdAt)))
+
+  return (
+    <main className="public-page">
+      <PublicNav navigate={navigate} session={session} logout={logout} />
+      <section className="reviews-page">
+        <div className="reviews-page-head">
+          <p className="eyebrow">Pengalaman nyata peserta</p>
+          <h1>Review Pengunjung</h1>
+          <p>Cerita dan pengalaman dari peserta yang sudah mengikuti trip bersama kami.</p>
+        </div>
+        <div className="review-toolbar">
+          <label>Filter rating<select value={ratingFilter} onChange={(event) => setRatingFilter(event.target.value)}>
+            <option value="all">Semua rating</option>
+            <option value="5">5 bintang</option>
+            <option value="4">4 bintang</option>
+            <option value="3down">3 bintang ke bawah</option>
+          </select></label>
+          <label>Urutkan<select value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
+            <option value="latest">Terbaru</option>
+            <option value="rating">Rating tertinggi</option>
+          </select></label>
+        </div>
+        {visibleReviews.length ? (
+          <div className="visitor-review-grid reviews-full-grid">
+            {visibleReviews.map((review) => <ReviewCard review={review} dateLocale={dateLocale} key={review.id} />)}
+          </div>
+        ) : <p className="review-empty-state">Belum ada review yang ditampilkan.</p>}
+      </section>
     </main>
   )
 }
@@ -1569,10 +1658,13 @@ export function EmailVerificationPage({ path, navigate, verifyEmailOtp, resendVe
   )
 }
 
-export function CustomerAccountPage({ registrations, trips, jobs = [], navigate, session, logout }) {
+export function CustomerAccountPage({ registrations, trips, jobs = [], userReviews = [], submitReview, navigate, session, logout }) {
   const { t, lang, dateLocale, statusLabel } = useCustomerLanguage()
   const [activeFilter, setActiveFilter] = useState('Semua')
   const [selectedOrder, setSelectedOrder] = useState(null)
+  const [reviewForm, setReviewForm] = useState({ bookingId: '', rating: 5, content: '' })
+  const [reviewError, setReviewError] = useState('')
+  const [reviewSubmitting, setReviewSubmitting] = useState(false)
 
   if (session?.role !== 'customer') {
     navigate('/login')
@@ -1587,6 +1679,11 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], navigate,
   const waitingCount = myRegistrations.filter((item) => item.status === 'Menunggu Approval').length
   const approvedCount = myRegistrations.filter((item) => item.status === 'Disetujui' || item.status === 'Selesai').length
   const rejectedCount = myRegistrations.filter((item) => item.status === 'Ditolak').length
+  const reviewedBookingIds = new Set(userReviews.map((review) => Number(review.bookingId)))
+  const reviewableBookings = myRegistrations.filter((item) => (
+    (item.status === 'Disetujui' || item.status === 'Selesai')
+    && !reviewedBookingIds.has(Number(item.id))
+  ))
   const filterOptions = [
     ['Semua', t('account.all'), myRegistrations.length],
     ['Menunggu', t('account.waiting'), waitingCount],
@@ -1622,6 +1719,53 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], navigate,
           <div className="metric account-metric"><span>{t('account.waitingApproval')}</span><strong>{waitingCount}</strong></div>
           <div className="metric account-metric"><span>{t('account.approved')}</span><strong>{approvedCount}</strong></div>
           <div className="metric account-metric"><span>{t('account.rejected')}</span><strong>{rejectedCount}</strong></div>
+        </section>
+
+        <section className="account-review-form">
+          <div>
+            <p className="eyebrow">Bagikan pengalaman</p>
+            <h2>Tulis Review Pengunjung</h2>
+            <p className="muted">Review hanya dapat dikirim untuk booking yang sudah disetujui atau selesai.</p>
+          </div>
+          {reviewableBookings.length ? (
+            <form onSubmit={async (event) => {
+              event.preventDefault()
+              const content = reviewForm.content.trim()
+              if (!reviewForm.bookingId || Number(reviewForm.rating) < 1 || Number(reviewForm.rating) > 5) {
+                setReviewError('Pilih trip dan rating terlebih dahulu.')
+                return
+              }
+              if (content.length < 10 || content.length > 500) {
+                setReviewError('Isi review harus antara 10 sampai 500 karakter.')
+                return
+              }
+              setReviewSubmitting(true)
+              setReviewError('')
+              try {
+                await submitReview({ ...reviewForm, content })
+                setReviewForm({ bookingId: '', rating: 5, content: '' })
+              } catch (error) {
+                setReviewError(error.message || 'Review gagal dikirim.')
+              } finally {
+                setReviewSubmitting(false)
+              }
+            }}>
+              {reviewError && <p className="form-error">{reviewError}</p>}
+              <div className="review-form-fields">
+                <label>Pilih trip<select required value={reviewForm.bookingId} onChange={(event) => setReviewForm({ ...reviewForm, bookingId: event.target.value })}>
+                  <option value="">Pilih booking yang ingin direview</option>
+                  {reviewableBookings.map((booking) => (
+                    <option key={booking.id} value={booking.id}>{tripName(trips, booking.tripId)} — MAUA-{booking.id}</option>
+                  ))}
+                </select></label>
+                <label>Rating<select required value={reviewForm.rating} onChange={(event) => setReviewForm({ ...reviewForm, rating: Number(event.target.value) })}>
+                  {[5, 4, 3, 2, 1].map((rating) => <option value={rating} key={rating}>{rating} bintang</option>)}
+                </select></label>
+                <label className="full">Isi review<textarea minLength="10" maxLength="500" required placeholder="Ceritakan pengalamanmu mengikuti trip..." value={reviewForm.content} onChange={(event) => setReviewForm({ ...reviewForm, content: event.target.value })} /><small>{reviewForm.content.length}/500 karakter</small></label>
+              </div>
+              <button className="primary-btn" disabled={reviewSubmitting} type="submit">{reviewSubmitting ? 'Mengirim...' : 'Kirim Review'}</button>
+            </form>
+          ) : <p className="review-empty-state">Belum ada booking Disetujui atau Selesai yang dapat direview.</p>}
         </section>
 
         <div className="account-filter-tabs" role="tablist" aria-label={t('account.filterLabel')}>
