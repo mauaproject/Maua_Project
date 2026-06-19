@@ -986,16 +986,21 @@ export function RegistrationPage({
 
   const confirmSubmitRegistration = async () => {
     if (!pendingSubmission) return
-    const verified = await refreshEmailVerification()
-    if (!verified) {
+    try {
+      const verified = await refreshEmailVerification()
+      if (!verified) {
+        setPendingSubmission(null)
+        setVerificationMessage(t('verification.notVerifiedYet'))
+        setIsVerificationModalOpen(true)
+        return
+      }
+      const isSubmitted = await submitRegistration(pendingSubmission)
+      if (!isSubmitted) setError(t('error.submitFailed'))
       setPendingSubmission(null)
-      setVerificationMessage(t('verification.notVerifiedYet'))
-      setIsVerificationModalOpen(true)
-      return
+    } catch (submissionError) {
+      setPendingSubmission(null)
+      setError(submissionError.message || t('error.submitFailed'))
     }
-    const isSubmitted = await submitRegistration(pendingSubmission)
-    if (!isSubmitted) setError(t('error.submitFailed'))
-    setPendingSubmission(null)
   }
 
   const handleResendVerification = async () => {
