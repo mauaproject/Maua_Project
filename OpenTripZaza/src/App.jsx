@@ -6,8 +6,9 @@ import { CustomerAccountPage, CustomerCatalog, CustomerLoginPage, CustomerSignup
 import { MyJobs, WorkerDashboard, WorkerJobDetail, WorkerJobs } from './pages/WorkerPage'
 import { LoginPage, NotFound } from './pages/shared'
 import * as api from './services/api'
-import { ABOVE_MAX_PAX_RULE, getPrivatePricePerPerson, normalizePricePerPersonTiers } from './utils/pricing'
+import { ABOVE_MAX_PAX_RULE, normalizePricePerPersonTiers } from './utils/pricing'
 import { getRequiredPaymentAmount } from './utils/payments'
+import { getPrivatePackages } from './utils/privatePackages'
 import {
   getOpenTripScheduleOptions,
   getPrivateSessionOptions,
@@ -238,10 +239,15 @@ function App() {
     const selectedAddonTotal = tripAddons
       .filter((option) => selectedAddonIds.includes(Number(option.id)))
       .reduce((total, option) => total + Number(option.price || 0), 0)
-    const hargaPerOrang = isPrivateTour
-      ? getPrivatePricePerPerson(trip, participantCount)
-      : Number(trip.price || 0)
-    const totalHarga = (participantCount * hargaPerOrang) + selectedAddonTotal
+    const privatePackages = isPrivateTour ? getPrivatePackages(trip, true) : []
+    const selectedPackage = isPrivateTour
+      ? privatePackages.find((item) => String(item.id) === String(form.selectedPackageId))
+      : null
+    if (isPrivateTour && !selectedPackage) return false
+    const hargaPerOrang = isPrivateTour ? 0 : Number(trip.price || 0)
+    const totalHarga = isPrivateTour
+      ? Number(selectedPackage.price) + selectedAddonTotal
+      : (participantCount * hargaPerOrang) + selectedAddonTotal
     const requiredPaymentAmount = getRequiredPaymentAmount(totalHarga, form.paymentType)
     const nextItem = {
       name: form.name,
@@ -263,6 +269,10 @@ function App() {
       sessionName: isPrivateTour ? selectedSession.name : '',
       startTime: isPrivateTour ? selectedSession.startTime : '',
       endTime: isPrivateTour ? selectedSession.endTime : '',
+      selectedPackageId: selectedPackage?.id || null,
+      selectedPackageName: selectedPackage?.name || '',
+      selectedPackagePrice: Number(selectedPackage?.price || 0),
+      selectedPackageDestinations: selectedPackage?.destinations || [],
       address: primaryParticipant.address || '',
       age: primaryParticipant.age || '',
       gender: primaryParticipant.gender || '',

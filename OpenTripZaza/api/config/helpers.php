@@ -130,6 +130,7 @@ function mapTrip(PDO $pdo, array $trip): array
     $images = $query('SELECT id, image_url, sort_order FROM trip_images WHERE trip_id = ? ORDER BY sort_order, id');
     $schedules = $query('SELECT id, schedule_code, schedule_date, visible_until, archived_at, quota, booked_count, status FROM trip_schedules WHERE trip_id = ? ORDER BY schedule_date, id');
     $sessions = $query('SELECT id, session_code, name, start_time, end_time, status FROM trip_sessions WHERE trip_id = ? ORDER BY start_time, id');
+    $packages = $query('SELECT id, package_code, name, price, destinations_json, description, status, sort_order FROM private_trip_packages WHERE trip_id = ? ORDER BY sort_order, id');
     $tiers = $query('SELECT pax_count, price_per_person FROM private_price_tiers WHERE trip_id = ? ORDER BY pax_count');
     $addons = $query("SELECT id, name, price, worker_action, status, sort_order FROM trip_addons WHERE trip_id = ? AND status = 'active' ORDER BY sort_order, id");
     $tierMap = [];
@@ -189,6 +190,16 @@ function mapTrip(PDO $pdo, array $trip): array
         'imageUrls' => array_column($images, 'image_url'),
         'schedules' => $mappedSchedules,
         'sessions' => $mappedSessions,
+        'privatePackages' => array_map(static fn(array $item): array => [
+            'id' => (int) $item['id'],
+            'packageCode' => $item['package_code'],
+            'name' => $item['name'],
+            'price' => (float) $item['price'],
+            'destinations' => decodeText($item['destinations_json']) ?: [],
+            'description' => $item['description'] ?? '',
+            'status' => $item['status'],
+            'sortOrder' => (int) $item['sort_order'],
+        ], $packages),
         'pricePerPersonTiers' => $tierMap,
         'addons' => array_map(static fn(array $item): array => [
             'id' => (int) $item['id'],
@@ -248,6 +259,10 @@ function mapBooking(PDO $pdo, array $booking): array
         'scheduleId' => $schedule['schedule_code'] ?? '',
         'sessionId' => $session['session_code'] ?? '',
         'sessionName' => $session['name'] ?? '',
+        'selectedPackageId' => nullableInt($booking['selected_package_id'] ?? null),
+        'selectedPackageName' => $booking['selected_package_name'] ?? '',
+        'selectedPackagePrice' => (float) ($booking['selected_package_price'] ?? 0),
+        'selectedPackageDestinations' => decodeText($booking['selected_package_destinations'] ?? '') ?: [],
         'name' => $booking['customer_name'],
         'email' => $booking['customer_email'],
         'whatsapp' => $booking['customer_whatsapp'],

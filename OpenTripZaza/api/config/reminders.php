@@ -76,7 +76,10 @@ function fetchReminderInvoice(PDO $pdo, array $booking): array
     $paymentStatement->execute([(int) $booking['id']]);
     $payments = $paymentStatement->fetchAll();
     $addonTotal = array_sum(array_column($addons, 'total'));
-    $tripSubtotal = (int) $booking['participants'] * (float) $booking['price_per_person'];
+    $packagePrice = (float) ($booking['selected_package_price'] ?? 0);
+    $tripSubtotal = $packagePrice > 0
+        ? $packagePrice
+        : (int) $booking['participants'] * (float) $booking['price_per_person'];
     $subtotal = (float) $booking['total_price'];
     if ($subtotal <= 0) {
         $subtotal = $tripSubtotal + $addonTotal;
@@ -107,8 +110,9 @@ function fetchReminderInvoice(PDO $pdo, array $booking): array
         'customerName' => (string) $booking['customer_name'],
         'customerEmail' => (string) $booking['customer_email'],
         'tripName' => (string) $booking['trip_name'],
+        'packageName' => (string) ($booking['selected_package_name'] ?? ''),
         'participants' => (int) $booking['participants'],
-        'pricePerPerson' => (float) $booking['price_per_person'],
+        'pricePerPerson' => $packagePrice > 0 ? $packagePrice : (float) $booking['price_per_person'],
         'tripSubtotal' => $tripSubtotal,
         'addons' => $addons,
         'subtotal' => $subtotal,
@@ -123,7 +127,9 @@ function fetchReminderInvoice(PDO $pdo, array $booking): array
 function invoiceHtml(array $invoice): string
 {
     $items = '<tr><td style="padding:10px;border-bottom:1px solid #ddd">'
-        . reminderEscape($invoice['tripName']) . '<br><small>' . $invoice['participants'] . ' peserta</small></td>'
+        . reminderEscape($invoice['tripName'])
+        . ($invoice['packageName'] !== '' ? '<br><small>Paket: ' . reminderEscape($invoice['packageName']) . '</small>' : '')
+        . '<br><small>' . $invoice['participants'] . ' peserta</small></td>'
         . '<td style="padding:10px;text-align:right;border-bottom:1px solid #ddd">' . reminderMoney($invoice['tripSubtotal']) . '</td></tr>';
     foreach ($invoice['addons'] as $addon) {
         $items .= '<tr><td style="padding:10px;border-bottom:1px solid #ddd">Add-on: ' . reminderEscape($addon['name']) . '</td>'

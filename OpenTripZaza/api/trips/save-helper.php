@@ -12,6 +12,10 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
     $facilities = is_array($data['facilities'] ?? null) ? $data['facilities'] : ['id' => [], 'en' => []];
     $schedules = $type === 'open' && is_array($data['schedules'] ?? null) ? $data['schedules'] : [];
     $sessions = $type === 'private' && is_array($data['sessions'] ?? null) ? $data['sessions'] : [];
+    $packages = $type === 'private' && is_array($data['privatePackages'] ?? null) ? $data['privatePackages'] : [];
+    if ($type === 'private' && !$packages) {
+        throw new InvalidArgumentException('Private trip minimal harus memiliki satu paket.');
+    }
     $quota = $type === 'open'
         ? array_sum(array_map(static fn(array $item): int => (int) ($item['quota'] ?? 0), $schedules))
         : (int) ($data['quota'] ?? $data['maxParticipants'] ?? 1);
@@ -141,6 +145,64 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
         if (!in_array($code, $retainedSessionCodes, true)) {
             $delete = $pdo->prepare('DELETE FROM trip_sessions WHERE id=? AND NOT EXISTS (SELECT 1 FROM bookings WHERE session_id=?)');
             $delete->execute([$databaseId, $databaseId]);
+        }
+    }
+
+    $existingPackageStatement = $pdo->prepare('SELECT id, package_code FROM private_trip_packages WHERE trip_id = ?');
+    $existingPackageStatement->execute([$tripId]);
+    $existingPackages = [];
+    foreach ($existingPackageStatement->fetchAll() as $item) {
+        $existingPackages[$item['package_code']] = (int) $item['id'];
+    }
+    $packageInsert = $pdo->prepare(
+        'INSERT INTO private_trip_packages
+         (trip_id, package_code, name, price, destinations_json, description, status, sort_order)
+         VALUES (?,?,?,?,?,?,?,?)'
+    );
+    $packageUpdate = $pdo->prepare(
+        'UPDATE private_trip_packages
+         SET package_code=?, name=?, price=?, destinations_json=?, description=?, status=?, sort_order=?
+         WHERE id=? AND trip_id=?'
+    );
+    $retainedPackageCodes = [];
+    foreach ($packages as $index => $package) {
+        $code = trim((string) ($package['packageCode'] ?? $package['id'] ?? 'package_' . ($index + 1)));
+        $name = trim((string) ($package['name'] ?? ''));
+        $price = (float) ($package['price'] ?? 0);
+        $destinations = array_values(array_filter(array_map(
+            static fn(mixed $value): string => trim((string) $value),
+            (array) ($package['destinations'] ?? [])
+        )));
+        if ($name === '' || $price <= 0 || !$destinations) {
+            throw new InvalidArgumentException('Setiap paket private wajib memiliki nama, harga, dan minimal satu destinasi/aktivitas.');
+        }
+        $retainedPackageCodes[] = $code;
+        $values = [
+            $code,
+            $name,
+            $price,
+            jsonText($destinations),
+            trim((string) ($package['description'] ?? '')),
+            ($package['status'] ?? 'active') === 'inactive' ? 'inactive' : 'active',
+            $index,
+        ];
+        if (isset($existingPackages[$code])) {
+            $packageUpdate->execute([...$values, $existingPackages[$code], $tripId]);
+        } else {
+            $packageInsert->execute([$tripId, ...$values]);
+        }
+    }
+    foreach ($existingPackages as $code => $databaseId) {
+        if (!in_array($code, $retainedPackageCodes, true)) {
+            $used = $pdo->prepare('SELECT COUNT(*) FROM bookings WHERE selected_package_id = ?');
+            $used->execute([$databaseId]);
+            if ((int) $used->fetchColumn() > 0) {
+                $pdo->prepare("UPDATE private_trip_packages SET status='inactive' WHERE id=? AND trip_id=?")
+                    ->execute([$databaseId, $tripId]);
+            } else {
+                $pdo->prepare('DELETE FROM private_trip_packages WHERE id=? AND trip_id=?')
+                    ->execute([$databaseId, $tripId]);
+            }
         }
     }
 

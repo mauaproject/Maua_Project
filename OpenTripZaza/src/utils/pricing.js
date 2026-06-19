@@ -1,3 +1,5 @@
+import { getPrivatePackageStartingPrice, getPrivatePackages } from './privatePackages'
+
 export const ABOVE_MAX_PAX_RULE = 'use_last_tier'
 
 export function normalizePricePerPersonTiers(tiers, fallbackPrice = 0, maxCustomPax = 1) {
@@ -30,10 +32,17 @@ export function getPrivatePricePerPerson(trip, participantCount) {
 
 export function getTripStartingPrice(trip) {
   if (!trip?.isPrivateTrip) return Number(trip?.price || 0)
+  if (getPrivatePackages(trip, true).length) return getPrivatePackageStartingPrice(trip)
   return getPrivatePriceRange(trip).min
 }
 
 export function getPrivatePriceRange(trip) {
+  const packagePrices = getPrivatePackages(trip, true)
+    .map((item) => Number(item.price))
+    .filter((price) => Number.isFinite(price) && price >= 0)
+  if (packagePrices.length) {
+    return { min: Math.min(...packagePrices), max: Math.max(...packagePrices) }
+  }
   const maxCustomPax = Math.max(
     1,
     Number(trip?.maxCustomPax) || Object.keys(trip?.pricePerPersonTiers || {}).length || 1,

@@ -63,16 +63,23 @@ runEndpoint(function (PDO $pdo): void {
 
         $participants = max(1, (int) $data['participants']);
         $pricePerPerson = (float) $trip['price'];
+        $selectedPackage = null;
         if ($trip['trip_type'] === 'private') {
-            $tierStatement = $pdo->prepare(
-                'SELECT price_per_person FROM private_price_tiers
-                 WHERE trip_id = ? AND pax_count <= ? ORDER BY pax_count DESC LIMIT 1'
-            );
-            $tierStatement->execute([(int) $trip['id'], $participants]);
-            $tierPrice = $tierStatement->fetchColumn();
-            if ($tierPrice !== false) {
-                $pricePerPerson = (float) $tierPrice;
+            $selectedPackageId = nullableInt($data['selectedPackageId'] ?? null);
+            if (!$selectedPackageId) {
+                throw new InvalidArgumentException('Pilih salah satu paket private trip.');
             }
+            $packageStatement = $pdo->prepare(
+                "SELECT id, name, price, destinations_json
+                 FROM private_trip_packages
+                 WHERE id=? AND trip_id=? AND status='active' FOR UPDATE"
+            );
+            $packageStatement->execute([$selectedPackageId, (int) $trip['id']]);
+            $selectedPackage = $packageStatement->fetch();
+            if (!$selectedPackage) {
+                throw new InvalidArgumentException('Paket private trip tidak tersedia.');
+            }
+            $pricePerPerson = 0;
         }
 
         $requestedAddonIds = array_values(array_unique(array_filter(array_map(
@@ -93,7 +100,10 @@ runEndpoint(function (PDO $pdo): void {
             }
         }
         $addonTotal = array_sum(array_map(static fn(array $addon): float => (float) $addon['price'], $selectedAddons));
-        $totalPrice = ($participants * $pricePerPerson) + $addonTotal;
+        $packagePrice = $selectedPackage ? (float) $selectedPackage['price'] : 0;
+        $totalPrice = $selectedPackage
+            ? $packagePrice + $addonTotal
+            : ($participants * $pricePerPerson) + $addonTotal;
         $requiredPaymentAmount = $paymentType === 'full'
             ? $totalPrice
             : round($totalPrice * 0.5);
@@ -134,14 +144,20 @@ runEndpoint(function (PDO $pdo): void {
 
         $statement = $pdo->prepare(
             'INSERT INTO bookings
-            (user_id, trip_id, schedule_id, session_id, customer_name, customer_email, customer_whatsapp,
+            (user_id, trip_id, schedule_id, session_id, selected_package_id, selected_package_name,
+             selected_package_price, selected_package_destinations, customer_name, customer_email, customer_whatsapp,
              trip_type, experience_type, selected_date, visible_until, start_time, end_time, participants, price_per_person,
              total_price, payment_type, payment_status, required_payment_amount, paid_amount, bca_account_number,
              status, notes, transport_from)
-            VALUES (?,?,?,?,?,?,?,?,?,?,DATE_ADD(?, INTERVAL 7 DAY),?,?,?,?,?,?,?,?,?,?,?,?,?)'
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,DATE_ADD(?, INTERVAL 7 DAY),?,?,?,?,?,?,?,?,?,?,?,?,?)'
         );
         $statement->execute([
-            $userId, (int) $data['tripId'], $scheduleId, $sessionId, $data['name'], strtolower($data['email']),
+            $userId, (int) $data['tripId'], $scheduleId, $sessionId,
+            $selectedPackage ? (int) $selectedPackage['id'] : null,
+            $selectedPackage['name'] ?? null,
+            $packagePrice,
+            $selectedPackage['destinations_json'] ?? null,
+            $data['name'], strtolower($data['email']),
             $data['whatsapp'], $data['tripType'] ?? 'open', $data['experienceType'] ?? 'cave',
             $data['selectedDate'] ?? null, $data['selectedDate'] ?? null,
             $data['startTime'] ?? null, $data['endTime'] ?? null,

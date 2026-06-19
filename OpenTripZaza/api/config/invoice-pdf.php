@@ -112,7 +112,8 @@ function createInvoicePdf(array $invoice): string
     $commands[] = pdfLine(54, 553, 541, 553, 0.8);
 
     $rowY = 525.0;
-    $tripDescription = $invoice['participants'] . ' pax ' . $invoice['tripName'];
+    $tripDescription = $invoice['participants'] . ' pax ' . $invoice['tripName']
+        . (($invoice['packageName'] ?? '') !== '' ? ' - Paket ' . $invoice['packageName'] : '');
     [$descriptionCommands] = pdfWrappedText($tripDescription, 70, $rowY, 38, 9, false, 12);
     $commands = array_merge($commands, $descriptionCommands);
     $commands[] = pdfText(pdfMoney((float) $invoice['pricePerPerson']), 350, $rowY, 9, false, 'center');

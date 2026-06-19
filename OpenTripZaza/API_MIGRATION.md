@@ -59,6 +59,21 @@ status verifikasi, snapshot nomor rekening BCA, dan URL bukti pembayaran.
 Bukti pembayaran disimpan di `uploads/payment-proofs`, bukan sebagai nama file lokal.
 Jalankan `npm run build` kembali setiap kali nilai `VITE_...` frontend berubah.
 
+## Migrasi Paket Private Trip
+
+Jalankan file berikut satu kali melalui phpMyAdmin:
+
+`api/migrations/2026-06-19-private-trip-packages.sql`
+
+Migrasi ini membuat tabel paket yang terpisah dari sesi dan menambahkan snapshot
+paket pada booking. Setelah migrasi:
+
+- admin wajib membuat minimal satu paket untuk private trip baru;
+- customer memilih satu paket dan satu sesi;
+- harga private trip memakai harga tetap paket ditambah total add-on;
+- private trip lama tanpa paket tetap tampil, tetapi checkout dinonaktifkan dengan
+  pesan bahwa paket belum tersedia.
+
 ## Tes cepat
 
 ```bash
