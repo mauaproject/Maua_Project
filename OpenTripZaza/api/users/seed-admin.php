@@ -14,7 +14,10 @@ runEndpoint(function (PDO $pdo): void {
     if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($password) < 8) {
         throw new InvalidArgumentException('Isi ADMIN_EMAIL dan ADMIN_PASSWORD minimal 8 karakter di environment terlebih dahulu.');
     }
-    $statement = $pdo->prepare("INSERT INTO users (name, email, password_hash, role) VALUES (?,?,?,'admin')");
+    $statement = $pdo->prepare(
+        "INSERT INTO users (name, email, email_verified, email_verified_at, password_hash, role)
+         VALUES (?,?,1,NOW(),?,'admin')"
+    );
     $statement->execute([$name, strtolower($email), password_hash($password, PASSWORD_DEFAULT)]);
     jsonSuccess(['seeded' => true, 'id' => (int) $pdo->lastInsertId(), 'email' => strtolower($email)], 201);
 });

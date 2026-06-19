@@ -21,6 +21,8 @@ runEndpoint(function (PDO $pdo): void {
         'id' => (int) $user['id'],
         'name' => $user['name'],
         'email' => $user['email'],
+        'emailVerified' => (bool) ($user['email_verified'] ?? false),
+        'emailVerifiedAt' => $user['email_verified_at'] ?? null,
         'whatsapp' => $user['whatsapp'] ?? '',
         'role' => $actualRole,
         'address' => $user['address'] ?? '',

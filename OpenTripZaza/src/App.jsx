@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import './App.css'
 import i18n from './i18n'
 import { AdminDashboard, AdminSchedule, AdminTrips, AdminWorkers, TripForm } from './pages/AdminPage'
-import { CustomerAccountPage, CustomerCatalog, CustomerLoginPage, CustomerSignupPage, DestinationPage, RegistrationPage, TripDetail } from './pages/UserPage'
+import { CustomerAccountPage, CustomerCatalog, CustomerLoginPage, CustomerSignupPage, DestinationPage, EmailVerificationPage, RegistrationPage, TripDetail } from './pages/UserPage'
 import { MyJobs, WorkerDashboard, WorkerJobDetail, WorkerJobs } from './pages/WorkerPage'
 import { LoginPage, NotFound } from './pages/shared'
 import * as api from './services/api'
@@ -94,23 +94,58 @@ function App() {
   const signupCustomer = async (form) => {
     const exists = customerAccounts.some((item) => item.email === form.email)
     if (exists) return false
-    const nextAccount = await api.createUser({
-      name: form.name,
-      whatsapp: form.whatsapp,
-      email: form.email,
-      password: form.password,
-      role: 'customer',
-      address: form.address || '',
-      age: form.age || '',
-      gender: form.gender || '',
-      healthNotes: form.healthNotes || '',
-    })
-    setCustomerAccounts((current) => [...current, nextAccount])
-    setSession({ role: 'customer', name: form.name, email: form.email, whatsapp: form.whatsapp, address: form.address || '', age: form.age || '', gender: form.gender || '', healthNotes: form.healthNotes || '' })
-    navigate('/open-trip')
-    showToast(i18n.t('toast.signupSuccess'))
-    return true
+    try {
+      const nextAccount = await api.registerCustomer({
+        name: form.name,
+        whatsapp: form.whatsapp,
+        email: form.email,
+        password: form.password,
+        address: form.address || '',
+        age: form.age || '',
+        gender: form.gender || '',
+        healthNotes: form.healthNotes || '',
+      })
+      setCustomerAccounts((current) => [...current, nextAccount])
+      setSession(nextAccount)
+      navigate('/open-trip')
+      showToast(i18n.t('toast.signupVerificationSent'))
+      return true
+    } catch {
+      return false
+    }
   }
+
+  const resendVerification = async () => {
+    if (!session?.email) return false
+    try {
+      await api.resendEmailVerification(session.email)
+      showToast(i18n.t('toast.verificationResent'))
+      return true
+    } catch (error) {
+      showToast(error.message)
+      return false
+    }
+  }
+
+  const refreshEmailVerification = async () => {
+    if (!session?.email) return false
+    try {
+      const account = await api.getCurrentCustomer(session.email)
+      setSession((current) => current?.email === account.email ? { ...current, ...account } : current)
+      setCustomerAccounts((current) => current.map((item) => item.email === account.email ? { ...item, ...account } : item))
+      if (account.emailVerified) showToast(i18n.t('toast.emailVerified'))
+      return account.emailVerified
+    } catch {
+      return false
+    }
+  }
+
+  const verifyEmailToken = useCallback(async (token) => {
+    const account = await api.verifyEmail(token)
+    setCustomerAccounts((current) => current.map((item) => item.email === account.email ? account : item))
+    setSession((current) => current?.email === account.email ? account : current)
+    return account
+  }, [])
 
   const createWorkerAccount = async (form) => {
     const normalizedEmail = form.email.trim().toLowerCase()
@@ -143,6 +178,7 @@ function App() {
   }, [registrations])
 
   const submitRegistration = async (form) => {
+    if (!session?.emailVerified || Number(session.id) !== Number(form.userId)) return false
     const trip = trips.find((item) => item.id === Number(form.tripId))
     if (!trip || trip.status !== 'Tersedia') return false
     const approvedRegistrations = registrations.filter((item) => item.tripId === Number(form.tripId) && (item.status === 'Disetujui' || item.status === 'Selesai'))
@@ -186,6 +222,7 @@ function App() {
       name: form.name,
       whatsapp: form.whatsapp,
       email: form.email,
+      userId: Number(session.id),
       participants: isPrivateTour ? participantCount : 1,
       participantCount: isPrivateTour ? participantCount : 1,
       tripId: Number(form.tripId),
@@ -340,6 +377,9 @@ function App() {
     login,
     loginCustomer,
     signupCustomer,
+    resendVerification,
+    refreshEmailVerification,
+    verifyEmailToken,
     createWorkerAccount,
     logout,
     submitRegistration,
@@ -379,6 +419,7 @@ function RouteRenderer(props) {
   }
   if (path === '/login' || path === '/customer/login') return <CustomerLoginPage {...props} />
   if (path === '/signup' || path === '/customer/signup') return <CustomerSignupPage {...props} />
+  if (path.startsWith('/verify-email')) return <EmailVerificationPage {...props} />
   if (parts[0] === 'open-trip' && id) return <TripDetail tripId={id} {...props} />
   if (parts[0] === 'daftar' && id) {
     if (session?.role !== 'customer') return <CustomerLoginPage afterLoginPath={`/daftar/${id}`} {...props} />

@@ -857,7 +857,18 @@ export function TripDetail({ tripId, trips, registrations, navigate, session, lo
   )
 }
 
-export function RegistrationPage({ tripId, trips, submitRegistration, navigate, session, logout, customerAccounts, registrations }) {
+export function RegistrationPage({
+  tripId,
+  trips,
+  submitRegistration,
+  navigate,
+  session,
+  logout,
+  customerAccounts,
+  registrations,
+  resendVerification,
+  refreshEmailVerification,
+}) {
   const { t, lang, dateLocale, statusLabel } = useCustomerLanguage()
   const trip = trips.find((item) => item.id === tripId)
   const customerProfile = customerAccounts.find((item) => item.email === session?.email) || session || {}
@@ -880,6 +891,9 @@ export function RegistrationPage({ tripId, trips, submitRegistration, navigate, 
   })
   const [error, setError] = useState('')
   const [pendingSubmission, setPendingSubmission] = useState(null)
+  const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false)
+  const [verificationLoading, setVerificationLoading] = useState(false)
+  const [verificationMessage, setVerificationMessage] = useState('')
   const selectedTrip = trips.find((item) => item.id === Number(form.tripId)) || trip
   const scheduleOptions = selectedTrip && !selectedTrip.isPrivateTrip ? getOpenTripScheduleOptions(selectedTrip, registrations) : []
   const selectedSchedule = scheduleOptions.find((schedule) => schedule.id === form.scheduleId)
@@ -903,6 +917,11 @@ export function RegistrationPage({ tripId, trips, submitRegistration, navigate, 
 
   const onSubmit = async (event) => {
     event.preventDefault()
+    if (!session?.emailVerified) {
+      setVerificationMessage('')
+      setIsVerificationModalOpen(true)
+      return
+    }
     const participantDetails = resizeParticipants(form.participantDetails, participants, { name: form.name })
     const hasIncompleteParticipant = participantDetails.some((item) => !item.name || !item.address || !item.age || !item.gender)
     if (!form.name || !form.whatsapp || !form.email || hasIncompleteParticipant) {
@@ -949,6 +968,7 @@ export function RegistrationPage({ tripId, trips, submitRegistration, navigate, 
     }
     setPendingSubmission({
       ...form,
+      userId: session.id,
       participantDetails,
       participants: isPrivateBooking ? participants : 1,
       isPrivateTour: isPrivateBooking,
@@ -966,9 +986,33 @@ export function RegistrationPage({ tripId, trips, submitRegistration, navigate, 
 
   const confirmSubmitRegistration = async () => {
     if (!pendingSubmission) return
+    const verified = await refreshEmailVerification()
+    if (!verified) {
+      setPendingSubmission(null)
+      setVerificationMessage(t('verification.notVerifiedYet'))
+      setIsVerificationModalOpen(true)
+      return
+    }
     const isSubmitted = await submitRegistration(pendingSubmission)
     if (!isSubmitted) setError(t('error.submitFailed'))
     setPendingSubmission(null)
+  }
+
+  const handleResendVerification = async () => {
+    setVerificationLoading(true)
+    const sent = await resendVerification()
+    setVerificationMessage(sent ? t('verification.resent') : t('verification.resendFailed'))
+    setVerificationLoading(false)
+  }
+
+  const handleRefreshVerification = async () => {
+    setVerificationLoading(true)
+    const verified = await refreshEmailVerification()
+    setVerificationMessage(verified ? t('verification.verified') : t('verification.notVerifiedYet'))
+    setVerificationLoading(false)
+    if (verified) {
+      setIsVerificationModalOpen(false)
+    }
   }
 
   const updateParticipant = (index, field, value) => {
@@ -1038,7 +1082,7 @@ export function RegistrationPage({ tripId, trips, submitRegistration, navigate, 
             <div className="registration-fields">
               <label>{t('checkout.fullName')}<input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
               <label>{t('checkout.whatsapp')}<input value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} /></label>
-              <label className="full">Email<input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></label>
+              <label className="full">Email<input type="email" value={form.email} readOnly /></label>
             </div>
 
             <div className="form-section-head">
@@ -1139,7 +1183,65 @@ export function RegistrationPage({ tripId, trips, submitRegistration, navigate, 
         onConfirm={confirmSubmitRegistration}
         onCancel={() => setPendingSubmission(null)}
       />
+      <AppModal
+        isOpen={isVerificationModalOpen}
+        title={t('verification.requiredTitle')}
+        description={t('verification.requiredDescription')}
+        confirmText={verificationLoading ? t('verification.loading') : t('verification.resend')}
+        cancelText={verificationLoading ? t('verification.loading') : t('verification.checkAgain')}
+        variant="warning"
+        confirmDisabled={verificationLoading}
+        cancelDisabled={verificationLoading}
+        onConfirm={handleResendVerification}
+        onCancel={handleRefreshVerification}
+        onBackdrop={() => setIsVerificationModalOpen(false)}
+      >
+        {verificationMessage && <p className="form-status">{verificationMessage}</p>}
+      </AppModal>
     </main>
+  )
+}
+
+export function EmailVerificationPage({ path, navigate, verifyEmailToken, session }) {
+  const { t } = useCustomerLanguage()
+  const token = new URLSearchParams(window.location.search || path.split('?')[1] || '').get('token')
+  const [status, setStatus] = useState(token ? 'loading' : 'error')
+  const [message, setMessage] = useState(token ? t('verification.verifying') : t('verification.invalidLink'))
+
+  useEffect(() => {
+    if (!token) return
+    verifyEmailToken(token)
+      .then(() => {
+        setStatus('success')
+        setMessage(t('verification.success'))
+      })
+      .catch((error) => {
+        setStatus('error')
+        setMessage(error.message || t('verification.failed'))
+      })
+  }, [t, token, verifyEmailToken])
+
+  useEffect(() => {
+    if (status !== 'success') return undefined
+    const timer = window.setTimeout(() => navigate(session?.role === 'customer' ? '/akun' : '/login'), 1800)
+    return () => window.clearTimeout(timer)
+  }, [navigate, session?.role, status])
+
+  return (
+    <AuthShell navigate={navigate}>
+      <section className="auth-panel">
+        <div className="auth-panel-head">
+          <p className="eyebrow">{t('verification.eyebrow')}</p>
+          <h1>{status === 'success' ? t('verification.successTitle') : t('verification.title')}</h1>
+          <p className={status === 'error' ? 'form-error' : 'muted'}>{message}</p>
+        </div>
+        {status !== 'loading' && (
+          <button className="primary-btn" type="button" onClick={() => navigate(status === 'success' && session?.role === 'customer' ? '/akun' : '/login')}>
+            {status === 'success' ? t('verification.toAccount') : t('verification.toLogin')}
+          </button>
+        )}
+      </section>
+    </AuthShell>
   )
 }
 
@@ -1352,6 +1454,7 @@ export function CustomerSignupPage({ signupCustomer, navigate }) {
   const { t } = useCustomerLanguage()
   const [form, setForm] = useState({ name: '', whatsapp: '', email: '', address: '', age: '', gender: '', healthNotes: '', password: '', confirmPassword: '' })
   const [error, setError] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const onSubmit = async (event) => {
     event.preventDefault()
@@ -1367,7 +1470,9 @@ export function CustomerSignupPage({ signupCustomer, navigate }) {
       setError(t('error.passwordMismatch'))
       return
     }
+    setIsSubmitting(true)
     const isCreated = await signupCustomer(form)
+    setIsSubmitting(false)
     if (!isCreated) setError(t('error.emailExists'))
   }
 
@@ -1390,7 +1495,9 @@ export function CustomerSignupPage({ signupCustomer, navigate }) {
           <label className="full">{t('checkout.healthNotes')}<textarea placeholder={t('checkout.healthPlaceholder')} value={form.healthNotes} onChange={(e) => setForm({ ...form, healthNotes: e.target.value })} /></label>
           <label>Password<input type="password" placeholder={t('auth.passwordMinPlaceholder')} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></label>
           <label>{t('auth.confirmPassword')}<input type="password" placeholder={t('auth.confirmPasswordPlaceholder')} value={form.confirmPassword} onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })} /></label>
-          <button className="primary-btn full" type="submit">{t('auth.createAccount')}</button>
+          <button className="primary-btn full" type="submit" disabled={isSubmitting}>
+            {isSubmitting ? t('verification.loading') : t('auth.createAccount')}
+          </button>
         </form>
         <p className="auth-switch">{t('auth.haveAccount')} <button onClick={() => navigate('/login')}>{t('auth.customerLogin')}</button></p>
       </section>

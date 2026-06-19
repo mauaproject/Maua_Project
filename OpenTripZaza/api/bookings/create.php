@@ -5,17 +5,26 @@ requireMethod('POST');
 
 runEndpoint(function (PDO $pdo): void {
     $data = jsonInput();
-    requiredFields($data, ['tripId', 'name', 'email', 'whatsapp', 'participants']);
+    requiredFields($data, ['userId', 'tripId', 'name', 'email', 'whatsapp', 'participants']);
     if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
         throw new InvalidArgumentException('Email customer tidak valid.');
     }
     $pdo->beginTransaction();
     try {
         $primary = is_array($data['participantDetails'] ?? null) ? ($data['participantDetails'][0] ?? []) : [];
-        $email = strtolower($data['email']);
-        $userLookup = $pdo->prepare('SELECT id FROM users WHERE email = ? FOR UPDATE');
-        $userLookup->execute([$email]);
-        $userId = (int) $userLookup->fetchColumn();
+        $email = strtolower(trim((string) $data['email']));
+        $userLookup = $pdo->prepare(
+            "SELECT * FROM users WHERE id=? AND email=? AND role='customer' FOR UPDATE"
+        );
+        $userLookup->execute([(int) $data['userId'], $email]);
+        $user = $userLookup->fetch();
+        if (!$user) {
+            jsonError('Akun customer tidak ditemukan. Silakan login kembali.', 401);
+        }
+        if (!(bool) $user['email_verified']) {
+            jsonError('Verifikasi email terlebih dahulu sebelum melanjutkan pendaftaran.', 403);
+        }
+        $userId = (int) $user['id'];
         $userValues = [
             $data['name'], $data['whatsapp'],
             $primary['address'] ?? $data['address'] ?? null,
@@ -23,25 +32,10 @@ runEndpoint(function (PDO $pdo): void {
             $primary['gender'] ?? $data['gender'] ?? null,
             $primary['healthNotes'] ?? $data['healthNotes'] ?? null,
         ];
-        if ($userId) {
-            $userStatement = $pdo->prepare(
-                'UPDATE users SET name=?, whatsapp=?, address=?, age=?, gender=?, health_notes=?, updated_at=CURRENT_TIMESTAMP WHERE id=?'
-            );
-            $userStatement->execute([...$userValues, $userId]);
-        } else {
-            $userStatement = $pdo->prepare(
-                "INSERT INTO users (name, email, password_hash, whatsapp, role, address, age, gender, health_notes)
-                 VALUES (?,?,?,?,'customer',?,?,?,?)"
-            );
-            $userStatement->execute([
-                $data['name'], $email, password_hash(bin2hex(random_bytes(32)), PASSWORD_DEFAULT),
-                $data['whatsapp'], $primary['address'] ?? $data['address'] ?? null,
-                nullableInt($primary['age'] ?? $data['age'] ?? null),
-                $primary['gender'] ?? $data['gender'] ?? null,
-                $primary['healthNotes'] ?? $data['healthNotes'] ?? null,
-            ]);
-            $userId = (int) $pdo->lastInsertId();
-        }
+        $userStatement = $pdo->prepare(
+            'UPDATE users SET name=?, whatsapp=?, address=?, age=?, gender=?, health_notes=?, updated_at=CURRENT_TIMESTAMP WHERE id=?'
+        );
+        $userStatement->execute([...$userValues, $userId]);
 
         $tripStatement = $pdo->prepare('SELECT * FROM trips WHERE id = ? FOR UPDATE');
         $tripStatement->execute([(int) $data['tripId']]);

@@ -122,3 +122,26 @@ Booking arsip dapat diambil melalui:
 
 - `GET /api/bookings/index.php?archived=1`
 - `GET /api/bookings/user.php?email=user@example.com&archived=1`
+
+## Verifikasi email customer
+
+1. Jalankan migrasi `api/migrations/2026-06-19-email-verification.sql`
+   melalui phpMyAdmin.
+2. Pastikan konfigurasi SMTP dan `APP_BASE_URL` pada `.env` sudah benar.
+   `APP_BASE_URL` digunakan untuk membuat link seperti:
+
+```text
+https://DOMAIN/verify-email?token=TOKEN
+```
+
+Endpoint yang digunakan:
+
+- `POST /api/auth/register.php`
+- `POST /api/auth/resend-verification.php`
+- `GET /api/auth/verify-email.php?token=...`
+- `GET /api/auth/me.php?email=...`
+
+Token dibuat menggunakan random bytes, hanya hash SHA-256 yang disimpan di
+database, berlaku selama 30 menit, dan hanya dapat dipakai satu kali. Customer
+yang belum terverifikasi akan ditolak oleh endpoint pembuatan booking meskipun
+validasi frontend dilewati.

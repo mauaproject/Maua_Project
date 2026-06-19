@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
+
 require_once dirname(__DIR__) . '/config/helpers.php';
+require_once dirname(__DIR__) . '/config/email-verification.php';
 requireMethod('POST');
 
 runEndpoint(function (PDO $pdo): void {
@@ -13,34 +15,44 @@ runEndpoint(function (PDO $pdo): void {
     if (strlen((string) $data['password']) < 6) {
         throw new InvalidArgumentException('Password minimal 6 karakter.');
     }
-    $role = ($data['role'] ?? 'customer') === 'pekerja' ? 'worker' : ($data['role'] ?? 'customer');
-    if (!in_array($role, ['customer', 'worker'], true)) {
-        throw new InvalidArgumentException('Role user tidak valid.');
-    }
+
+    $pdo->beginTransaction();
     try {
         $statement = $pdo->prepare(
-            'INSERT INTO users (name, email, email_verified, email_verified_at, password_hash, whatsapp, role, address, age, gender, health_notes)
-             VALUES (?,?,?,IF(?=1,NOW(),NULL),?,?,?,?,?,?,?)'
+            "INSERT INTO users
+             (name, email, email_verified, password_hash, whatsapp, role, address, age, gender, health_notes)
+             VALUES (?,?,0,?,?, 'customer',?,?,?,?)"
         );
-        $isVerified = $role === 'worker' ? 1 : 0;
         $statement->execute([
             trim((string) $data['name']),
             $email,
-            $isVerified,
-            $isVerified,
             password_hash((string) $data['password'], PASSWORD_DEFAULT),
             $data['whatsapp'] ?? null,
-            $role,
             $data['address'] ?? null,
             nullableInt($data['age'] ?? null),
             $data['gender'] ?? null,
             $data['healthNotes'] ?? null,
         ]);
+        $userId = (int) $pdo->lastInsertId();
+        $userStatement = $pdo->prepare('SELECT * FROM users WHERE id=?');
+        $userStatement->execute([$userId]);
+        $user = $userStatement->fetch();
+        createAndSendVerification($pdo, $user);
+        $pdo->commit();
     } catch (PDOException $exception) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
         if ((string) $exception->getCode() === '23000') {
             jsonError('Email sudah terdaftar.', 409);
         }
         throw $exception;
+    } catch (Throwable $exception) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $exception;
     }
-    jsonSuccess(['id' => (int) $pdo->lastInsertId(), 'name' => $data['name'], 'email' => $email, 'role' => $role === 'worker' ? 'pekerja' : $role], 201);
+
+    jsonSuccess(publicCustomerUser($user), 201);
 });
