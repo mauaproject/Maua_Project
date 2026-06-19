@@ -1135,6 +1135,7 @@ button:disabled {
 }
 .home-page .catalog-section-list {
   margin-top: -1px;
+  padding-top: clamp(42px, 6vw, 76px);
   background: linear-gradient(
     180deg,
     var(--color-cream) 0,
