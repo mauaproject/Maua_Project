@@ -97,16 +97,6 @@ export function PublicNav({ navigate, session, logout }) {
     }
   }, [isMenuOpen])
 
-  const goToSection = (id) => {
-    setIsMenuOpen(false)
-    if (window.location.pathname !== '/' && window.location.pathname !== '/open-trip') {
-      navigate('/')
-      window.setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80)
-      return
-    }
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
-
   const goToPage = (target) => {
     setIsMenuOpen(false)
     navigate(target)
@@ -152,7 +142,7 @@ export function PublicNav({ navigate, session, logout }) {
         <nav className="public-nav-menu" aria-label={t('nav.main')}>
           <button type="button" onClick={() => goToPage('/destinasi')}>{t('nav.trip')}</button>
           <button type="button" onClick={() => goToPage('/')}>{t('nav.home')}</button>
-          <button type="button" onClick={() => goToSection('faq-list')}>{t('nav.faq')}</button>
+          <button type="button" onClick={() => goToPage('/review')}>{t('nav.review')}</button>
         </nav>
 
         <div className="public-nav-actions">
@@ -197,7 +187,7 @@ export function PublicNav({ navigate, session, logout }) {
           </div>
           <button type="button" onClick={() => goToPage('/destinasi')}>{t('nav.trip')}</button>
           <button type="button" onClick={() => goToPage('/')}>{t('nav.home')}</button>
-          <button type="button" onClick={() => goToSection('faq-list')}>{t('nav.faq')}</button>
+          <button type="button" onClick={() => goToPage('/review')}>{t('nav.review')}</button>
           {isLoggedIn ? (
             <>
               <button className="mobile-account-link" type="button" onClick={goToAccount}>{t('nav.account')}</button>
@@ -399,7 +389,8 @@ const reviewDate = (value, locale = 'id-ID') => {
 }
 
 function ReviewStars({ rating }) {
-  return <span className="review-stars" aria-label={`${rating} dari 5 bintang`}>{'★'.repeat(rating)}{'☆'.repeat(5 - rating)}</span>
+  const { t } = useTranslation()
+  return <span className="review-stars" aria-label={t('reviews.ratingAria', { rating })}>{'★'.repeat(rating)}{'☆'.repeat(5 - rating)}</span>
 }
 
 function ReviewCard({ review, dateLocale, compact = false }) {
@@ -419,7 +410,7 @@ function ReviewCard({ review, dateLocale, compact = false }) {
 }
 
 export function CustomerCatalog({ trips, reviews = [], navigate, session, logout }) {
-  const { t } = useCustomerLanguage()
+  const { t, dateLocale } = useCustomerLanguage()
   const activeTrips = trips.filter((trip) => !trip.isArchived && (trip.status === 'Tersedia' || trip.status === 'Penuh'))
   const featuredTrips = activeTrips
   const faqs = t('faqs', { returnObjects: true })
@@ -519,16 +510,16 @@ export function CustomerCatalog({ trips, reviews = [], navigate, session, logout
       <section className="visitor-review-preview">
         <div className="section-head compact-section-head">
           <div>
-            <p className="eyebrow">Cerita peserta</p>
-            <h2>Review Pengunjung</h2>
+            <p className="eyebrow">{t('reviews.homeEyebrow')}</p>
+            <h2>{t('reviews.title')}</h2>
           </div>
         </div>
         {featuredReviews.length ? (
           <div className="visitor-review-grid">
-            {featuredReviews.map((review) => <ReviewCard review={review} dateLocale="id-ID" compact key={review.id} />)}
+            {featuredReviews.map((review) => <ReviewCard review={review} dateLocale={dateLocale} compact key={review.id} />)}
           </div>
-        ) : <p className="review-empty-state">Belum ada review yang ditampilkan.</p>}
-        <button className="outline-btn review-all-button" type="button" onClick={() => navigate('/reviews')}>Lihat Semua Review</button>
+        ) : <p className="review-empty-state">{t('reviews.empty')}</p>}
+        <button className="outline-btn review-all-button" type="button" onClick={() => navigate('/review')}>{t('reviews.viewAll')}</button>
       </section>
 
       <section className="faq-section" id="faq-list">
@@ -561,7 +552,7 @@ export function CustomerCatalog({ trips, reviews = [], navigate, session, logout
 }
 
 export function ReviewsPage({ reviews = [], navigate, session, logout }) {
-  const { dateLocale } = useCustomerLanguage()
+  const { t, dateLocale } = useCustomerLanguage()
   const [ratingFilter, setRatingFilter] = useState('all')
   const [sortBy, setSortBy] = useState('latest')
   const visibleReviews = [...reviews]
@@ -580,27 +571,27 @@ export function ReviewsPage({ reviews = [], navigate, session, logout }) {
       <PublicNav navigate={navigate} session={session} logout={logout} />
       <section className="reviews-page">
         <div className="reviews-page-head">
-          <p className="eyebrow">Pengalaman nyata peserta</p>
-          <h1>Review Pengunjung</h1>
-          <p>Cerita dan pengalaman dari peserta yang sudah mengikuti trip bersama kami.</p>
+          <p className="eyebrow">{t('reviews.pageEyebrow')}</p>
+          <h1>{t('reviews.title')}</h1>
+          <p>{t('reviews.subtitle')}</p>
         </div>
         <div className="review-toolbar">
-          <label>Filter rating<select value={ratingFilter} onChange={(event) => setRatingFilter(event.target.value)}>
-            <option value="all">Semua rating</option>
-            <option value="5">5 bintang</option>
-            <option value="4">4 bintang</option>
-            <option value="3down">3 bintang ke bawah</option>
+          <label>{t('reviews.filterRating')}<select value={ratingFilter} onChange={(event) => setRatingFilter(event.target.value)}>
+            <option value="all">{t('reviews.allRatings')}</option>
+            <option value="5">{t('reviews.stars', { rating: 5 })}</option>
+            <option value="4">{t('reviews.stars', { rating: 4 })}</option>
+            <option value="3down">{t('reviews.threeDown')}</option>
           </select></label>
-          <label>Urutkan<select value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
-            <option value="latest">Terbaru</option>
-            <option value="rating">Rating tertinggi</option>
+          <label>{t('reviews.sort')}<select value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
+            <option value="latest">{t('reviews.latest')}</option>
+            <option value="rating">{t('reviews.highestRating')}</option>
           </select></label>
         </div>
         {visibleReviews.length ? (
           <div className="visitor-review-grid reviews-full-grid">
             {visibleReviews.map((review) => <ReviewCard review={review} dateLocale={dateLocale} key={review.id} />)}
           </div>
-        ) : <p className="review-empty-state">Belum ada review yang ditampilkan.</p>}
+        ) : <p className="review-empty-state">{t('reviews.empty')}</p>}
       </section>
     </main>
   )
@@ -1723,20 +1714,20 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], userRevie
 
         <section className="account-review-form">
           <div>
-            <p className="eyebrow">Bagikan pengalaman</p>
-            <h2>Tulis Review Pengunjung</h2>
-            <p className="muted">Review hanya dapat dikirim untuk booking yang sudah disetujui atau selesai.</p>
+            <p className="eyebrow">{t('reviews.formEyebrow')}</p>
+            <h2>{t('reviews.formTitle')}</h2>
+            <p className="muted">{t('reviews.formHelp')}</p>
           </div>
           {reviewableBookings.length ? (
             <form onSubmit={async (event) => {
               event.preventDefault()
               const content = reviewForm.content.trim()
               if (!reviewForm.bookingId || Number(reviewForm.rating) < 1 || Number(reviewForm.rating) > 5) {
-                setReviewError('Pilih trip dan rating terlebih dahulu.')
+                setReviewError(t('reviews.selectRequired'))
                 return
               }
               if (content.length < 10 || content.length > 500) {
-                setReviewError('Isi review harus antara 10 sampai 500 karakter.')
+                setReviewError(t('reviews.contentLength'))
                 return
               }
               setReviewSubmitting(true)
@@ -1745,27 +1736,27 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], userRevie
                 await submitReview({ ...reviewForm, content })
                 setReviewForm({ bookingId: '', rating: 5, content: '' })
               } catch (error) {
-                setReviewError(error.message || 'Review gagal dikirim.')
+                setReviewError(error.message || t('reviews.submitFailed'))
               } finally {
                 setReviewSubmitting(false)
               }
             }}>
               {reviewError && <p className="form-error">{reviewError}</p>}
               <div className="review-form-fields">
-                <label>Pilih trip<select required value={reviewForm.bookingId} onChange={(event) => setReviewForm({ ...reviewForm, bookingId: event.target.value })}>
-                  <option value="">Pilih booking yang ingin direview</option>
+                <label>{t('reviews.chooseTrip')}<select required value={reviewForm.bookingId} onChange={(event) => setReviewForm({ ...reviewForm, bookingId: event.target.value })}>
+                  <option value="">{t('reviews.chooseBooking')}</option>
                   {reviewableBookings.map((booking) => (
                     <option key={booking.id} value={booking.id}>{tripName(trips, booking.tripId)} — MAUA-{booking.id}</option>
                   ))}
                 </select></label>
-                <label>Rating<select required value={reviewForm.rating} onChange={(event) => setReviewForm({ ...reviewForm, rating: Number(event.target.value) })}>
-                  {[5, 4, 3, 2, 1].map((rating) => <option value={rating} key={rating}>{rating} bintang</option>)}
+                <label>{t('reviews.rating')}<select required value={reviewForm.rating} onChange={(event) => setReviewForm({ ...reviewForm, rating: Number(event.target.value) })}>
+                  {[5, 4, 3, 2, 1].map((rating) => <option value={rating} key={rating}>{t('reviews.stars', { rating })}</option>)}
                 </select></label>
-                <label className="full">Isi review<textarea minLength="10" maxLength="500" required placeholder="Ceritakan pengalamanmu mengikuti trip..." value={reviewForm.content} onChange={(event) => setReviewForm({ ...reviewForm, content: event.target.value })} /><small>{reviewForm.content.length}/500 karakter</small></label>
+                <label className="full">{t('reviews.content')}<textarea minLength="10" maxLength="500" required placeholder={t('reviews.contentPlaceholder')} value={reviewForm.content} onChange={(event) => setReviewForm({ ...reviewForm, content: event.target.value })} /><small>{t('reviews.characterCount', { count: reviewForm.content.length })}</small></label>
               </div>
-              <button className="primary-btn" disabled={reviewSubmitting} type="submit">{reviewSubmitting ? 'Mengirim...' : 'Kirim Review'}</button>
+              <button className="primary-btn" disabled={reviewSubmitting} type="submit">{reviewSubmitting ? t('reviews.submitting') : t('reviews.submit')}</button>
             </form>
-          ) : <p className="review-empty-state">Belum ada booking Disetujui atau Selesai yang dapat direview.</p>}
+          ) : <p className="review-empty-state">{t('reviews.noEligibleBooking')}</p>}
         </section>
 
         <div className="account-filter-tabs" role="tablist" aria-label={t('account.filterLabel')}>

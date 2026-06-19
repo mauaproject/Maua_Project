@@ -343,7 +343,7 @@ function App() {
     })
     setUserReviews((current) => [created, ...current])
     setReviews((current) => [created, ...current])
-    showToast('Review berhasil dikirim. Terima kasih atas ulasanmu.')
+    showToast(i18n.t('reviews.submitSuccess'))
     return true
   }
 
@@ -497,7 +497,7 @@ function RouteRenderer(props) {
   }
 
   if (path === '/' || path === '/open-trip') return <CustomerCatalog {...props} />
-  if (path === '/reviews') return <ReviewsPage {...props} />
+  if (path === '/review' || path === '/reviews') return <ReviewsPage {...props} />
   if (path.startsWith('/destinasi')) return <DestinationPage {...props} />
   if (path === '/akun') {
     if (session?.role !== 'customer') return <CustomerLoginPage afterLoginPath="/akun" {...props} />

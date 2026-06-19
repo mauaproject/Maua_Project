@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { addonOptions, registrationStatuses, tripStatuses } from '../config/constants'
 import { formatCurrency, formatDate, tripName } from '../utils/formatters'
 import { getCustomerJobStatusLabel, getJobAddonLabel, getJobCompletedAt, getJobResultLink, getJobWorkerName, getRegistrationResultJobs } from '../utils/jobResults'
@@ -128,6 +129,7 @@ const isPendingRegistration = (registration) => {
 const countParticipants = (items) => items.reduce((sum, item) => sum + Number(item.participants || 0), 0)
 
 function AdminShell({ title, children, navigate, logout, path, registrations = [] }) {
+  const { t } = useTranslation()
   const pendingParticipants = countParticipants(registrations.filter(isPendingRegistration))
 
   return (
@@ -136,7 +138,7 @@ function AdminShell({ title, children, navigate, logout, path, registrations = [
         ['/admin/dashboard', 'Dashboard'],
         ['/admin/open-trip', 'Paket Trip'],
         ['/admin/jadwal', 'Jadwal', pendingParticipants],
-        ['/admin/reviews', 'Review'],
+        ['/admin/reviews', t('reviews.admin.menu')],
         ['/admin/pekerja', 'Akun Pekerja'],
       ]} navigate={navigate} logout={logout} path={path} />
       <section className="workspace">
@@ -179,15 +181,16 @@ export function AdminDashboard(props) {
 }
 
 export function AdminReviews(props) {
+  const { t, i18n } = useTranslation()
   const [activeStatus, setActiveStatus] = useState('all')
   const [pendingAction, setPendingAction] = useState(null)
   const reviews = props.adminReviews || []
   const visibleReviews = reviews.filter((review) => activeStatus === 'all' || review.status === activeStatus)
   const actionLabel = pendingAction?.status === 'hidden'
-    ? 'Hide review'
+    ? t('reviews.admin.hideTitle')
     : pendingAction?.status === 'deleted'
-      ? 'Soft delete review'
-      : 'Restore review'
+      ? t('reviews.admin.deleteTitle')
+      : t('reviews.admin.restoreTitle')
 
   const confirmAction = async () => {
     if (!pendingAction) return
@@ -196,17 +199,17 @@ export function AdminReviews(props) {
   }
 
   return (
-    <AdminShell title="Review Pengunjung" {...props}>
+    <AdminShell title={t('reviews.admin.title')} {...props}>
       <section className="admin-page-stack admin-review-page">
         <div className="admin-page-head">
           <div>
-            <p className="eyebrow">Moderasi review</p>
-            <h2>Kelola review yang tampil ke publik.</h2>
-            <p className="muted">Review baru langsung approved. Admin dapat menyembunyikan, memulihkan, atau melakukan soft delete.</p>
+            <p className="eyebrow">{t('reviews.admin.eyebrow')}</p>
+            <h2>{t('reviews.admin.heading')}</h2>
+            <p className="muted">{t('reviews.admin.help')}</p>
           </div>
         </div>
-        <div className="segmented-tabs" role="tablist" aria-label="Filter status review">
-          {[['all', 'Semua'], ['approved', 'Approved'], ['hidden', 'Hidden'], ['deleted', 'Deleted']].map(([value, label]) => (
+        <div className="segmented-tabs" role="tablist" aria-label={t('reviews.admin.filterAria')}>
+          {[['all', t('reviews.admin.all')], ['approved', t('reviews.admin.approved')], ['hidden', t('reviews.admin.hidden')], ['deleted', t('reviews.admin.deleted')]].map(([value, label]) => (
             <button className={activeStatus === value ? 'is-active' : ''} key={value} type="button" onClick={() => setActiveStatus(value)}>
               {label}<span>{value === 'all' ? reviews.length : reviews.filter((review) => review.status === value).length}</span>
             </button>
@@ -218,34 +221,34 @@ export function AdminReviews(props) {
               <article className="admin-review-card" key={review.id}>
                 <div className="admin-review-card-head">
                   <div><h3>{review.reviewerName}</h3><span>{review.reviewerEmail}</span></div>
-                  <Badge status={review.status} label={review.status} />
+                  <Badge status={review.status} label={t(`reviews.admin.${review.status}`)} />
                 </div>
                 <dl>
-                  <div><dt>Trip</dt><dd>{review.tripName}</dd></div>
-                  <div><dt>Rating</dt><dd>{'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}</dd></div>
-                  <div><dt>Tanggal</dt><dd>{formatDate(review.createdAt)}</dd></div>
+                  <div><dt>{t('reviews.admin.trip')}</dt><dd>{review.tripName}</dd></div>
+                  <div><dt>{t('reviews.admin.rating')}</dt><dd>{'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}</dd></div>
+                  <div><dt>{t('reviews.admin.date')}</dt><dd>{formatDate(review.createdAt, i18n.language?.startsWith('en') ? 'en-US' : 'id-ID')}</dd></div>
                 </dl>
                 <p>{review.content}</p>
                 <div className="admin-review-actions">
-                  {review.status === 'approved' && <button className="outline-btn" type="button" onClick={() => setPendingAction({ review, status: 'hidden' })}>Hide</button>}
-                  {(review.status === 'hidden' || review.status === 'deleted') && <button className="outline-btn" type="button" onClick={() => setPendingAction({ review, status: 'approved' })}>Restore</button>}
-                  {review.status !== 'deleted' && <button className="outline-btn danger-btn" type="button" onClick={() => setPendingAction({ review, status: 'deleted' })}>Soft Delete</button>}
+                  {review.status === 'approved' && <button className="outline-btn" type="button" onClick={() => setPendingAction({ review, status: 'hidden' })}>{t('reviews.admin.hide')}</button>}
+                  {(review.status === 'hidden' || review.status === 'deleted') && <button className="outline-btn" type="button" onClick={() => setPendingAction({ review, status: 'approved' })}>{t('reviews.admin.restore')}</button>}
+                  {review.status !== 'deleted' && <button className="outline-btn danger-btn" type="button" onClick={() => setPendingAction({ review, status: 'deleted' })}>{t('reviews.admin.softDelete')}</button>}
                 </div>
               </article>
             ))}
           </div>
-        ) : <p className="empty-state">Belum ada review untuk filter ini.</p>}
+        ) : <p className="empty-state">{t('reviews.admin.empty')}</p>}
       </section>
       <AppModal
         isOpen={Boolean(pendingAction)}
         title={`${actionLabel}?`}
         description={pendingAction?.status === 'deleted'
-          ? 'Review akan disembunyikan dari publik dan ditandai sebagai deleted.'
+          ? t('reviews.admin.deleteDescription')
           : pendingAction?.status === 'hidden'
-            ? 'Review akan disembunyikan dari homepage dan halaman review.'
-            : 'Review akan dikembalikan menjadi approved dan tampil ke publik.'}
+            ? t('reviews.admin.hideDescription')
+            : t('reviews.admin.restoreDescription')}
         confirmText={actionLabel}
-        cancelText="Batal"
+        cancelText={t('reviews.admin.cancel')}
         variant={pendingAction?.status === 'deleted' ? 'danger' : 'warning'}
         onConfirm={confirmAction}
         onCancel={() => setPendingAction(null)}
