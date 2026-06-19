@@ -45,9 +45,11 @@ export function getTripSchedules(trip) {
     return trip.schedules.map((schedule, index) => ({
       id: schedule.id || `schedule_${index + 1}`,
       date: schedule.date || '',
+      visibleUntil: schedule.visibleUntil || '',
+      isArchived: Boolean(schedule.isArchived),
       quota: Number(schedule.quota || trip?.quota || 0),
       bookedCount: Number(schedule.bookedCount || 0),
-      status: normalizeScheduleStatus(schedule.status),
+      status: schedule.isArchived ? 'inactive' : normalizeScheduleStatus(schedule.status),
     }))
   }
 

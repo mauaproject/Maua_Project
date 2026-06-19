@@ -128,7 +128,7 @@ function mapTrip(PDO $pdo, array $trip): array
         return $statement->fetchAll();
     };
     $images = $query('SELECT id, image_url, sort_order FROM trip_images WHERE trip_id = ? ORDER BY sort_order, id');
-    $schedules = $query('SELECT id, schedule_code, schedule_date, quota, booked_count, status FROM trip_schedules WHERE trip_id = ? ORDER BY schedule_date, id');
+    $schedules = $query('SELECT id, schedule_code, schedule_date, visible_until, archived_at, quota, booked_count, status FROM trip_schedules WHERE trip_id = ? ORDER BY schedule_date, id');
     $sessions = $query('SELECT id, session_code, name, start_time, end_time, status FROM trip_sessions WHERE trip_id = ? ORDER BY start_time, id');
     $tiers = $query('SELECT pax_count, price_per_person FROM private_price_tiers WHERE trip_id = ? ORDER BY pax_count');
     $addons = $query("SELECT id, name, price, worker_action, status, sort_order FROM trip_addons WHERE trip_id = ? AND status = 'active' ORDER BY sort_order, id");
@@ -140,6 +140,8 @@ function mapTrip(PDO $pdo, array $trip): array
         'id' => $item['schedule_code'] ?: (string) $item['id'],
         'databaseId' => (int) $item['id'],
         'date' => $item['schedule_date'],
+        'visibleUntil' => $item['visible_until'] ?? null,
+        'isArchived' => !empty($item['archived_at']) || (!empty($item['visible_until']) && $item['visible_until'] < date('Y-m-d')),
         'quota' => (int) $item['quota'],
         'bookedCount' => (int) $item['booked_count'],
         'status' => $item['status'],
@@ -153,6 +155,13 @@ function mapTrip(PDO $pdo, array $trip): array
         'status' => $item['status'],
     ], $sessions);
 
+    $isArchived = false;
+    if (($trip['trip_type'] ?? 'open') === 'open' && $mappedSchedules) {
+        $isArchived = !array_filter($mappedSchedules, static fn(array $item): bool => !$item['isArchived']);
+    } elseif (($trip['trip_type'] ?? '') === 'private' && !empty($trip['available_end_date'])) {
+        $isArchived = date('Y-m-d', strtotime((string) $trip['available_end_date'] . ' +7 days')) < date('Y-m-d');
+    }
+
     return [
         'id' => $tripId,
         'name' => $trip['name'],
@@ -160,6 +169,7 @@ function mapTrip(PDO $pdo, array $trip): array
         'isPrivateTrip' => $trip['trip_type'] === 'private',
         'experienceType' => $trip['experience_type'],
         'status' => $trip['status'],
+        'isArchived' => $isArchived,
         'destination' => ['id' => $trip['destination_id'] ?? '', 'en' => $trip['destination_en'] ?? ''],
         'description' => ['id' => $trip['description_id'] ?? '', 'en' => $trip['description_en'] ?? ''],
         'activities' => ['id' => decodeText($trip['activities_id'] ?? '') ?: [], 'en' => decodeText($trip['activities_en'] ?? '') ?: []],
@@ -239,6 +249,8 @@ function mapBooking(PDO $pdo, array $booking): array
         'experienceType' => $booking['experience_type'],
         'selectedDate' => $booking['selected_date'],
         'requestedDate' => $booking['selected_date'],
+        'visibleUntil' => $booking['visible_until'] ?? null,
+        'isArchived' => !empty($booking['archived_at']) || (!empty($booking['visible_until']) && $booking['visible_until'] < date('Y-m-d')),
         'startTime' => $booking['start_time'] ? substr((string) $booking['start_time'], 0, 5) : '',
         'endTime' => $booking['end_time'] ? substr((string) $booking['end_time'], 0, 5) : '',
         'participants' => (int) $booking['participants'],

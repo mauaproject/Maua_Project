@@ -392,11 +392,12 @@ function TestimonialCarousel() {
 
 export function CustomerCatalog({ trips, navigate, session, logout }) {
   const { t } = useCustomerLanguage()
-  const featuredTrips = trips
+  const activeTrips = trips.filter((trip) => !trip.isArchived && (trip.status === 'Tersedia' || trip.status === 'Penuh'))
+  const featuredTrips = activeTrips
   const faqs = t('faqs', { returnObjects: true })
-  const openCaveTrips = trips.filter((trip) => !isCustomExperience(trip) && !trip.isPrivateTrip)
-  const privateCaveTrips = trips.filter((trip) => !isCustomExperience(trip) && trip.isPrivateTrip)
-  const otherTrips = trips.filter((trip) => isCustomExperience(trip))
+  const openCaveTrips = activeTrips.filter((trip) => !isCustomExperience(trip) && !trip.isPrivateTrip)
+  const privateCaveTrips = activeTrips.filter((trip) => !isCustomExperience(trip) && trip.isPrivateTrip)
+  const otherTrips = activeTrips.filter((trip) => isCustomExperience(trip))
 
   useEffect(() => {
     const elements = document.querySelectorAll('.reveal-on-scroll')
@@ -571,7 +572,11 @@ export function DestinationPage({ path, trips, navigate, session, logout }) {
   const [activeFilter, setActiveFilter] = useState('all')
   const searchParams = new URLSearchParams(path.split('?')[1] || '')
   const initialSearch = searchParams.get('search') || ''
-  const searchedTrips = filterTripsBySearch(trips, initialSearch, lang)
+  const searchedTrips = filterTripsBySearch(
+    trips.filter((trip) => !trip.isArchived && (trip.status === 'Tersedia' || trip.status === 'Penuh')),
+    initialSearch,
+    lang,
+  )
   const visibleTrips = searchedTrips.filter((trip) => {
     if (activeFilter === 'open') return !trip.isPrivateTrip
     if (activeFilter === 'private') return trip.isPrivateTrip

@@ -119,14 +119,15 @@ runEndpoint(function (PDO $pdo): void {
         $statement = $pdo->prepare(
             'INSERT INTO bookings
             (user_id, trip_id, schedule_id, session_id, customer_name, customer_email, customer_whatsapp,
-             trip_type, experience_type, selected_date, start_time, end_time, participants, price_per_person,
+             trip_type, experience_type, selected_date, visible_until, start_time, end_time, participants, price_per_person,
              total_price, status, notes, transport_from)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+            VALUES (?,?,?,?,?,?,?,?,?,?,DATE_ADD(?, INTERVAL 7 DAY),?,?,?,?,?,?,?,?,?)'
         );
         $statement->execute([
             $userId, (int) $data['tripId'], $scheduleId, $sessionId, $data['name'], strtolower($data['email']),
             $data['whatsapp'], $data['tripType'] ?? 'open', $data['experienceType'] ?? 'cave',
-            $data['selectedDate'] ?? null, $data['startTime'] ?? null, $data['endTime'] ?? null,
+            $data['selectedDate'] ?? null, $data['selectedDate'] ?? null,
+            $data['startTime'] ?? null, $data['endTime'] ?? null,
             $participants, $pricePerPerson, $totalPrice, 'Menunggu Approval',
             $data['notes'] ?? null, $data['transportFrom'] ?? null,
         ]);

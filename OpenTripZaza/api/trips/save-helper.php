@@ -79,17 +79,22 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
         $existingSchedules[$item['schedule_code']] = (int) $item['id'];
     }
     $scheduleInsert = $pdo->prepare(
-        'INSERT INTO trip_schedules (trip_id, schedule_code, schedule_date, quota, booked_count, status) VALUES (?,?,?,?,?,?)'
+        'INSERT INTO trip_schedules
+         (trip_id, schedule_code, schedule_date, visible_until, archived_at, quota, booked_count, status)
+         VALUES (?,?,?,DATE_ADD(?, INTERVAL 7 DAY),NULL,?,?,?)'
     );
     $scheduleUpdate = $pdo->prepare(
-        'UPDATE trip_schedules SET schedule_code=?, schedule_date=?, quota=?, booked_count=?, status=? WHERE id=? AND trip_id=?'
+        'UPDATE trip_schedules
+         SET schedule_code=?, schedule_date=?, visible_until=DATE_ADD(?, INTERVAL 7 DAY), archived_at=NULL,
+             quota=?, booked_count=?, status=?
+         WHERE id=? AND trip_id=?'
     );
     $retainedScheduleCodes = [];
     foreach ($schedules as $index => $schedule) {
         $code = (string) ($schedule['id'] ?? 'schedule_' . ($index + 1));
         $retainedScheduleCodes[] = $code;
         $values = [
-            $code, $schedule['date'] ?? null, (int) ($schedule['quota'] ?? 0),
+            $code, $schedule['date'] ?? null, $schedule['date'] ?? null, (int) ($schedule['quota'] ?? 0),
             (int) ($schedule['bookedCount'] ?? 0),
             in_array($schedule['status'] ?? 'active', ['active', 'full', 'inactive'], true) ? $schedule['status'] : 'active',
         ];

@@ -27,8 +27,8 @@ export const updateTrip = (data) => jsonPost('trips/update.php', data)
 export const deleteTrip = (id) => jsonPost('trips/delete.php', { id })
 
 export const createBooking = (data) => jsonPost('bookings/create.php', data)
-export const getBookings = () => request('bookings/index.php')
-export const getUserBookings = (email) => request(`bookings/user.php?email=${encodeURIComponent(email)}`)
+export const getBookings = (archived = false) => request(`bookings/index.php${archived ? '?archived=1' : ''}`)
+export const getUserBookings = (email, archived = false) => request(`bookings/user.php?email=${encodeURIComponent(email)}${archived ? '&archived=1' : ''}`)
 export const updateBookingStatus = (id, status) => jsonPost('bookings/update-status.php', { id, status })
 
 export const getAddons = () => request('addons/index.php')
