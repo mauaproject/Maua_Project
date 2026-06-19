@@ -180,14 +180,18 @@ export function AdminTrips(props) {
   const [search, setSearch] = useState('')
   const [tripToDelete, setTripToDelete] = useState(null)
   const searchTerm = search.trim().toLowerCase()
+  const activeTrips = props.trips.filter((trip) => trip.status !== 'Ditutup' && !trip.isArchived)
   const filteredTrips = props.trips
+    .filter((trip) => {
+      if (activeStatus === 'all') return trip.status !== 'Ditutup' && !trip.isArchived
+      return trip.status === activeStatus
+    })
     .filter((trip) => {
       if (activeType === 'open') return !trip.isPrivateTrip
       if (activeType === 'private') return trip.isPrivateTrip
       return true
     })
     .filter((trip) => activeCategory === 'all' || getExperienceType(trip) === activeCategory)
-    .filter((trip) => activeStatus === 'all' || trip.status === activeStatus)
     .filter((trip) => {
       if (!searchTerm) return true
       return [trip.name, adminText(trip.destination), adminText(trip.description), adminListText(trip.activities), adminListText(trip.facilities)]
@@ -197,14 +201,14 @@ export function AdminTrips(props) {
         .includes(searchTerm)
     })
   const typeTabs = [
-    ['all', 'Semua', props.trips.length],
-    ['open', 'Open Trip', props.trips.filter((trip) => !trip.isPrivateTrip).length],
-    ['private', 'Private Trip', props.trips.filter((trip) => trip.isPrivateTrip).length],
+    ['all', 'Semua', activeTrips.length],
+    ['open', 'Open Trip', activeTrips.filter((trip) => !trip.isPrivateTrip).length],
+    ['private', 'Private Trip', activeTrips.filter((trip) => trip.isPrivateTrip).length],
   ]
   const categoryTabs = [
-    ['all', 'Semua kategori', props.trips.length],
-    ['cave', 'Wisata Goa', props.trips.filter((trip) => getExperienceType(trip) === 'cave').length],
-    ['custom', 'Wisata / Kegiatan', props.trips.filter((trip) => getExperienceType(trip) === 'custom').length],
+    ['all', 'Semua kategori', activeTrips.length],
+    ['cave', 'Wisata Goa', activeTrips.filter((trip) => getExperienceType(trip) === 'cave').length],
+    ['custom', 'Wisata / Kegiatan', activeTrips.filter((trip) => getExperienceType(trip) === 'custom').length],
   ]
   const confirmDeleteTrip = async () => {
     if (!tripToDelete) return
@@ -219,7 +223,7 @@ export function AdminTrips(props) {
           <div>
             <div className="admin-trip-heading-meta">
               <p className="eyebrow">Katalog trip</p>
-              <span>{props.trips.length} paket</span>
+              <span>{activeTrips.length} paket aktif</span>
             </div>
             <h2>Paket Trip</h2>
             <p className="muted">Kelola paket Open Trip dan Private Trip yang tampil untuk customer.</p>
