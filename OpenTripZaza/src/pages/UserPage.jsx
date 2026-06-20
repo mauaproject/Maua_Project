@@ -694,16 +694,13 @@ export function DestinationPage({ path, trips, navigate, session, logout }) {
     <main className="public-page">
       <PublicNav navigate={navigate} session={session} logout={logout} />
       <section className="destination-page">
-        <section className="destination-toolbar">
-          <div className="destination-page-head">
-            <div>
-              <p className="eyebrow">{t('destination.eyebrow')}</p>
-              <h1>{t('destination.title')}</h1>
-              <p className="destination-subtitle">{t('destination.subtitle')}</p>
-            </div>
-            <SearchTripForm key={initialSearch} navigate={navigate} initialValue={initialSearch} />
-          </div>
+        <div className="destination-page-head">
+          <p className="eyebrow">{t('destination.eyebrow')}</p>
+          <h1>{t('destination.title')}</h1>
+          <p className="destination-subtitle">{t('destination.subtitle')}</p>
+        </div>
 
+        <section className="destination-toolbar">
           <div className="destination-filter-chips catalog-filter-chips" role="tablist" aria-label={t('catalog.filterLabel')}>
             {filterOptions.map(([value, label]) => (
               <button className={activeFilter === value ? 'is-active' : ''} key={value} onClick={() => setActiveFilter(value)} type="button" role="tab" aria-selected={activeFilter === value}>
@@ -711,6 +708,7 @@ export function DestinationPage({ path, trips, navigate, session, logout }) {
               </button>
             ))}
           </div>
+          <SearchTripForm key={initialSearch} navigate={navigate} initialValue={initialSearch} />
         </section>
 
         <section className="trip-grid destination-grid">
