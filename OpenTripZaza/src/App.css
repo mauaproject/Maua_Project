@@ -5281,7 +5281,7 @@ td {
   }
 }
 @media (max-width: 760px) {
-  .trip-grid,
+  .trip-grid:not(.catalog-trip-grid),
   .job-grid,
   .stat-grid,
   .data-form,
@@ -5590,6 +5590,37 @@ td {
   }
   .catalog-trip-section .section-head > span {
     margin-top: 4px;
+  }
+  .catalog-trip-grid {
+    display: flex;
+    gap: 14px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0 24px 20px;
+    scroll-padding-inline: 24px;
+    scroll-snap-type: x mandatory;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .catalog-trip-grid::-webkit-scrollbar {
+    display: none;
+  }
+  .catalog-trip-grid .trip-card {
+    flex: 0 0 min(360px, calc(100vw - 52px));
+    min-width: 0;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+  }
+  .catalog-trip-grid .trip-card-body,
+  .catalog-trip-grid .card-title-row,
+  .catalog-trip-grid .trip-card-footer {
+    min-width: 0;
+  }
+  .catalog-trip-grid .trip-card h3,
+  .catalog-trip-grid .trip-card dd,
+  .catalog-trip-grid .trip-card p {
+    overflow-wrap: anywhere;
   }
   .trip-card .card-title-row {
     align-items: flex-start;
