@@ -458,6 +458,7 @@ export function CustomerCatalog({ trips, reviews = [], navigate, session, logout
               <div>
                 <p className="eyebrow">{t('catalog.openEyebrow')}</p>
                 <h2>{t('catalog.openTitle')}</h2>
+                {openCaveTrips.length > 1 && <p className="catalog-swipe-hint">{t('catalog.swipeHint')}</p>}
               </div>
               <span>{openCaveTrips.length} {t('catalog.packageCount')}</span>
             </div>
@@ -473,6 +474,7 @@ export function CustomerCatalog({ trips, reviews = [], navigate, session, logout
               <div>
                 <p className="eyebrow">{t('catalog.privateEyebrow')}</p>
                 <h2>{t('catalog.privateTitle')}</h2>
+                {privateCaveTrips.length > 1 && <p className="catalog-swipe-hint">{t('catalog.swipeHint')}</p>}
               </div>
               <span>{privateCaveTrips.length} {t('catalog.packageCount')}</span>
             </div>
@@ -488,6 +490,7 @@ export function CustomerCatalog({ trips, reviews = [], navigate, session, logout
               <div>
                 <p className="eyebrow">{t('catalog.otherEyebrow')}</p>
                 <h2>{t('catalog.otherTitle')}</h2>
+                {otherTrips.length > 1 && <p className="catalog-swipe-hint">{t('catalog.swipeHint')}</p>}
               </div>
               <span>{otherTrips.length} {t('catalog.packageCount')}</span>
             </div>

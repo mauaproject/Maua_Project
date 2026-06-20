@@ -1160,6 +1160,9 @@ button:disabled {
   font-size: 12px;
   font-weight: 700;
 }
+.catalog-swipe-hint {
+  display: none;
+}
 .catalog-trip-grid {
   padding-bottom: 12px;
 }
@@ -5568,6 +5571,9 @@ td {
 }
 
 @media (max-width: 760px) {
+  .catalog-section-list {
+    gap: 48px;
+  }
   .catalog-filter-section {
     padding-top: 44px;
   }
@@ -5584,6 +5590,7 @@ td {
   .catalog-trip-section .section-head {
     align-items: flex-start;
     flex-direction: row;
+    padding-top: 0;
   }
   .catalog-trip-section .section-head h2 {
     font-size: clamp(28px, 9vw, 38px);
@@ -5591,12 +5598,20 @@ td {
   .catalog-trip-section .section-head > span {
     margin-top: 4px;
   }
+  .catalog-swipe-hint {
+    display: block;
+    margin: 8px 0 0;
+    color: #8a7040;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+  }
   .catalog-trip-grid {
     display: flex;
     gap: 14px;
     overflow-x: auto;
     overflow-y: hidden;
-    padding: 0 24px 20px;
+    padding: 0 24px 12px;
     scroll-padding-inline: 24px;
     scroll-snap-type: x mandatory;
     overscroll-behavior-inline: contain;
@@ -5609,6 +5624,8 @@ td {
   .catalog-trip-grid .trip-card {
     flex: 0 0 min(360px, calc(100vw - 52px));
     min-width: 0;
+    border: 1px solid rgba(190, 150, 70, 0.12);
+    box-shadow: 0 10px 24px rgba(45, 35, 20, 0.06);
     scroll-snap-align: start;
     scroll-snap-stop: always;
   }
