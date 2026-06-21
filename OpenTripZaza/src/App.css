@@ -3965,6 +3965,27 @@ button:disabled {
   font-weight: 500;
   line-height: 1.45;
 }
+.trip-save-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-width: 190px;
+}
+.button-spinner {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 999px;
+  animation: button-spin 0.7s linear infinite;
+}
+@keyframes button-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 .h7-reminder-fields textarea {
   min-height: 180px;
 }

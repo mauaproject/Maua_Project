@@ -407,13 +407,20 @@ function App() {
       minParticipants: Number(trip.minParticipants || 1),
       maxParticipants,
     }
+    let savedTrip
     if (trip.id) {
       const nextTrip = { ...normalizedTrip, id: Number(trip.id) }
-      const savedTrip = await api.updateTrip(nextTrip)
-      await Promise.all(imageFiles.map((file) => api.uploadTripImage(file, savedTrip.id)))
+      savedTrip = await api.updateTrip(nextTrip)
     } else {
-      const savedTrip = await api.createTrip(normalizedTrip)
+      savedTrip = await api.createTrip(normalizedTrip)
+    }
+    try {
       await Promise.all(imageFiles.map((file) => api.uploadTripImage(file, savedTrip.id)))
+    } catch (error) {
+      await refreshData()
+      showToast(`Data trip sudah tersimpan, tetapi gambar gagal di-upload: ${error.message}`)
+      navigate(`/admin/open-trip/edit/${savedTrip.id}`)
+      return false
     }
     await refreshData()
     navigate('/admin/open-trip')

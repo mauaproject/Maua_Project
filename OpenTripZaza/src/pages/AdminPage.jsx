@@ -15,6 +15,9 @@ const parseImageUrls = (value) => String(value || '')
   .map((item) => item.trim())
   .filter(Boolean)
 
+const MAX_TRIP_IMAGE_SIZE = 5 * 1024 * 1024
+const ALLOWED_TRIP_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+
 const adminText = (value) => localizedText(value, 'id') || '-'
 const adminListText = (value) => localizedList(value, 'id').join(', ')
 const getExperienceType = (trip) => trip?.experienceType === 'custom' ? 'custom' : 'cave'
@@ -424,6 +427,7 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
   const [form, setForm] = useState(normalizeTripForm(selected))
   const [imageFiles, setImageFiles] = useState([])
   const [formError, setFormError] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
   const isPrivateTrip = Boolean(form.isPrivateTrip)
   const currentImages = Array.isArray(form.imageUrls) ? form.imageUrls : []
   const registrations = props.registrations || []
@@ -592,8 +596,27 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
     setImageFiles((files) => files.filter((_, fileIndex) => fileIndex !== index))
   }
 
+  const handleImageSelection = (event) => {
+    const files = Array.from(event.target.files || [])
+    const invalidType = files.find((file) => !ALLOWED_TRIP_IMAGE_TYPES.includes(file.type))
+    const oversized = files.find((file) => file.size > MAX_TRIP_IMAGE_SIZE)
+    event.target.value = ''
+
+    if (invalidType) {
+      setFormError(`File "${invalidType.name}" bukan gambar JPG, PNG, atau WebP.`)
+      return
+    }
+    if (oversized) {
+      setFormError(`File "${oversized.name}" berukuran ${(oversized.size / 1024 / 1024).toFixed(1)}MB. Maksimal ukuran gambar adalah 5MB per file.`)
+      return
+    }
+    setFormError('')
+    setImageFiles((currentFiles) => [...currentFiles, ...files])
+  }
+
   const onSubmit = async (event) => {
     event.preventDefault()
+    if (isSaving) return
     if (form.h7ReminderSubject.length > 190) {
       setFormError('Subject Email Pengingat H-7 maksimal 190 karakter.')
       return
@@ -676,51 +699,61 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
     const privateStartingPrice = normalizedPrivatePackages.length
       ? Math.min(...normalizedPrivatePackages.map((item) => item.price))
       : Math.min(...Object.values(normalizedPriceTiers).map(Number))
-    await saveTrip({
-      ...tripForm,
-      description: {
-        id: form.descriptionId.trim(),
-        en: form.descriptionEn.trim(),
-      },
-      destination: {
-        id: form.destinationId.trim(),
-        en: form.destinationEn.trim(),
-      },
-      activities: {
-        id: textToLines(form.activitiesId),
-        en: textToLines(form.activitiesEn),
-      },
-      facilities: {
-        id: textToLines(form.facilitiesId),
-        en: textToLines(form.facilitiesEn),
-      },
-      activity: form.activitiesId.trim(),
-      price: isPrivateTrip ? privateStartingPrice : Number(form.price),
-      pricePerPersonTiers: isPrivateTrip ? normalizedPriceTiers : {},
-      maxCustomPax: isPrivateTrip ? Number(form.maxCustomPax) : 0,
-      aboveMaxPaxRule: isPrivateTrip ? ABOVE_MAX_PAX_RULE : '',
-      quota: isPrivateTrip ? Number(form.maxParticipants || form.quota) : Number(form.quota),
-      slots: isPrivateTrip ? Number(form.maxParticipants || form.slots || form.quota) : Number(form.slots),
-      minParticipants: isPrivateTrip ? Number(form.minParticipants) || 1 : 1,
-      maxParticipants: isPrivateTrip ? Number(form.maxParticipants) || Number(form.quota) || 1 : Number(form.quota),
-      privateNotes: isPrivateTrip ? form.privateNotes || '' : '',
-      privateBookingMode: isPrivateTrip && form.privateBookingMode === 'shared' ? 'shared' : 'exclusive',
-      availableStartDate: isPrivateTrip ? form.availableStartDate : '',
-      availableEndDate: isPrivateTrip ? form.availableEndDate : '',
-      flexibleSchedule: isPrivateTrip,
-      isPrivateTrip,
-      schedules: isPrivateTrip ? [] : form.schedules.map((schedule, index) => newSchedule(index, schedule)),
-      sessions: isPrivateTrip ? form.sessions.map((session, index) => newSession(index, session)) : [],
-      privatePackages: isPrivateTrip ? normalizedPrivatePackages : [],
-      imageUrl: imageUrls[0] || '',
-      imageUrls,
-      imageFiles,
-      addons: (form.addons || []).map((addon) => ({
-        ...addon,
-        name: addon.name.trim(),
-        price: Number(addon.price || 0),
-      })),
-    })
+    setFormError('')
+    setIsSaving(true)
+    try {
+      const saved = await saveTrip({
+        ...tripForm,
+        description: {
+          id: form.descriptionId.trim(),
+          en: form.descriptionEn.trim(),
+        },
+        destination: {
+          id: form.destinationId.trim(),
+          en: form.destinationEn.trim(),
+        },
+        activities: {
+          id: textToLines(form.activitiesId),
+          en: textToLines(form.activitiesEn),
+        },
+        facilities: {
+          id: textToLines(form.facilitiesId),
+          en: textToLines(form.facilitiesEn),
+        },
+        activity: form.activitiesId.trim(),
+        price: isPrivateTrip ? privateStartingPrice : Number(form.price),
+        pricePerPersonTiers: isPrivateTrip ? normalizedPriceTiers : {},
+        maxCustomPax: isPrivateTrip ? Number(form.maxCustomPax) : 0,
+        aboveMaxPaxRule: isPrivateTrip ? ABOVE_MAX_PAX_RULE : '',
+        quota: isPrivateTrip ? Number(form.maxParticipants || form.quota) : Number(form.quota),
+        slots: isPrivateTrip ? Number(form.maxParticipants || form.slots || form.quota) : Number(form.slots),
+        minParticipants: isPrivateTrip ? Number(form.minParticipants) || 1 : 1,
+        maxParticipants: isPrivateTrip ? Number(form.maxParticipants) || Number(form.quota) || 1 : Number(form.quota),
+        privateNotes: isPrivateTrip ? form.privateNotes || '' : '',
+        privateBookingMode: isPrivateTrip && form.privateBookingMode === 'shared' ? 'shared' : 'exclusive',
+        availableStartDate: isPrivateTrip ? form.availableStartDate : '',
+        availableEndDate: isPrivateTrip ? form.availableEndDate : '',
+        flexibleSchedule: isPrivateTrip,
+        isPrivateTrip,
+        schedules: isPrivateTrip ? [] : form.schedules.map((schedule, index) => newSchedule(index, schedule)),
+        sessions: isPrivateTrip ? form.sessions.map((session, index) => newSession(index, session)) : [],
+        privatePackages: isPrivateTrip ? normalizedPrivatePackages : [],
+        imageUrl: imageUrls[0] || '',
+        imageUrls,
+        imageFiles,
+        addons: (form.addons || []).map((addon) => ({
+          ...addon,
+          name: addon.name.trim(),
+          price: Number(addon.price || 0),
+        })),
+      })
+      if (saved === false) {
+        setIsSaving(false)
+      }
+    } catch (error) {
+      setFormError(error.message || 'Trip gagal disimpan. Silakan coba kembali.')
+      setIsSaving(false)
+    }
   }
 
   return (
@@ -732,7 +765,7 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
             <h2>{selected ? 'Perbarui detail paket trip.' : 'Lengkapi informasi paket trip baru.'}</h2>
             <p className="muted">Gunakan field sesuai jenis trip agar form tetap ringkas dan mudah dipakai admin.</p>
           </div>
-          <button className="outline-btn" onClick={() => navigate('/admin/open-trip')}>Kembali</button>
+          <button className="outline-btn" disabled={isSaving} onClick={() => navigate('/admin/open-trip')}>Kembali</button>
         </div>
         {formError && <p className="form-error">{formError}</p>}
         <form className="trip-section-form" onSubmit={onSubmit}>
@@ -891,7 +924,7 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
             </div>
             <div className="data-form section-fields">
               <label className="full">Upload gambar trip
-                <input type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" multiple onChange={(event) => setImageFiles((files) => [...files, ...Array.from(event.target.files || [])])} />
+                <input disabled={isSaving} type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" multiple onChange={handleImageSelection} />
                 <small>Maksimal 5MB per file. Format JPG, PNG, atau WebP.</small>
               </label>
               {currentImages.length > 0 && (
@@ -903,7 +936,7 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
                         <img src={imageUrl} alt={`Gambar trip ${index + 1}`} />
                         <div>
                           <span>{index === 0 ? 'Gambar utama' : `Gambar ${index + 1}`}</span>
-                          <button className="outline-btn danger-btn" type="button" onClick={() => removeCurrentImage(imageUrl)}>Hapus</button>
+                          <button className="outline-btn danger-btn" disabled={isSaving} type="button" onClick={() => removeCurrentImage(imageUrl)}>Hapus</button>
                         </div>
                       </article>
                     ))}
@@ -915,8 +948,8 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
                   <h4>Gambar baru yang akan di-upload</h4>
                   {imageFiles.map((file, index) => (
                     <div key={`${file.name}-${file.lastModified}-${index}`}>
-                      <span>{file.name}</span>
-                      <button className="outline-btn danger-btn" type="button" onClick={() => removeSelectedImage(index)}>Batalkan</button>
+                      <span>{file.name} · {(file.size / 1024 / 1024).toFixed(1)}MB</span>
+                      <button className="outline-btn danger-btn" disabled={isSaving} type="button" onClick={() => removeSelectedImage(index)}>Batalkan</button>
                     </div>
                   ))}
                 </div>
@@ -976,8 +1009,11 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
           </section>
 
           <div className="form-sticky-actions">
-            <button className="outline-btn" type="button" onClick={() => navigate('/admin/open-trip')}>Batal</button>
-            <button className="primary-btn" type="submit">Simpan paket trip</button>
+            <button className="outline-btn" disabled={isSaving} type="button" onClick={() => navigate('/admin/open-trip')}>Batal</button>
+            <button className="primary-btn trip-save-btn" disabled={isSaving} type="submit" aria-busy={isSaving}>
+              {isSaving && <span className="button-spinner" aria-hidden="true" />}
+              {isSaving ? 'Menyimpan trip...' : 'Simpan paket trip'}
+            </button>
           </div>
         </form>
       </section>
