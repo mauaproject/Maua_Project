@@ -60,11 +60,12 @@ runEndpoint(function (PDO $pdo): void {
         if (!$trip || !in_array($trip['status'], ['Tersedia', 'Penuh'], true)) {
             throw new InvalidArgumentException('Trip tidak tersedia.');
         }
+        $tripType = $trip['trip_type'] === 'private' ? 'private' : 'open';
 
         $participants = max(1, (int) $data['participants']);
         $pricePerPerson = (float) $trip['price'];
         $selectedPackage = null;
-        if ($trip['trip_type'] === 'private') {
+        if ($tripType === 'private') {
             $selectedPackageId = nullableInt($data['selectedPackageId'] ?? null);
             $activePackageStatement = $pdo->prepare(
                 "SELECT COUNT(*) FROM private_trip_packages WHERE trip_id=? AND status='active'"
@@ -135,7 +136,10 @@ runEndpoint(function (PDO $pdo): void {
         $bcaAccountNumber = trim((string) (getenv('VITE_BCA_ACCOUNT_NUMBER') ?: ($data['bcaAccountNumber'] ?? '')));
 
         $scheduleId = null;
-        if (($data['tripType'] ?? 'open') === 'open') {
+        $selectedDate = $data['selectedDate'] ?? null;
+        $bookingStartTime = $data['startTime'] ?? null;
+        $bookingEndTime = $data['endTime'] ?? null;
+        if ($tripType === 'open') {
             $scheduleStatement = $pdo->prepare('SELECT * FROM trip_schedules WHERE trip_id = ? AND (schedule_code = ? OR id = ?) FOR UPDATE');
             $scheduleStatement->execute([(int) $data['tripId'], $data['scheduleId'] ?? '', nullableInt($data['scheduleId'] ?? null)]);
             $schedule = $scheduleStatement->fetch();
@@ -146,23 +150,31 @@ runEndpoint(function (PDO $pdo): void {
                 throw new InvalidArgumentException('Slot jadwal tidak mencukupi.');
             }
             $scheduleId = (int) $schedule['id'];
+            $selectedDate = $schedule['schedule_date'];
+            $bookingStartTime = $schedule['start_time'] ?? null;
+            $bookingEndTime = $schedule['end_time'] ?? null;
         }
 
         $sessionId = null;
-        if (($data['tripType'] ?? '') === 'private') {
-            $sessionStatement = $pdo->prepare('SELECT id FROM trip_sessions WHERE trip_id = ? AND (session_code = ? OR id = ?) AND status = "active"');
+        if ($tripType === 'private') {
+            $sessionStatement = $pdo->prepare('SELECT id, start_time, end_time FROM trip_sessions WHERE trip_id = ? AND (session_code = ? OR id = ?) AND status = "active"');
             $sessionStatement->execute([(int) $data['tripId'], $data['sessionId'] ?? '', nullableInt($data['sessionId'] ?? null)]);
-            $sessionId = (int) $sessionStatement->fetchColumn();
-            if (!$sessionId) {
+            $selectedSession = $sessionStatement->fetch();
+            if (!$selectedSession) {
                 throw new InvalidArgumentException('Sesi private trip tidak tersedia.');
             }
-            $collision = $pdo->prepare(
-                "SELECT COUNT(*) FROM bookings WHERE trip_id = ? AND session_id = ? AND selected_date = ?
-                 AND status IN ('Menunggu Approval','Disetujui')"
-            );
-            $collision->execute([(int) $data['tripId'], $sessionId, $data['selectedDate'] ?? null]);
-            if ((int) $collision->fetchColumn() > 0) {
-                throw new InvalidArgumentException('Sesi pada tanggal tersebut sudah dipesan.');
+            $sessionId = (int) $selectedSession['id'];
+            $bookingStartTime = $selectedSession['start_time'] ?? null;
+            $bookingEndTime = $selectedSession['end_time'] ?? null;
+            if (($trip['private_booking_mode'] ?? 'exclusive') !== 'shared') {
+                $collision = $pdo->prepare(
+                    "SELECT COUNT(*) FROM bookings WHERE trip_id = ? AND session_id = ? AND selected_date = ?
+                     AND status IN ('Menunggu Approval','Disetujui')"
+                );
+                $collision->execute([(int) $data['tripId'], $sessionId, $data['selectedDate'] ?? null]);
+                if ((int) $collision->fetchColumn() > 0) {
+                    throw new InvalidArgumentException('Sesi pada tanggal tersebut sudah dipesan.');
+                }
             }
         }
 
@@ -183,9 +195,9 @@ runEndpoint(function (PDO $pdo): void {
             $selectedPackage ? $tripSubtotal : 0,
             $selectedPackage['destinations_json'] ?? null,
             $data['name'], strtolower($data['email']),
-            $data['whatsapp'], $data['tripType'] ?? 'open', $data['experienceType'] ?? 'cave',
-            $data['selectedDate'] ?? null, $data['selectedDate'] ?? null,
-            $data['startTime'] ?? null, $data['endTime'] ?? null,
+            $data['whatsapp'], $tripType, $trip['experience_type'] ?? 'cave',
+            $selectedDate, $selectedDate,
+            $bookingStartTime, $bookingEndTime,
             $participants, $pricePerPerson, $totalPrice,
             $hasPayment ? $paymentType : null, $paymentStatus,
             $hasPayment ? $requiredPaymentAmount : 0, $hasPayment ? $requiredPaymentAmount : 0,

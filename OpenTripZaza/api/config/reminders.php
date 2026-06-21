@@ -55,11 +55,22 @@ function h7PlaceholderValues(array $booking): array
         '{nama_customer}' => (string) $booking['customer_name'],
         '{nama_trip}' => (string) $booking['trip_name'],
         '{tanggal_trip}' => reminderDate((string) $booking['selected_date']),
+        '{jam_trip}' => reminderTimeRange($booking['start_time'] ?? null, $booking['end_time'] ?? null),
         '{jumlah_peserta}' => (string) ((int) $booking['participants']),
         '{nama_admin}' => $admin,
         '{nama_brand}' => $brand,
         '{nama_admin / nama_brand}' => $admin !== '' ? $admin : $brand,
     ];
+}
+
+function reminderTimeRange(mixed $startTime, mixed $endTime): string
+{
+    $start = $startTime ? substr((string) $startTime, 0, 5) : '';
+    $end = $endTime ? substr((string) $endTime, 0, 5) : '';
+    if ($start !== '' && $end !== '') {
+        return $start . ' - ' . $end . ' WIB';
+    }
+    return $start !== '' ? $start . ' WIB' : 'Akan diinformasikan admin';
 }
 
 function renderH7Template(string $template, array $booking): string
@@ -77,6 +88,7 @@ function defaultH7Body(): string
     return "Halo {nama_customer},\n\n"
         . "Trip {nama_trip} akan berlangsung 7 hari lagi.\n\n"
         . "Tanggal trip: {tanggal_trip}\n"
+        . "Jam trip: {jam_trip}\n"
         . "Jumlah peserta: {jumlah_peserta}";
 }
 

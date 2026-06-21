@@ -45,9 +45,10 @@ const getTripCardTypeLabel = (trip, t) => trip?.isPrivateTrip ? t('tripType.card
 const getTripCategoryLabel = (trip, t) => isCustomExperience(trip) ? t('tripCategory.custom') : t('tripCategory.cave')
 const getScheduleLabel = (schedule, dateLocale, t) => {
   const dateText = formatDate(schedule.date, dateLocale)
-  if (schedule.status === 'full' || schedule.remaining <= 0) return `${dateText} - ${t('schedule.full')}`
-  if (schedule.status === 'inactive') return `${dateText} - ${t('schedule.inactive')}`
-  return `${dateText} - ${t('schedule.remaining', { count: schedule.remaining ?? schedule.quota })}`
+  const timeText = schedule.startTime && schedule.endTime ? `, ${schedule.startTime} - ${schedule.endTime} WIB` : ''
+  if (schedule.status === 'full' || schedule.remaining <= 0) return `${dateText}${timeText} - ${t('schedule.full')}`
+  if (schedule.status === 'inactive') return `${dateText}${timeText} - ${t('schedule.inactive')}`
+  return `${dateText}${timeText} - ${t('schedule.remaining', { count: schedule.remaining ?? schedule.quota })}`
 }
 const getSessionLabel = (session, t) => {
   const timeText = session.startTime && session.endTime ? `${session.startTime} - ${session.endTime}` : t('schedule.flexibleSession')
@@ -1106,12 +1107,13 @@ export function RegistrationPage({
       participantDetails,
       participants: isPrivateBooking ? participants : 1,
       isPrivateTour: isPrivateBooking,
+      tripType: isPrivateBooking ? 'private' : 'open',
       selectedDate: isPrivateBooking ? form.requestedDate : selectedSchedule.date,
       scheduleId: isPrivateBooking ? '' : selectedSchedule.id,
       sessionId: isPrivateBooking ? selectedSession.id : '',
       sessionName: isPrivateBooking ? selectedSession.name : '',
-      startTime: isPrivateBooking ? selectedSession.startTime : '',
-      endTime: isPrivateBooking ? selectedSession.endTime : '',
+      startTime: isPrivateBooking ? selectedSession.startTime : selectedSchedule.startTime,
+      endTime: isPrivateBooking ? selectedSession.endTime : selectedSchedule.endTime,
       hargaPerOrang: pricePerPerson,
       totalHarga: estimatedTotal,
     })
@@ -1197,6 +1199,7 @@ export function RegistrationPage({
               <p>{getTripDestination(selectedTrip, lang)}</p>
               <dl className="summary-list">
                 <div><dt><span className="asset-icon icon-calendar" aria-hidden="true" />{t('common.date')}</dt><dd>{isPrivateBooking ? form.requestedDate ? formatDate(form.requestedDate, dateLocale) : t('common.chooseDate') : selectedSchedule ? formatDate(selectedSchedule.date, dateLocale) : t('schedule.chooseSchedule')}</dd></div>
+                {!isPrivateBooking && selectedSchedule?.startTime && <div><dt>Jam</dt><dd>{selectedSchedule.startTime}{selectedSchedule.endTime ? ` - ${selectedSchedule.endTime}` : ''} WIB</dd></div>}
                 {isPrivateBooking && selectedSession && <div><dt>{t('schedule.session')}</dt><dd>{getSessionLabel(selectedSession, t)}</dd></div>}
                 {isPrivateBooking && privatePackages.length > 0 && <div><dt>Paket</dt><dd>{selectedPackage?.name || 'Belum dipilih'}</dd></div>}
                 <div><dt>{t('checkout.participantTotal')}</dt><dd>{t('common.participantCount', { count: participants })}</dd></div>
@@ -1495,6 +1498,7 @@ export function PaymentConfirmationPage({
                 <div><dt>Nama trip</dt><dd>{trip?.name || checkoutDraft.tripName || '-'}</dd></div>
                 {checkoutDraft.selectedPackageName && <div><dt>Paket</dt><dd>{checkoutDraft.selectedPackageName}</dd></div>}
                 <div><dt>Tanggal trip</dt><dd>{checkoutDraft.selectedDate ? formatDate(checkoutDraft.selectedDate, dateLocale) : '-'}</dd></div>
+                {checkoutDraft.tripType === 'open' && checkoutDraft.startTime && <div><dt>Jam trip</dt><dd>{checkoutDraft.startTime}{checkoutDraft.endTime ? ` - ${checkoutDraft.endTime}` : ''} WIB</dd></div>}
                 {checkoutDraft.sessionName && <div><dt>Sesi</dt><dd>{checkoutDraft.sessionName}{checkoutDraft.startTime && checkoutDraft.endTime ? ` (${checkoutDraft.startTime} - ${checkoutDraft.endTime})` : ''}</dd></div>}
                 <div><dt>Jumlah peserta</dt><dd>{checkoutDraft.participants || 1} orang</dd></div>
                 <div><dt>Harga per orang</dt><dd>{formatCurrency(checkoutDraft.hargaPerOrang || checkoutDraft.pricePerPerson || 0)}</dd></div>
@@ -1792,6 +1796,7 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], userRevie
                 </div>
                 <dl className="account-order-meta">
                   <div><dt><span className="asset-icon icon-calendar" aria-hidden="true" />{t('common.date')}</dt><dd>{registrationDate ? formatDate(registrationDate, dateLocale) : trip ? formatDate(trip.date, dateLocale) : '-'}</dd></div>
+                  {item.tripType === 'open' && item.startTime && <div><dt>Jam</dt><dd>{item.startTime}{item.endTime ? ` - ${item.endTime}` : ''} WIB</dd></div>}
                   {(item.tripType === 'private' || item.isPrivateTrip || item.isPrivateTour) && item.sessionName && <div><dt>{t('schedule.session')}</dt><dd>{item.sessionName}{item.startTime && item.endTime ? ` (${item.startTime} - ${item.endTime})` : ''}</dd></div>}
                   {(item.tripType === 'private' || item.isPrivateTrip || item.isPrivateTour) && <div><dt>Paket</dt><dd>{item.selectedPackageName || '-'}</dd></div>}
                   <div><dt>{t('common.type')}</dt><dd>{getTripTypeLabel(trip, item, t)}</dd></div>
@@ -1846,6 +1851,7 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], userRevie
                   <div><dt>{t('common.location')}</dt><dd>{selectedTrip ? getTripDestination(selectedTrip, lang) : '-'}</dd></div>
                   <div><dt>{t('account.tripType')}</dt><dd>{getTripTypeLabel(selectedTrip, selectedOrder, t)}</dd></div>
                   <div><dt>{t('common.date')}</dt><dd>{getRegistrationDate(selectedOrder) ? formatDate(getRegistrationDate(selectedOrder), dateLocale) : selectedTrip ? formatDate(selectedTrip.date, dateLocale) : '-'}</dd></div>
+                  {selectedOrder.tripType === 'open' && selectedOrder.startTime && <div><dt>Jam</dt><dd>{selectedOrder.startTime}{selectedOrder.endTime ? ` - ${selectedOrder.endTime}` : ''} WIB</dd></div>}
                   {(selectedOrder.tripType === 'private' || selectedOrder.isPrivateTrip || selectedOrder.isPrivateTour) && selectedOrder.sessionName && <div><dt>{t('schedule.session')}</dt><dd>{selectedOrder.sessionName}{selectedOrder.startTime && selectedOrder.endTime ? ` (${selectedOrder.startTime} - ${selectedOrder.endTime})` : ''}</dd></div>}
                   {(selectedOrder.tripType === 'private' || selectedOrder.isPrivateTrip || selectedOrder.isPrivateTour) && <div><dt>Paket private</dt><dd>{selectedOrder.selectedPackageName || '-'}</dd></div>}
                   {selectedOrder.selectedPackageDestinations?.length > 0 && <div><dt>Destinasi / aktivitas paket</dt><dd>{selectedOrder.selectedPackageDestinations.join(', ')}</dd></div>}

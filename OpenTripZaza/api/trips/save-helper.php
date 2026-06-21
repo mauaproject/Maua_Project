@@ -24,6 +24,9 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
     $schedules = $type === 'open' && is_array($data['schedules'] ?? null) ? $data['schedules'] : [];
     $sessions = $type === 'private' && is_array($data['sessions'] ?? null) ? $data['sessions'] : [];
     $packages = $type === 'private' && is_array($data['privatePackages'] ?? null) ? $data['privatePackages'] : [];
+    $privateBookingMode = $type === 'private' && ($data['privateBookingMode'] ?? '') === 'shared'
+        ? 'shared'
+        : 'exclusive';
     $quota = $type === 'open'
         ? array_sum(array_map(static fn(array $item): int => (int) ($item['quota'] ?? 0), $schedules))
         : (int) ($data['quota'] ?? $data['maxParticipants'] ?? 1);
@@ -54,6 +57,7 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
         $type === 'private' ? ($data['availableEndDate'] ?? null) : null,
         $type === 'private' ? ($data['privateNotes'] ?? '') : '',
         $type === 'private' ? 1 : boolValue($data['flexibleSchedule'] ?? false),
+        $privateBookingMode,
         $h7ReminderSubject !== '' ? $h7ReminderSubject : null,
         $h7ReminderBody !== '' ? $h7ReminderBody : null,
     ];
@@ -64,8 +68,8 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
             (name, trip_type, experience_type, status, destination_id, destination_en, description_id, description_en,
              activities_id, activities_en, facilities_id, facilities_en, price, quota, slots, min_participants,
              max_participants, max_custom_pax, available_start_date, available_end_date, private_notes, flexible_schedule,
-             h7_reminder_subject, h7_reminder_body)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+             private_booking_mode, h7_reminder_subject, h7_reminder_body)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
         );
         $statement->execute($values);
         $tripId = (int) $pdo->lastInsertId();
@@ -75,7 +79,7 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
              description_id=?, description_en=?, activities_id=?, activities_en=?, facilities_id=?, facilities_en=?,
              price=?, quota=?, slots=?, min_participants=?, max_participants=?, max_custom_pax=?,
              available_start_date=?, available_end_date=?, private_notes=?, flexible_schedule=?,
-             h7_reminder_subject=?, h7_reminder_body=?, updated_at=CURRENT_TIMESTAMP
+             private_booking_mode=?, h7_reminder_subject=?, h7_reminder_body=?, updated_at=CURRENT_TIMESTAMP
              WHERE id=?'
         );
         $statement->execute([...$values, $tripId]);
@@ -96,29 +100,54 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
     }
     $scheduleInsert = $pdo->prepare(
         'INSERT INTO trip_schedules
-         (trip_id, schedule_code, schedule_date, visible_until, archived_at, quota, booked_count, status)
-         VALUES (?,?,?,DATE_ADD(?, INTERVAL 7 DAY),NULL,?,?,?)'
+         (trip_id, schedule_code, schedule_date, start_time, end_time, visible_until, archived_at, quota, booked_count, status)
+         VALUES (?,?,?,?,?,DATE_ADD(?, INTERVAL 7 DAY),NULL,?,?,?)'
     );
     $scheduleUpdate = $pdo->prepare(
         'UPDATE trip_schedules
-         SET schedule_code=?, schedule_date=?, visible_until=DATE_ADD(?, INTERVAL 7 DAY), archived_at=NULL,
+         SET schedule_code=?, schedule_date=?, start_time=?, end_time=?,
+             visible_until=DATE_ADD(?, INTERVAL 7 DAY), archived_at=NULL,
              quota=?, booked_count=?, status=?
          WHERE id=? AND trip_id=?'
     );
     $retainedScheduleCodes = [];
     foreach ($schedules as $index => $schedule) {
         $code = (string) ($schedule['id'] ?? 'schedule_' . ($index + 1));
+        $scheduleDate = trim((string) ($schedule['date'] ?? ''));
+        $scheduleStartTime = trim((string) ($schedule['startTime'] ?? ''));
+        $scheduleEndTime = trim((string) ($schedule['endTime'] ?? ''));
+        if (
+            $scheduleDate === ''
+            || !preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $scheduleStartTime)
+            || !preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $scheduleEndTime)
+            || $scheduleEndTime <= $scheduleStartTime
+            || (int) ($schedule['quota'] ?? 0) <= 0
+        ) {
+            throw new InvalidArgumentException('Setiap jadwal Open Trip wajib memiliki tanggal, jam mulai, jam selesai, dan kuota yang valid.');
+        }
         $retainedScheduleCodes[] = $code;
         $values = [
-            $code, $schedule['date'] ?? null, $schedule['date'] ?? null, (int) ($schedule['quota'] ?? 0),
+            $code,
+            $scheduleDate,
+            $scheduleStartTime,
+            $scheduleEndTime,
+            $scheduleDate,
+            (int) ($schedule['quota'] ?? 0),
             (int) ($schedule['bookedCount'] ?? 0),
             in_array($schedule['status'] ?? 'active', ['active', 'full', 'inactive'], true) ? $schedule['status'] : 'active',
         ];
         if (isset($existingSchedules[$code])) {
             $scheduleUpdate->execute([...$values, $existingSchedules[$code], $tripId]);
+            $scheduleDatabaseId = $existingSchedules[$code];
         } else {
             $scheduleInsert->execute([$tripId, ...$values]);
+            $scheduleDatabaseId = (int) $pdo->lastInsertId();
         }
+        $pdo->prepare(
+            'UPDATE bookings
+             SET start_time=COALESCE(start_time, ?), end_time=COALESCE(end_time, ?)
+             WHERE schedule_id=?'
+        )->execute([$scheduleStartTime, $scheduleEndTime, $scheduleDatabaseId]);
     }
     foreach ($existingSchedules as $code => $databaseId) {
         if (!in_array($code, $retainedScheduleCodes, true)) {

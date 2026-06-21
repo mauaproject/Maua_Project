@@ -26,6 +26,8 @@ const getAdminTripTypeLabel = (trip) => {
 const newSchedule = (index, source = {}) => ({
   id: source.id || `schedule_${index + 1}`,
   date: source.date || '',
+  startTime: source.startTime || '',
+  endTime: source.endTime || '',
   quota: Number(source.quota || 10),
   bookedCount: Number(source.bookedCount || 0),
   status: source.status || 'active',
@@ -77,6 +79,7 @@ const normalizeTripForm = (trip) => {
     minParticipants: 2,
     maxParticipants: 10,
     privateNotes: '',
+    privateBookingMode: 'exclusive',
     h7ReminderSubject: '',
     h7ReminderBody: '',
     flexibleSchedule: true,
@@ -386,7 +389,7 @@ export function AdminTrips(props) {
                 {!trip.isPrivateTrip && schedules.length > 0 && (
                   <div className="admin-schedule-mini-list">
                     {schedules.slice(0, 2).map((schedule) => (
-                      <span key={schedule.id}><strong>{formatDate(schedule.date)}</strong><small>{schedule.bookedCount || 0}/{schedule.quota} peserta</small></span>
+                      <span key={schedule.id}><strong>{formatDate(schedule.date)}</strong><small>{schedule.startTime && schedule.endTime ? `${schedule.startTime} - ${schedule.endTime} WIB · ` : ''}{schedule.bookedCount || 0}/{schedule.quota} peserta</small></span>
                     ))}
                     {schedules.length > 2 && <p>+{schedules.length - 2} jadwal lainnya</p>}
                   </div>
@@ -542,8 +545,10 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
 
   const updateSchedule = (index, field, value) => {
     const currentSchedule = form.schedules[index]
-    if (selected && field === 'date' && currentSchedule?.date !== value && hasScheduleRegistrations(registrations, selected.id, currentSchedule)) {
-      setFormError('Tanggal jadwal yang sudah memiliki pendaftar tidak bisa diubah.')
+    const protectedFields = ['date', 'startTime', 'endTime']
+    const isInitialLegacyTime = ['startTime', 'endTime'].includes(field) && !currentSchedule?.[field]
+    if (selected && protectedFields.includes(field) && !isInitialLegacyTime && currentSchedule?.[field] !== value && hasScheduleRegistrations(registrations, selected.id, currentSchedule)) {
+      setFormError('Tanggal dan jam jadwal yang sudah memiliki pendaftar tidak bisa diubah.')
       return
     }
     const schedules = [...form.schedules]
@@ -594,9 +599,15 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
       return
     }
     if (!isPrivateTrip) {
-      const invalidSchedule = !form.schedules.length || form.schedules.some((schedule) => !schedule.date || Number(schedule.quota) <= 0)
+      const invalidSchedule = !form.schedules.length || form.schedules.some((schedule) => (
+        !schedule.date
+        || !schedule.startTime
+        || !schedule.endTime
+        || schedule.endTime <= schedule.startTime
+        || Number(schedule.quota) <= 0
+      ))
       if (invalidSchedule) {
-        setFormError('Open trip minimal punya 1 jadwal. Setiap jadwal wajib punya tanggal dan kuota.')
+        setFormError('Setiap jadwal Open Trip wajib punya tanggal, jam mulai, jam selesai, dan kuota. Jam selesai harus lebih besar dari jam mulai.')
         return
       }
     }
@@ -693,6 +704,7 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
       minParticipants: isPrivateTrip ? Number(form.minParticipants) || 1 : 1,
       maxParticipants: isPrivateTrip ? Number(form.maxParticipants) || Number(form.quota) || 1 : Number(form.quota),
       privateNotes: isPrivateTrip ? form.privateNotes || '' : '',
+      privateBookingMode: isPrivateTrip && form.privateBookingMode === 'shared' ? 'shared' : 'exclusive',
       availableStartDate: isPrivateTrip ? form.availableStartDate : '',
       availableEndDate: isPrivateTrip ? form.availableEndDate : '',
       flexibleSchedule: isPrivateTrip,
@@ -753,6 +765,8 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
                     <div className="admin-nested-fields full" key={schedule.id}>
                       <h4>Jadwal {index + 1}</h4>
                       <label>Tanggal jadwal {index + 1}<input required type="date" value={schedule.date} onChange={(e) => updateSchedule(index, 'date', e.target.value)} /></label>
+                      <label>Jam mulai<input required type="time" value={schedule.startTime} onChange={(e) => updateSchedule(index, 'startTime', e.target.value)} /></label>
+                      <label>Jam selesai<input required type="time" value={schedule.endTime} onChange={(e) => updateSchedule(index, 'endTime', e.target.value)} /></label>
                       <label>Kuota jadwal {index + 1}<input required type="number" min="1" value={schedule.quota} onChange={(e) => updateSchedule(index, 'quota', e.target.value)} /></label>
                       <label>Status jadwal<select value={schedule.status} onChange={(e) => updateSchedule(index, 'status', e.target.value)}><option value="active">Active</option><option value="full">Full</option><option value="inactive">Inactive</option></select></label>
                       {Number(schedule.bookedCount) > 0 && <small>Sudah ada {schedule.bookedCount} peserta disetujui pada jadwal ini.</small>}
@@ -812,6 +826,17 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
                   </div>
                   <label>Private trip bisa dipesan dari tanggal<input required type="date" value={form.availableStartDate} onChange={(e) => setForm({ ...form, availableStartDate: e.target.value })} /></label>
                   <label>Sampai tanggal<input required type="date" min={form.availableStartDate || undefined} value={form.availableEndDate} onChange={(e) => setForm({ ...form, availableEndDate: e.target.value })} /></label>
+                  <label className="full">Aturan kapasitas booking
+                    <select value={form.privateBookingMode} onChange={(event) => setForm({ ...form, privateBookingMode: event.target.value })}>
+                      <option value="exclusive">Eksklusif — satu booking per sesi pada tanggal yang sama</option>
+                      <option value="shared">Bersama — sesi dan tanggal yang sama dapat dipesan banyak customer</option>
+                    </select>
+                    <small>
+                      {form.privateBookingMode === 'shared'
+                        ? 'Customer lain tetap dapat memilih sesi yang sama walaupun sudah ada booking.'
+                        : 'Booking berstatus Menunggu Approval atau Disetujui akan menutup sesi tersebut untuk customer lain.'}
+                    </small>
+                  </label>
                   <div className="admin-private-config-section full">
                     <div className="admin-private-config-head">
                       <div>
@@ -942,7 +967,7 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
               <div className="h7-placeholder-help full">
                 <strong>Placeholder yang tersedia</strong>
                 <div>
-                  {['{nama_customer}', '{nama_trip}', '{tanggal_trip}', '{jumlah_peserta}', '{nama_admin}', '{nama_brand}'].map((placeholder) => (
+                  {['{nama_customer}', '{nama_trip}', '{tanggal_trip}', '{jam_trip}', '{jumlah_peserta}', '{nama_admin}', '{nama_brand}'].map((placeholder) => (
                     <code key={placeholder}>{placeholder}</code>
                   ))}
                 </div>
@@ -985,7 +1010,7 @@ function RegistrationTable({ registrations, trips, setRegistrationStatus, compac
         <thead><tr><th>Customer</th><th>Kontak</th><th>Peserta</th><th>Paket</th><th>Tanggal / sesi</th><th>Data utama</th><th>Add-on</th><th>Catatan</th><th>Status</th></tr></thead>
         <tbody>{rows.map((item) => (
           <tr key={item.id}>
-            <td>{item.name}</td><td>{item.whatsapp}<br />{item.email}</td><td>{item.participants}</td><td>{tripName(trips, item.tripId)}</td><td>{formatDate(getRegistrationDate(item) || trips.find((trip) => trip.id === item.tripId)?.date)}{item.sessionName ? <><br />{item.sessionName}{item.startTime && item.endTime ? ` (${item.startTime} - ${item.endTime})` : ''}</> : null}</td><td>{item.address || '-'}<br />{item.age ? `${item.age} tahun` : '-'} - {item.gender || '-'}<br />{item.healthNotes || '-'}</td><td>{getSelectedAddons(item).join(', ') || '-'}</td><td>{item.notes}</td>
+            <td>{item.name}</td><td>{item.whatsapp}<br />{item.email}</td><td>{item.participants}</td><td>{tripName(trips, item.tripId)}</td><td>{formatDate(getRegistrationDate(item) || trips.find((trip) => trip.id === item.tripId)?.date)}{item.tripType === 'open' && item.startTime ? <><br />{item.startTime}{item.endTime ? ` - ${item.endTime}` : ''} WIB</> : null}{item.sessionName ? <><br />{item.sessionName}{item.startTime && item.endTime ? ` (${item.startTime} - ${item.endTime})` : ''}</> : null}</td><td>{item.address || '-'}<br />{item.age ? `${item.age} tahun` : '-'} - {item.gender || '-'}<br />{item.healthNotes || '-'}</td><td>{getSelectedAddons(item).join(', ') || '-'}</td><td>{item.notes}</td>
             <td><select className="status-select" value={item.status} onChange={(e) => setRegistrationStatus(item.id, e.target.value)}>{registrationStatuses.map((status) => <option key={status}>{status}</option>)}</select></td>
           </tr>
         ))}</tbody>
@@ -1170,7 +1195,7 @@ export function AdminSchedule(props) {
                   {schedules.map((schedule) => (
                     <div className={`admin-schedule-action-row ${schedule.waitingParticipants > 0 ? 'needs-review' : ''}`} key={schedule.id}>
                       <div>
-                        <strong>{formatDate(schedule.date)} - {schedule.approvedParticipants}/{schedule.quota} peserta, sisa {schedule.remaining}</strong>
+                        <strong>{formatDate(schedule.date)}{schedule.startTime && schedule.endTime ? `, ${schedule.startTime} - ${schedule.endTime} WIB` : ''} - {schedule.approvedParticipants}/{schedule.quota} peserta, sisa {schedule.remaining}</strong>
                         <small>Status: {scheduleStatusLabel(schedule.status)}{schedule.waitingParticipants > 0 ? ` - ${schedule.waitingParticipants} menunggu approval` : ''}</small>
                       </div>
                       <button className="outline-btn schedule-detail-btn" type="button" onClick={() => props.navigate(`/admin/jadwal/${trip.id}/${schedule.id}`)}>
@@ -1429,7 +1454,7 @@ function AdminScheduleDetail({ trip, scheduleId, registrations, jobs, setRegistr
           <div>
             <p className="eyebrow">Approval peserta</p>
             <h2>Manajemen Pendaftaran</h2>
-            <p className="muted">{trip.name} - {adminText(trip.destination)} - {selectedSchedule ? formatDate(selectedSchedule.date) : `${tripSchedules.length} jadwal`}</p>
+            <p className="muted">{trip.name} - {adminText(trip.destination)} - {selectedSchedule ? `${formatDate(selectedSchedule.date)}${selectedSchedule.startTime && selectedSchedule.endTime ? `, ${selectedSchedule.startTime} - ${selectedSchedule.endTime} WIB` : ''}` : `${tripSchedules.length} jadwal`}</p>
           </div>
           <div className="registration-management-actions">
             <button className="outline-btn" onClick={() => navigate('/admin/jadwal')}>Kembali ke jadwal</button>
@@ -1457,7 +1482,7 @@ function AdminScheduleDetail({ trip, scheduleId, registrations, jobs, setRegistr
               {tripSchedules.map((schedule) => (
                 <article className="registration-status-card" key={schedule.id}>
                   <div className="registration-card-main">
-                    <h4>{formatDate(schedule.date)}</h4>
+                    <h4>{formatDate(schedule.date)}{schedule.startTime && schedule.endTime ? `, ${schedule.startTime} - ${schedule.endTime} WIB` : ''}</h4>
                     <dl>
                       <div><dt>Kuota</dt><dd>{schedule.quota}</dd></div>
                       <div><dt>Disetujui</dt><dd>{schedule.approvedCount}</dd></div>
@@ -1537,6 +1562,7 @@ function RegistrationApprovalCard({ item, setRegistrationStatus, onDetail }) {
       <dl>
         <div><dt>Jenis trip</dt><dd>{registrationTripType(item)}</dd></div>
         <div><dt>Tanggal</dt><dd>{formatDate(getRegistrationDate(item))}</dd></div>
+        {item.tripType === 'open' && item.startTime && <div><dt>Jam</dt><dd>{item.startTime}{item.endTime ? ` - ${item.endTime}` : ''} WIB</dd></div>}
         {item.sessionName && <div><dt>Sesi</dt><dd>{item.sessionName}{item.startTime && item.endTime ? ` (${item.startTime} - ${item.endTime})` : ''}</dd></div>}
         {(item.isPrivateTrip || item.isPrivateTour || item.tripType === 'private') && <div><dt>Paket</dt><dd>{item.selectedPackageName || '-'}</dd></div>}
         <div><dt>Peserta</dt><dd>{item.participants} orang</dd></div>

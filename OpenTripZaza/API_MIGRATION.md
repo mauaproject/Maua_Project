@@ -111,7 +111,11 @@ Nginx, atau `php -S`; Vite sendiri tidak mengeksekusi file PHP.
    melalui phpMyAdmin.
 2. Jalankan migrasi `api/migrations/2026-06-21-trip-h7-reminder-template.sql`
    untuk menambahkan subject dan isi email H-7 per trip.
-3. Tambahkan konfigurasi berikut ke `.env` server:
+3. Jalankan migrasi `api/migrations/2026-06-21-open-trip-schedule-times.sql`
+   untuk menambahkan jam mulai dan selesai pada setiap jadwal Open Trip.
+4. Jalankan migrasi `api/migrations/2026-06-21-private-trip-booking-mode.sql`
+   untuk menambahkan pilihan kapasitas booking Private Trip.
+5. Tambahkan konfigurasi berikut ke `.env` server:
 
 ```env
 MAIL_HOST=smtp.gmail.com
@@ -153,7 +157,7 @@ Gunakan URL HTTPS dan token acak yang panjang. Script akan:
 - mengirim H-7, H-1 beserta PDF invoice, dan H+1;
 - memakai template H-7 milik trip, atau template default jika subject/isi kosong;
 - mendukung placeholder H-7 `{nama_customer}`, `{nama_trip}`, `{tanggal_trip}`,
-  `{jumlah_peserta}`, `{nama_admin}`, dan `{nama_brand}`;
+  `{jam_trip}`, `{jumlah_peserta}`, `{nama_admin}`, dan `{nama_brand}`;
 - hanya memproses booking berstatus `Disetujui` atau `Selesai`;
 - mencatat hasil ke tabel `reminder_logs` agar email sukses tidak terkirim ulang;
 - mengarsipkan booking dan jadwal dari daftar aktif setelah `visible_until`;

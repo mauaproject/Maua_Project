@@ -11,6 +11,8 @@ export const isApprovedRegistration = (registration) => approvedStatuses.include
 
 export const isPrivateBlockingRegistration = (registration) => privateBlockingStatuses.includes(normalized(registration?.status))
 
+export const isSharedPrivateBooking = (trip) => trip?.privateBookingMode === 'shared'
+
 export function getPrivateDateRange(trip) {
   return {
     startDate: trip?.availableStartDate || trip?.privateStartDate || '',
@@ -45,6 +47,8 @@ export function getTripSchedules(trip) {
     return trip.schedules.map((schedule, index) => ({
       id: schedule.id || `schedule_${index + 1}`,
       date: schedule.date || '',
+      startTime: schedule.startTime || '',
+      endTime: schedule.endTime || '',
       visibleUntil: schedule.visibleUntil || '',
       isArchived: Boolean(schedule.isArchived),
       quota: Number(schedule.quota || trip?.quota || 0),
@@ -58,6 +62,8 @@ export function getTripSchedules(trip) {
   return [{
     id: 'legacy_date',
     date: trip?.date || '',
+    startTime: '',
+    endTime: '',
     quota: Number(trip?.quota || trip?.slots || 0),
     bookedCount: 0,
     status,
@@ -135,7 +141,9 @@ export function isPrivateSessionBooked(registrations = [], tripId, selectedDate,
 
 export function getPrivateSessionOptions(trip, registrations = [], selectedDate) {
   return getTripSessions(trip).map((session) => {
-    const booked = !session.isLegacy && isPrivateSessionBooked(registrations, trip?.id, selectedDate, session.id)
+    const booked = !isSharedPrivateBooking(trip)
+      && !session.isLegacy
+      && isPrivateSessionBooked(registrations, trip?.id, selectedDate, session.id)
     const status = normalizeScheduleStatus(session.status)
     return {
       ...session,

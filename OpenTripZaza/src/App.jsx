@@ -14,6 +14,7 @@ import {
   getPrivateSessionOptions,
   isDateWithinPrivateRange,
   isPrivateSessionBooked,
+  isSharedPrivateBooking,
 } from './utils/schedules'
 
 const getJobScope = (job) => job.registrationId ? `registration-${job.registrationId}` : `trip-${job.tripId}`
@@ -239,7 +240,7 @@ function App() {
       const sessionOptions = getPrivateSessionOptions(trip, registrations, selectedDate)
       selectedSession = sessionOptions.find((session) => session.id === form.sessionId)
       if (!selectedSession || !selectedSession.isSelectable) return false
-      if (!selectedSession.isLegacy && isPrivateSessionBooked(registrations, trip.id, selectedDate, selectedSession.id)) return false
+      if (!isSharedPrivateBooking(trip) && !selectedSession.isLegacy && isPrivateSessionBooked(registrations, trip.id, selectedDate, selectedSession.id)) return false
     }
     const participantDetails = Array.isArray(form.participantDetails) && form.participantDetails.length
       ? form.participantDetails
@@ -283,8 +284,8 @@ function App() {
       requestedDate: selectedDate,
       sessionId: isPrivateTour ? selectedSession.id : '',
       sessionName: isPrivateTour ? selectedSession.name : '',
-      startTime: isPrivateTour ? selectedSession.startTime : '',
-      endTime: isPrivateTour ? selectedSession.endTime : '',
+      startTime: isPrivateTour ? selectedSession.startTime : selectedSchedule.startTime,
+      endTime: isPrivateTour ? selectedSession.endTime : selectedSchedule.endTime,
       selectedPackageId: selectedPackage?.id || null,
       selectedPackageName: selectedPackage?.name || '',
       selectedPackagePrice: selectedPackage ? hargaPerOrang : 0,
@@ -363,6 +364,8 @@ function App() {
       ? trip.schedules.map((schedule, index) => ({
         id: schedule.id || `schedule_${index + 1}`,
         date: schedule.date || '',
+        startTime: schedule.startTime || '',
+        endTime: schedule.endTime || '',
         quota: Number(schedule.quota || 0),
         bookedCount: Number(schedule.bookedCount || 0),
         status: schedule.status || 'active',

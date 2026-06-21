@@ -128,7 +128,7 @@ function mapTrip(PDO $pdo, array $trip): array
         return $statement->fetchAll();
     };
     $images = $query('SELECT id, image_url, sort_order FROM trip_images WHERE trip_id = ? ORDER BY sort_order, id');
-    $schedules = $query('SELECT id, schedule_code, schedule_date, visible_until, archived_at, quota, booked_count, status FROM trip_schedules WHERE trip_id = ? ORDER BY schedule_date, id');
+    $schedules = $query('SELECT id, schedule_code, schedule_date, start_time, end_time, visible_until, archived_at, quota, booked_count, status FROM trip_schedules WHERE trip_id = ? ORDER BY schedule_date, start_time, id');
     $sessions = $query('SELECT id, session_code, name, start_time, end_time, status FROM trip_sessions WHERE trip_id = ? ORDER BY start_time, id');
     $packages = $query('SELECT id, package_code, name, price, max_custom_pax, destinations_json, description, status, sort_order FROM private_trip_packages WHERE trip_id = ? ORDER BY sort_order, id');
     $packageTiers = $query(
@@ -147,6 +147,8 @@ function mapTrip(PDO $pdo, array $trip): array
         'id' => $item['schedule_code'] ?: (string) $item['id'],
         'databaseId' => (int) $item['id'],
         'date' => $item['schedule_date'],
+        'startTime' => $item['start_time'] ? substr((string) $item['start_time'], 0, 5) : '',
+        'endTime' => $item['end_time'] ? substr((string) $item['end_time'], 0, 5) : '',
         'visibleUntil' => $item['visible_until'] ?? null,
         'isArchived' => !empty($item['archived_at']) || (!empty($item['visible_until']) && $item['visible_until'] < date('Y-m-d')),
         'quota' => (int) $item['quota'],
@@ -191,6 +193,7 @@ function mapTrip(PDO $pdo, array $trip): array
         'availableEndDate' => $trip['available_end_date'],
         'privateNotes' => $trip['private_notes'] ?? '',
         'flexibleSchedule' => (bool) $trip['flexible_schedule'],
+        'privateBookingMode' => ($trip['private_booking_mode'] ?? 'exclusive') === 'shared' ? 'shared' : 'exclusive',
         'h7ReminderSubject' => $trip['h7_reminder_subject'] ?? '',
         'h7ReminderBody' => $trip['h7_reminder_body'] ?? '',
         'date' => $mappedSchedules[0]['date'] ?? '',
