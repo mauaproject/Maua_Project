@@ -191,6 +191,8 @@ function mapTrip(PDO $pdo, array $trip): array
         'availableEndDate' => $trip['available_end_date'],
         'privateNotes' => $trip['private_notes'] ?? '',
         'flexibleSchedule' => (bool) $trip['flexible_schedule'],
+        'h7ReminderSubject' => $trip['h7_reminder_subject'] ?? '',
+        'h7ReminderBody' => $trip['h7_reminder_body'] ?? '',
         'date' => $mappedSchedules[0]['date'] ?? '',
         'imageUrl' => $images[0]['image_url'] ?? '',
         'imageUrls' => array_column($images, 'image_url'),

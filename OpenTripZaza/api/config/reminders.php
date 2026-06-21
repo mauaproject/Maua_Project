@@ -47,6 +47,39 @@ function adminContactHtml(): string
     return $parts ? implode(' &middot; ', $parts) : '-';
 }
 
+function h7PlaceholderValues(array $booking): array
+{
+    $brand = trim((string) (getenv('MAIL_FROM_NAME') ?: 'MAUA Project'));
+    $admin = trim((string) (getenv('ADMIN_NAME') ?: $brand));
+    return [
+        '{nama_customer}' => (string) $booking['customer_name'],
+        '{nama_trip}' => (string) $booking['trip_name'],
+        '{tanggal_trip}' => reminderDate((string) $booking['selected_date']),
+        '{jumlah_peserta}' => (string) ((int) $booking['participants']),
+        '{nama_admin}' => $admin,
+        '{nama_brand}' => $brand,
+        '{nama_admin / nama_brand}' => $admin !== '' ? $admin : $brand,
+    ];
+}
+
+function renderH7Template(string $template, array $booking): string
+{
+    return strtr($template, h7PlaceholderValues($booking));
+}
+
+function defaultH7Subject(): string
+{
+    return 'Pengingat H-7: {nama_trip}';
+}
+
+function defaultH7Body(): string
+{
+    return "Halo {nama_customer},\n\n"
+        . "Trip {nama_trip} akan berlangsung 7 hari lagi.\n\n"
+        . "Tanggal trip: {tanggal_trip}\n"
+        . "Jumlah peserta: {jumlah_peserta}";
+}
+
 function fetchReminderInvoice(PDO $pdo, array $booking): array
 {
     $addonStatement = $pdo->prepare(
@@ -159,14 +192,16 @@ function buildReminderMessage(PDO $pdo, array $booking, string $type): array
 {
     $name = reminderEscape($booking['customer_name']);
     $tripName = reminderEscape($booking['trip_name']);
-    $tripDate = reminderDate((string) $booking['selected_date']);
-    $participants = (int) $booking['participants'];
 
     if ($type === 'H7') {
-        $content = "<p>Halo <strong>{$name}</strong>, trip <strong>{$tripName}</strong> akan berlangsung 7 hari lagi.</p>"
-            . "<ul><li>Tanggal trip: {$tripDate}</li><li>Jumlah peserta: {$participants}</li></ul>"
+        $subjectTemplate = trim((string) ($booking['h7_reminder_subject'] ?? ''));
+        $bodyTemplate = trim((string) ($booking['h7_reminder_body'] ?? ''));
+        $subject = renderH7Template($subjectTemplate !== '' ? $subjectTemplate : defaultH7Subject(), $booking);
+        $subject = trim(preg_replace('/[\r\n]+/', ' ', $subject) ?? $subject);
+        $body = renderH7Template($bodyTemplate !== '' ? $bodyTemplate : defaultH7Body(), $booking);
+        $content = '<div style="line-height:1.65">' . nl2br(reminderEscape($body)) . '</div>'
             . '<p>Ada pertanyaan? Hubungi admin: ' . adminContactHtml() . '</p>';
-        return ['subject' => "Pengingat H-7: {$booking['trip_name']}", 'html' => reminderLayout('Trip berlangsung 7 hari lagi', $content), 'attachments' => []];
+        return ['subject' => $subject, 'html' => reminderLayout('Pengingat H-7', $content), 'attachments' => []];
     }
 
     if ($type === 'H1') {
@@ -241,7 +276,7 @@ function runDailyReminders(PDO $pdo): array
     );
 
     $candidate = $pdo->prepare(
-        "SELECT b.*, t.name trip_name
+        "SELECT b.*, t.name trip_name, t.h7_reminder_subject, t.h7_reminder_body
          FROM bookings b
          INNER JOIN trips t ON t.id = b.trip_id
          WHERE b.status IN ('Disetujui','Selesai')

@@ -3965,6 +3965,36 @@ button:disabled {
   font-weight: 500;
   line-height: 1.45;
 }
+.h7-reminder-fields textarea {
+  min-height: 180px;
+}
+.h7-placeholder-help {
+  display: grid;
+  gap: 10px;
+  border: 1px dashed rgba(184, 132, 43, 0.42);
+  border-radius: 16px;
+  background: #fffdf8;
+  padding: 14px;
+}
+.h7-placeholder-help strong {
+  color: #4b3514;
+  font-size: 14px;
+}
+.h7-placeholder-help > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.h7-placeholder-help code {
+  border: 1px solid rgba(184, 132, 43, 0.25);
+  border-radius: 999px;
+  background: #f4e5bf;
+  color: #6b4710;
+  padding: 6px 10px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 800;
+}
 .media-preview {
   position: relative;
   overflow: hidden;

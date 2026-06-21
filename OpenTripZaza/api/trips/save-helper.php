@@ -4,6 +4,17 @@ declare(strict_types=1);
 function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
 {
     requiredFields($data, ['name', 'price']);
+    $h7ReminderSubject = trim((string) ($data['h7ReminderSubject'] ?? ''));
+    $h7ReminderSubjectLength = function_exists('mb_strlen')
+        ? mb_strlen($h7ReminderSubject, 'UTF-8')
+        : strlen($h7ReminderSubject);
+    if ($h7ReminderSubjectLength > 190) {
+        throw new InvalidArgumentException('Subject Email Pengingat H-7 maksimal 190 karakter.');
+    }
+    if (preg_match('/[\r\n]/', $h7ReminderSubject)) {
+        throw new InvalidArgumentException('Subject Email Pengingat H-7 tidak boleh memiliki baris baru.');
+    }
+    $h7ReminderBody = trim(str_replace(["\r\n", "\r"], "\n", (string) ($data['h7ReminderBody'] ?? '')));
     $type = ($data['type'] ?? '') === 'private' || !empty($data['isPrivateTrip']) ? 'private' : 'open';
     $experienceType = ($data['experienceType'] ?? '') === 'custom' ? 'custom' : 'cave';
     $destination = is_array($data['destination'] ?? null) ? $data['destination'] : ['id' => $data['destination'] ?? '', 'en' => ''];
@@ -43,6 +54,8 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
         $type === 'private' ? ($data['availableEndDate'] ?? null) : null,
         $type === 'private' ? ($data['privateNotes'] ?? '') : '',
         $type === 'private' ? 1 : boolValue($data['flexibleSchedule'] ?? false),
+        $h7ReminderSubject !== '' ? $h7ReminderSubject : null,
+        $h7ReminderBody !== '' ? $h7ReminderBody : null,
     ];
 
     if ($tripId === null) {
@@ -50,8 +63,9 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
             'INSERT INTO trips
             (name, trip_type, experience_type, status, destination_id, destination_en, description_id, description_en,
              activities_id, activities_en, facilities_id, facilities_en, price, quota, slots, min_participants,
-             max_participants, max_custom_pax, available_start_date, available_end_date, private_notes, flexible_schedule)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+             max_participants, max_custom_pax, available_start_date, available_end_date, private_notes, flexible_schedule,
+             h7_reminder_subject, h7_reminder_body)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
         );
         $statement->execute($values);
         $tripId = (int) $pdo->lastInsertId();
@@ -60,7 +74,8 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
             'UPDATE trips SET name=?, trip_type=?, experience_type=?, status=?, destination_id=?, destination_en=?,
              description_id=?, description_en=?, activities_id=?, activities_en=?, facilities_id=?, facilities_en=?,
              price=?, quota=?, slots=?, min_participants=?, max_participants=?, max_custom_pax=?,
-             available_start_date=?, available_end_date=?, private_notes=?, flexible_schedule=?, updated_at=CURRENT_TIMESTAMP
+             available_start_date=?, available_end_date=?, private_notes=?, flexible_schedule=?,
+             h7_reminder_subject=?, h7_reminder_body=?, updated_at=CURRENT_TIMESTAMP
              WHERE id=?'
         );
         $statement->execute([...$values, $tripId]);

@@ -77,6 +77,8 @@ const normalizeTripForm = (trip) => {
     minParticipants: 2,
     maxParticipants: 10,
     privateNotes: '',
+    h7ReminderSubject: '',
+    h7ReminderBody: '',
     flexibleSchedule: true,
     isPrivateTrip: false,
     experienceType: 'cave',
@@ -587,6 +589,10 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
 
   const onSubmit = async (event) => {
     event.preventDefault()
+    if (form.h7ReminderSubject.length > 190) {
+      setFormError('Subject Email Pengingat H-7 maksimal 190 karakter.')
+      return
+    }
     if (!isPrivateTrip) {
       const invalidSchedule = !form.schedules.length || form.schedules.some((schedule) => !schedule.date || Number(schedule.quota) <= 0)
       if (invalidSchedule) {
@@ -907,6 +913,40 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
               <label className="full">Fasilitas Indonesia<textarea required value={form.facilitiesId} onChange={(e) => setForm({ ...form, facilitiesId: e.target.value })} /></label>
               <label className="full">Fasilitas English<textarea value={form.facilitiesEn} onChange={(e) => setForm({ ...form, facilitiesEn: e.target.value })} /></label>
               {isPrivateTrip && <label className="full">Catatan khusus private trip<textarea placeholder="Contoh: itinerary bisa menyesuaikan request keluarga/perusahaan." value={form.privateNotes} onChange={(e) => setForm({ ...form, privateNotes: e.target.value })} /></label>}
+            </div>
+          </section>
+
+          <section className="form-section-card">
+            <div className="form-section-title">
+              <span>6</span>
+              <div><h3>Email Pengingat H-7</h3><p>Pesan ini dikirim otomatis tujuh hari sebelum tanggal trip kepada booking yang sudah disetujui.</p></div>
+            </div>
+            <div className="data-form section-fields h7-reminder-fields">
+              <label className="full">Subject Email Pengingat H-7
+                <input
+                  maxLength="190"
+                  placeholder="Kosongkan untuk memakai subject default"
+                  value={form.h7ReminderSubject}
+                  onChange={(event) => setForm({ ...form, h7ReminderSubject: event.target.value })}
+                />
+                <small>{form.h7ReminderSubject.length}/190 karakter. Boleh memakai placeholder di bawah.</small>
+              </label>
+              <label className="full">Isi Email Pengingat H-7
+                <textarea
+                  placeholder={'Contoh:\nHalo {nama_customer}, jangan lupa trip {nama_trip} pada {tanggal_trip}.'}
+                  value={form.h7ReminderBody}
+                  onChange={(event) => setForm({ ...form, h7ReminderBody: event.target.value })}
+                />
+                <small>Kosongkan untuk memakai template default. Baris baru akan dipertahankan dalam email.</small>
+              </label>
+              <div className="h7-placeholder-help full">
+                <strong>Placeholder yang tersedia</strong>
+                <div>
+                  {['{nama_customer}', '{nama_trip}', '{tanggal_trip}', '{jumlah_peserta}', '{nama_admin}', '{nama_brand}'].map((placeholder) => (
+                    <code key={placeholder}>{placeholder}</code>
+                  ))}
+                </div>
+              </div>
             </div>
           </section>
 
