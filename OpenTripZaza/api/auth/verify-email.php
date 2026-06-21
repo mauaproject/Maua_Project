@@ -45,8 +45,8 @@ runEndpoint(function (PDO $pdo): void {
         $insert = $pdo->prepare(
             "INSERT INTO users
              (name, email, email_verified, email_verified_at, password_hash, whatsapp,
-              role, address, age, gender, health_notes)
-             VALUES (?,?,1,NOW(),?,?,'customer',?,?,?,?)"
+              role, address, age, gender, health_notes, blood_type, height_cm, weight_kg, shoe_size)
+             VALUES (?,?,1,NOW(),?,?,'customer',?,?,?,?,?,?,?,?)"
         );
         $insert->execute([
             $pending['name'],
@@ -57,6 +57,10 @@ runEndpoint(function (PDO $pdo): void {
             $pending['age'],
             $pending['gender'],
             $pending['health_notes'],
+            $pending['blood_type'],
+            $pending['height_cm'],
+            $pending['weight_kg'],
+            $pending['shoe_size'],
         ]);
         $userId = (int) $pdo->lastInsertId();
         $pdo->prepare('DELETE FROM pending_customer_registrations WHERE id=?')

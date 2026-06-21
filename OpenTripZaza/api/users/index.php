@@ -5,7 +5,7 @@ requireMethod('GET');
 
 runEndpoint(function (PDO $pdo): void {
     $role = $_GET['role'] ?? null;
-    $sql = 'SELECT id, name, email, email_verified, email_verified_at, whatsapp, role, address, age, gender, health_notes FROM users';
+    $sql = 'SELECT id, name, email, email_verified, email_verified_at, whatsapp, role, address, age, gender, health_notes, blood_type, height_cm, weight_kg, shoe_size FROM users';
     $params = [];
     if ($role && in_array($role, ['admin', 'customer', 'worker'], true)) {
         $sql .= ' WHERE role = ?';
@@ -26,6 +26,10 @@ runEndpoint(function (PDO $pdo): void {
         'age' => $user['age'] ?? '',
         'gender' => $user['gender'] ?? '',
         'healthNotes' => $user['health_notes'] ?? '',
+        'bloodType' => $user['blood_type'] ?? '',
+        'heightCm' => $user['height_cm'] ?? '',
+        'weightKg' => $user['weight_kg'] ?? '',
+        'shoeSize' => $user['shoe_size'] ?? '',
     ], $statement->fetchAll());
     jsonSuccess($users);
 });

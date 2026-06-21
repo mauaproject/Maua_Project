@@ -7,6 +7,7 @@ import * as api from './services/api'
 import { ABOVE_MAX_PAX_RULE, getPrivatePricePerPerson, normalizePricePerPersonTiers } from './utils/pricing'
 import { getRequiredPaymentAmount } from './utils/payments'
 import { getPackagePricePerPerson, getPrivatePackages } from './utils/privatePackages'
+import { validateCustomerTripProfile } from './utils/customerProfile'
 import {
   getOpenTripScheduleOptions,
   getPrivateSessionOptions,
@@ -191,6 +192,10 @@ function App() {
         age: form.age || '',
         gender: form.gender || '',
         healthNotes: form.healthNotes || '',
+        bloodType: form.bloodType || '',
+        heightCm: form.heightCm || '',
+        weightKg: form.weightKg || '',
+        shoeSize: form.shoeSize || '',
       })
       navigate(`/verify-email?email=${encodeURIComponent(nextAccount.email)}`)
       showToast(i18n.t('toast.signupVerificationSent'))
@@ -228,6 +233,26 @@ function App() {
   const verifyEmailOtp = useCallback(async (email, otp) => {
     return api.verifyEmail(email, otp)
   }, [])
+
+  const updateCustomerProfile = async (form) => {
+    if (session?.role !== 'customer') return false
+    const validationError = validateCustomerTripProfile(form)
+    if (validationError) throw new Error(validationError)
+    const account = await api.updateCustomerProfile({
+      ...form,
+      id: session.id,
+      email: session.email,
+    })
+    setSession((current) => current?.id === account.id ? { ...current, ...account } : current)
+    setCustomerAccounts((current) => {
+      const hasAccount = current.some((item) => item.id === account.id)
+      return hasAccount
+        ? current.map((item) => item.id === account.id ? { ...item, ...account } : item)
+        : [...current, account]
+    })
+    showToast(i18n.t('account.profileSaved'))
+    return account
+  }
 
   const createWorkerAccount = async (form) => {
     const normalizedEmail = form.email.trim().toLowerCase()
@@ -269,6 +294,8 @@ function App() {
   const submitRegistration = async (form) => {
     if (!session?.emailVerified || Number(session.id) !== Number(form.userId)) return false
     if (!['dp', 'full'].includes(form.paymentType) || !(form.paymentProof instanceof File)) return false
+    const profileValidationError = validateCustomerTripProfile(session, { required: true })
+    if (profileValidationError) throw new Error(profileValidationError)
     const trip = trips.find((item) => item.id === Number(form.tripId))
     if (!trip || trip.status !== 'Tersedia') return false
     const approvedRegistrations = registrations.filter((item) => item.tripId === Number(form.tripId) && (item.status === 'Disetujui' || item.status === 'Selesai'))
@@ -524,6 +551,7 @@ function App() {
     login,
     loginCustomer,
     signupCustomer,
+    updateCustomerProfile,
     resendVerification,
     refreshEmailVerification,
     verifyEmailOtp,

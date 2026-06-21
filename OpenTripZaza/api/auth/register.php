@@ -32,6 +32,7 @@ runEndpoint(function (PDO $pdo): void {
     }
 
     $otp = generateVerificationOtp();
+    $tripProfile = customerTripProfileValues($data);
     $values = [
         trim((string) $data['name']),
         $email,
@@ -41,6 +42,7 @@ runEndpoint(function (PDO $pdo): void {
         nullableInt($data['age'] ?? null),
         $data['gender'] ?? null,
         $data['healthNotes'] ?? null,
+        ...$tripProfile,
         password_hash($otp, PASSWORD_DEFAULT),
     ];
 
@@ -49,12 +51,14 @@ runEndpoint(function (PDO $pdo): void {
         $statement = $pdo->prepare(
             'INSERT INTO pending_customer_registrations
              (name, email, password_hash, whatsapp, address, age, gender, health_notes,
-              otp_hash, expired_at, attempts, last_sent_at)
-             VALUES (?,?,?,?,?,?,?,?,?,DATE_ADD(NOW(), INTERVAL 30 MINUTE),0,NOW())
+              blood_type, height_cm, weight_kg, shoe_size, otp_hash, expired_at, attempts, last_sent_at)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,DATE_ADD(NOW(), INTERVAL 30 MINUTE),0,NOW())
              ON DUPLICATE KEY UPDATE
                 name=VALUES(name), password_hash=VALUES(password_hash), whatsapp=VALUES(whatsapp),
                 address=VALUES(address), age=VALUES(age), gender=VALUES(gender),
-                health_notes=VALUES(health_notes), otp_hash=VALUES(otp_hash),
+                health_notes=VALUES(health_notes), blood_type=VALUES(blood_type),
+                height_cm=VALUES(height_cm), weight_kg=VALUES(weight_kg),
+                shoe_size=VALUES(shoe_size), otp_hash=VALUES(otp_hash),
                 expired_at=DATE_ADD(NOW(), INTERVAL 30 MINUTE), attempts=0,
                 last_sent_at=NOW(), updated_at=CURRENT_TIMESTAMP'
         );

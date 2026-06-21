@@ -209,3 +209,20 @@ Jalankan migrasi berikut satu kali melalui phpMyAdmin:
 Review baru langsung berstatus `approved`, tetapi hanya dapat dibuat untuk booking
 milik user yang berstatus `Disetujui` atau `Selesai`. Satu booking hanya dapat
 memiliki satu review. Review `hidden` dan `deleted` tidak dikirim ke halaman publik.
+
+## Data keselamatan dan equipment customer
+
+Jalankan migrasi berikut satu kali melalui phpMyAdmin setelah migration verifikasi
+email OTP:
+
+`api/migrations/2026-06-21-customer-trip-profile.sql`
+
+Migration menambahkan kolom nullable `blood_type`, `height_cm`, `weight_kg`, dan
+`shoe_size` pada tabel `users` serta `pending_customer_registrations`. Kolom dibuat
+nullable agar akun lama tetap dapat login. Customer lama wajib melengkapinya dari
+halaman akun sebelum dapat melanjutkan checkout.
+
+Endpoint profil customer:
+
+- `GET /api/auth/me.php?email=...`
+- `POST /api/auth/update-profile.php`

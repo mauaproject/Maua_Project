@@ -17,10 +17,11 @@ runEndpoint(function (PDO $pdo): void {
     if (!in_array($role, ['customer', 'worker'], true)) {
         throw new InvalidArgumentException('Role user tidak valid.');
     }
+    $tripProfile = customerTripProfileValues($data);
     try {
         $statement = $pdo->prepare(
-            'INSERT INTO users (name, email, email_verified, email_verified_at, password_hash, whatsapp, role, address, age, gender, health_notes)
-             VALUES (?,?,?,IF(?=1,NOW(),NULL),?,?,?,?,?,?,?)'
+            'INSERT INTO users (name, email, email_verified, email_verified_at, password_hash, whatsapp, role, address, age, gender, health_notes, blood_type, height_cm, weight_kg, shoe_size)
+             VALUES (?,?,?,IF(?=1,NOW(),NULL),?,?,?,?,?,?,?,?,?,?,?)'
         );
         $isVerified = $role === 'worker' ? 1 : 0;
         $statement->execute([
@@ -35,6 +36,7 @@ runEndpoint(function (PDO $pdo): void {
             nullableInt($data['age'] ?? null),
             $data['gender'] ?? null,
             $data['healthNotes'] ?? null,
+            ...$tripProfile,
         ]);
     } catch (PDOException $exception) {
         if ((string) $exception->getCode() === '23000') {

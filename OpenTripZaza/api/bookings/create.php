@@ -41,6 +41,12 @@ runEndpoint(function (PDO $pdo): void {
         if (!(bool) $user['email_verified']) {
             jsonError('Verifikasi email terlebih dahulu sebelum melanjutkan pendaftaran.', 403);
         }
+        customerTripProfileValues([
+            'bloodType' => $user['blood_type'] ?? null,
+            'heightCm' => $user['height_cm'] ?? null,
+            'weightKg' => $user['weight_kg'] ?? null,
+            'shoeSize' => $user['shoe_size'] ?? null,
+        ], true);
         $userId = (int) $user['id'];
         $userValues = [
             $data['name'], $data['whatsapp'],

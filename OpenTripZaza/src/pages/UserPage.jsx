@@ -1,8 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import testimoni1 from '../assets/testimoni1.webp'
-import testimoni2 from '../assets/testimoni2.webp'
-import testimoni3 from '../assets/testimoni3.webp'
 import horizontalLogo from '../assets/desainHorizontal.webp'
 import verticalLogo from '../assets/desainvertikal.webp'
 import qrisDummy from '../assets/Qris-Dummy.jpg'
@@ -14,6 +11,7 @@ import { DP_PERCENTAGE, getPaymentStatusLabel, getPaymentTypeLabel, getRequiredP
 import { getPackagePricePerPerson, getPackagePriceRange, getPrivatePackages } from '../utils/privatePackages'
 import { getPrivatePricePerPerson, getPrivatePriceRange, getTripStartingPrice } from '../utils/pricing'
 import { getOpenTripScheduleOptions, getPrivateDateRange, getPrivateSessionOptions, getRegistrationDate, getTripSchedules, isDateWithinPrivateRange } from '../utils/schedules'
+import { bloodTypeOptions, isCustomerTripProfileComplete, validateCustomerTripProfile } from '../utils/customerProfile'
 import { AppModal, Badge, InfoBlock, NotFound } from './shared'
 
 const useCustomerLanguage = () => {
@@ -230,33 +228,6 @@ export function PublicNav({ navigate, session, logout }) {
   )
 }
 
-const testimonials = [
-  {
-    name: 'Rakabumink',
-    trip: 'Goa Pindul Cave Tubing',
-    image: testimoni1,
-    width: 600,
-    height: 355,
-    quoteKey: 'testimonials.quote1',
-  },
-  {
-    name: 'Anisa Azizah',
-    trip: 'Goa Jomblang Vertical Cave',
-    image: testimoni2,
-    width: 600,
-    height: 400,
-    quoteKey: 'testimonials.quote2',
-  },
-  {
-    name: 'Maya Lestari',
-    trip: 'Private Cave Tour Pacitan',
-    image: testimoni3,
-    width: 600,
-    height: 400,
-    quoteKey: 'testimonials.quote3',
-  },
-]
-
 const normalizeSearch = (value) => value.trim().toLowerCase()
 
 const filterTripsBySearch = (trips, search, lang) => {
@@ -367,39 +338,6 @@ function DestinationCarousel({ trips, navigate }) {
         </div>
         <button onClick={goToNext} type="button" aria-label={t('search.next')}>›</button>
       </div>
-    </section>
-  )
-}
-
-function TestimonialCarousel() {
-  const { t } = useCustomerLanguage()
-  const [activeIndex, setActiveIndex] = useState(0)
-  const total = testimonials.length
-  const visibleTestimonials = [
-    { item: testimonials[(activeIndex - 1 + total) % total], position: 'prev' },
-    { item: testimonials[activeIndex], position: 'active' },
-    { item: testimonials[(activeIndex + 1) % total], position: 'next' },
-  ]
-
-  const goToPrevious = () => setActiveIndex((current) => (current - 1 + total) % total)
-  const goToNext = () => setActiveIndex((current) => (current + 1) % total)
-
-  return (
-    <section className="testimonial-carousel reveal-on-scroll" aria-label={t('testimonials.carousel')}>
-      <button className="carousel-control carousel-control-prev" onClick={goToPrevious} aria-label={t('testimonials.previous')}>&lsaquo;</button>
-      <div className="testimonial-carousel-track">
-        {visibleTestimonials.map(({ item, position }) => (
-          <article className={`testimonial-card testimonial-slide testimonial-slide-${position}`} key={`${position}-${item.name}`}>
-            <img src={item.image} alt={`Testimoni ${item.name}`} width={item.width} height={item.height} loading="lazy" decoding="async" />
-            <div>
-              <p>{t(item.quoteKey)}</p>
-              <h3>{item.name}</h3>
-              <span>{item.trip}</span>
-            </div>
-          </article>
-        ))}
-      </div>
-      <button className="carousel-control carousel-control-next" onClick={goToNext} aria-label={t('testimonials.next')}>&rsaquo;</button>
     </section>
   )
 }
@@ -521,15 +459,6 @@ export function CustomerCatalog({ trips, reviews = [], navigate, session, logout
           </section>
         )}
       </div>
-
-      <section className="section-head compact-section-head testimonial-section-head" id="testimoni-list">
-        <div>
-          <p className="eyebrow">{t('catalog.testimonialEyebrow')}</p>
-          <h2>{t('catalog.testimonialTitle')}</h2>
-        </div>
-      </section>
-
-      <TestimonialCarousel />
 
       <section className="visitor-review-preview">
         <div className="section-head compact-section-head">
@@ -794,6 +723,33 @@ const emptyParticipant = {
   healthNotes: '',
 }
 
+const getCustomerProfileForm = (profile = {}) => ({
+  name: profile.name || '',
+  whatsapp: profile.whatsapp || '',
+  address: profile.address || '',
+  age: profile.age || '',
+  gender: profile.gender || '',
+  healthNotes: profile.healthNotes || '',
+  bloodType: profile.bloodType || '',
+  heightCm: profile.heightCm || '',
+  weightKg: profile.weightKg || '',
+  shoeSize: profile.shoeSize || '',
+})
+
+function CustomerTripProfileFields({ form, setForm, t }) {
+  return (
+    <>
+      <label>{t('profile.bloodType')}<select value={form.bloodType} onChange={(event) => setForm({ ...form, bloodType: event.target.value })}>
+        <option value="">{t('profile.selectBloodType')}</option>
+        {bloodTypeOptions.map((option) => <option value={option} key={option}>{option === 'Tidak tahu' ? t('profile.unknown') : option}</option>)}
+      </select></label>
+      <label>{t('profile.heightCm')}<input type="number" min="50" max="250" step="1" placeholder="165" value={form.heightCm} onChange={(event) => setForm({ ...form, heightCm: event.target.value })} /></label>
+      <label>{t('profile.weightKg')}<input type="number" min="20" max="300" step="0.1" placeholder="60" value={form.weightKg} onChange={(event) => setForm({ ...form, weightKg: event.target.value })} /></label>
+      <label>{t('profile.shoeSize')}<input type="number" min="20" max="55" step="0.5" placeholder="40" value={form.shoeSize} onChange={(event) => setForm({ ...form, shoeSize: event.target.value })} /></label>
+    </>
+  )
+}
+
 const buildParticipant = (source = {}) => ({
   name: source.name || '',
   address: source.address || '',
@@ -997,7 +953,10 @@ export function RegistrationPage({
 }) {
   const { t, lang, dateLocale, statusLabel } = useCustomerLanguage()
   const trip = trips.find((item) => item.id === tripId)
-  const customerProfile = customerAccounts.find((item) => item.email === session?.email) || session || {}
+  const customerProfile = {
+    ...(customerAccounts.find((item) => item.email === session?.email) || {}),
+    ...(session || {}),
+  }
   const [form, setForm] = useState(() => {
     const defaults = {
       name: session?.role === 'customer' ? session.name : '',
@@ -1050,6 +1009,7 @@ export function RegistrationPage({
     .reduce((total, addon) => total + Number(addon.price || 0), 0)
   const tripSubtotal = participants * pricePerPerson
   const estimatedTotal = tripSubtotal + selectedAddonTotal
+  const isTripProfileComplete = isCustomerTripProfileComplete(customerProfile)
 
   if (!trip) return <NotFound navigate={navigate} />
 
@@ -1058,6 +1018,10 @@ export function RegistrationPage({
     if (!session?.emailVerified) {
       setVerificationMessage('')
       setIsVerificationModalOpen(true)
+      return
+    }
+    if (!isTripProfileComplete) {
+      setError(t('profile.checkoutRequired'))
       return
     }
     const participantDetails = resizeParticipants(form.participantDetails, participants, { name: form.name })
@@ -1242,6 +1206,15 @@ export function RegistrationPage({
               </div>
             </div>
             {error && <p className="form-error">{error}</p>}
+            {!isTripProfileComplete && (
+              <div className="profile-completion-notice">
+                <div>
+                  <strong>{t('profile.incompleteTitle')}</strong>
+                  <p>{t('profile.checkoutRequired')}</p>
+                </div>
+                <button className="outline-btn" type="button" onClick={() => navigate('/akun')}>{t('profile.completeNow')}</button>
+              </div>
+            )}
             <div className="registration-fields">
               <label>{t('checkout.fullName')}<input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
               <label>{t('checkout.whatsapp')}<input value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} /></label>
@@ -1393,13 +1366,29 @@ export function RegistrationPage({
 }
 
 const paymentTerms = [
-  'Pembayaran DP digunakan untuk mengamankan slot trip.',
-  'Pelunasan dilakukan sesuai ketentuan admin sebelum keberangkatan.',
-  'Bukti pembayaran wajib diunggah agar pendaftaran bisa diproses.',
-  'Pendaftaran akan berstatus Menunggu sampai diverifikasi oleh admin.',
-  'Jika bukti pembayaran tidak valid, admin berhak menolak pendaftaran.',
-  'Perubahan jadwal atau pembatalan mengikuti kebijakan dari admin.',
-  'Dengan melanjutkan checkout, user dianggap menyetujui syarat dan ketentuan.',
+  'Dengan melakukan pembayaran DP maupun pelunasan, peserta dianggap telah membaca, memahami, dan menyetujui seluruh Syarat & Ketentuan yang berlaku.',
+  'Reservasi dinyatakan valid setelah pembayaran diterima dan dikonfirmasi oleh Maua Project.',
+  'Harga yang telah disepakati mengikuti harga pada saat reservasi dilakukan.',
+  'Peserta wajib memberikan data yang benar dan dapat dipertanggungjawabkan. Segala kendala yang timbul akibat kesalahan data menjadi tanggung jawab peserta.',
+  {
+    before: 'Seluruh pembayaran yang telah dilakukan bersifat ',
+    emphasized: 'non-refundable',
+    after: ' (tidak dapat dikembalikan) dengan alasan apa pun.',
+  },
+  'Peserta yang membatalkan keikutsertaan, tidak hadir pada hari pelaksanaan (no show), atau mengundurkan diri secara sepihak dianggap melepaskan hak atas seluruh pembayaran yang telah dilakukan.',
+  'Reschedule tersedia maksimal 1 (satu) kali dan wajib diajukan paling lambat H-7 sebelum tanggal kegiatan. Pengajuan reschedule kurang dari H-7 akan dikenakan biaya tambahan sebesar 20% dari total nilai reservasi.',
+  'Persetujuan reschedule sepenuhnya mengikuti ketersediaan jadwal yang dimiliki Maua Project.',
+  'Maua Project tidak menjamin ketersediaan tanggal pengganti sesuai dengan tanggal yang diinginkan peserta.',
+  'Apabila terdapat perbedaan harga pada jadwal baru, peserta reschedule wajib membayar selisih biaya yang timbul.',
+  'Reservasi yang telah di-reschedule wajib digunakan maksimal dalam waktu 2 (dua) bulan sejak tanggal kegiatan awal.',
+  'Maua Project berhak melakukan perubahan jadwal, titik kumpul, susunan acara, durasi kegiatan, maupun detail operasional lainnya apabila diperlukan demi kelancaran dan keamanan kegiatan.',
+  'Dalam kondisi cuaca buruk, bencana alam, gangguan operasional, kebijakan pemerintah, atau keadaan force majeure lainnya, Maua Project berhak melakukan penjadwalan ulang kegiatan tanpa kewajiban memberikan pengembalian dana.',
+  'Peserta wajib hadir sesuai waktu yang telah ditentukan. Keterlambatan peserta yang menyebabkan berkurangnya durasi kegiatan atau ketidakmampuan mengikuti kegiatan bukan menjadi tanggung jawab Maua Project.',
+  'Peserta bertanggung jawab atas kondisi kesehatan dan kesiapan fisiknya masing-masing sebelum mengikuti kegiatan.',
+  'Maua Project berhak menolak atau menghentikan keikutsertaan peserta yang dianggap membahayakan diri sendiri, peserta lain, atau mengganggu jalannya kegiatan.',
+  'Selama kegiatan berlangsung, Maua Project berhak menggunakan foto dan video yang diambil untuk keperluan dokumentasi, promosi, media sosial, dan publikasi lainnya (permintaan penghapusan konten dapat diajukan dengan alasan yang jelas).',
+  'Dengan melakukan reservasi, peserta dianggap telah memahami karakteristik kegiatan yang dipilih serta seluruh risiko yang mungkin timbul selama kegiatan berlangsung.',
+  'Keputusan Maua Project terkait operasional kegiatan, perubahan jadwal, dan biaya yang timbul bersifat final dan mengikat seluruh peserta.',
 ]
 
 export function PaymentConfirmationPage({
@@ -1566,7 +1555,15 @@ export function PaymentConfirmationPage({
           <aside className="payment-side-column">
             <section className="payment-card terms-card">
               <h2>Syarat dan Ketentuan</h2>
-              <ol>{paymentTerms.map((term) => <li key={term}>{term}</li>)}</ol>
+              <ol>
+                {paymentTerms.map((term, index) => (
+                  <li key={typeof term === 'string' ? term : `payment-term-${index}`}>
+                    {typeof term === 'string'
+                      ? term
+                      : <>{term.before}<em>{term.emphasized}</em>{term.after}</>}
+                  </li>
+                ))}
+              </ol>
               <label className="terms-checkbox">
                 <input type="checkbox" checked={termsAccepted} onChange={(event) => setTermsAccepted(event.target.checked)} />
                 <span>Saya sudah membaca dan menyetujui Syarat dan Ketentuan</span>
@@ -1674,10 +1671,18 @@ export function EmailVerificationPage({ path, navigate, verifyEmailOtp, resendVe
   )
 }
 
-export function CustomerAccountPage({ registrations, trips, jobs = [], userReviews = [], submitReview, navigate, session, logout }) {
+export function CustomerAccountPage({ registrations, trips, jobs = [], userReviews = [], submitReview, navigate, session, logout, customerAccounts = [], updateCustomerProfile }) {
   const { t, lang, dateLocale, statusLabel } = useCustomerLanguage()
+  const customerProfile = {
+    ...(customerAccounts.find((item) => item.email === session?.email) || {}),
+    ...(session || {}),
+  }
   const [activeFilter, setActiveFilter] = useState('Semua')
   const [selectedOrder, setSelectedOrder] = useState(null)
+  const [isProfileEditing, setIsProfileEditing] = useState(false)
+  const [profileForm, setProfileForm] = useState(() => getCustomerProfileForm(customerProfile))
+  const [profileError, setProfileError] = useState('')
+  const [profileSaving, setProfileSaving] = useState(false)
   const [reviewForm, setReviewForm] = useState({ bookingId: '', rating: 5, content: '' })
   const [reviewError, setReviewError] = useState('')
   const [reviewSubmitting, setReviewSubmitting] = useState(false)
@@ -1715,6 +1720,27 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], userRevie
   const selectedTrip = selectedOrder ? trips.find((tripItem) => tripItem.id === selectedOrder.tripId) : null
   const selectedAddons = selectedOrder ? getSelectedAddons(selectedOrder) : []
   const selectedWorkResults = selectedOrder ? getRegistrationResultJobs(jobs, selectedOrder) : []
+  const profileComplete = isCustomerTripProfileComplete(customerProfile)
+
+  const saveProfile = async (event) => {
+    event.preventDefault()
+    const validationError = validateCustomerTripProfile(profileForm)
+    if (validationError) {
+      setProfileError(validationError)
+      return
+    }
+    setProfileSaving(true)
+    setProfileError('')
+    try {
+      const account = await updateCustomerProfile(profileForm)
+      setProfileForm(getCustomerProfileForm(account))
+      setIsProfileEditing(false)
+    } catch (error) {
+      setProfileError(error.message || t('profile.saveFailed'))
+    } finally {
+      setProfileSaving(false)
+    }
+  }
 
   return (
     <main className="public-page">
@@ -1735,6 +1761,45 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], userRevie
           <div className="metric account-metric"><span>{t('account.waitingApproval')}</span><strong>{waitingCount}</strong></div>
           <div className="metric account-metric"><span>{t('account.approved')}</span><strong>{approvedCount}</strong></div>
           <div className="metric account-metric"><span>{t('account.rejected')}</span><strong>{rejectedCount}</strong></div>
+        </section>
+
+        <section className={`account-profile-card ${profileComplete ? '' : 'is-incomplete'}`}>
+          <div className="account-profile-head">
+            <div>
+              <p className="eyebrow">{t('profile.eyebrow')}</p>
+              <h2>{t('profile.title')}</h2>
+              <p className="muted">{t('profile.helper')}</p>
+            </div>
+            {!isProfileEditing && <button className="outline-btn" type="button" onClick={() => setIsProfileEditing(true)}>{t('profile.edit')}</button>}
+          </div>
+          {!profileComplete && !isProfileEditing && <p className="profile-status-warning">{t('profile.checkoutRequired')}</p>}
+          {isProfileEditing ? (
+            <form className="account-profile-form" onSubmit={saveProfile}>
+              {profileError && <p className="form-error">{profileError}</p>}
+              <div className="registration-fields">
+                <label>{t('checkout.fullName')}<input required value={profileForm.name} onChange={(event) => setProfileForm({ ...profileForm, name: event.target.value })} /></label>
+                <label>{t('checkout.whatsapp')}<input required value={profileForm.whatsapp} onChange={(event) => setProfileForm({ ...profileForm, whatsapp: event.target.value })} /></label>
+                <label>{t('checkout.address')}<input value={profileForm.address} onChange={(event) => setProfileForm({ ...profileForm, address: event.target.value })} /></label>
+                <label>{t('checkout.age')}<input type="number" min="1" value={profileForm.age} onChange={(event) => setProfileForm({ ...profileForm, age: event.target.value })} /></label>
+                <label>{t('checkout.gender')}<select value={profileForm.gender} onChange={(event) => setProfileForm({ ...profileForm, gender: event.target.value })}><option value="">{t('checkout.selectGender')}</option><option value="Laki-laki">{t('checkout.male')}</option><option value="Perempuan">{t('checkout.female')}</option></select></label>
+                <label>{t('checkout.healthNotes')}<input value={profileForm.healthNotes} onChange={(event) => setProfileForm({ ...profileForm, healthNotes: event.target.value })} /></label>
+                <CustomerTripProfileFields form={profileForm} setForm={setProfileForm} t={t} />
+              </div>
+              <div className="account-profile-actions">
+                <button className="outline-btn" type="button" onClick={() => { setProfileForm(getCustomerProfileForm(customerProfile)); setProfileError(''); setIsProfileEditing(false) }}>{t('nav.cancel')}</button>
+                <button className="primary-btn" disabled={profileSaving} type="submit">{profileSaving ? t('verification.loading') : t('profile.save')}</button>
+              </div>
+            </form>
+          ) : (
+            <dl className="account-profile-data">
+              <div><dt>{t('checkout.fullName')}</dt><dd>{customerProfile.name || '-'}</dd></div>
+              <div><dt>{t('checkout.whatsapp')}</dt><dd>{customerProfile.whatsapp || '-'}</dd></div>
+              <div><dt>{t('profile.bloodType')}</dt><dd>{customerProfile.bloodType === 'Tidak tahu' ? t('profile.unknown') : customerProfile.bloodType || '-'}</dd></div>
+              <div><dt>{t('profile.heightCm')}</dt><dd>{customerProfile.heightCm ? `${customerProfile.heightCm} cm` : '-'}</dd></div>
+              <div><dt>{t('profile.weightKg')}</dt><dd>{customerProfile.weightKg ? `${customerProfile.weightKg} kg` : '-'}</dd></div>
+              <div><dt>{t('profile.shoeSize')}</dt><dd>{customerProfile.shoeSize || '-'}</dd></div>
+            </dl>
+          )}
         </section>
 
         <section className="account-review-form">
@@ -1955,7 +2020,7 @@ export function CustomerLoginPage({ loginCustomer, navigate, afterLoginPath = '/
 
 export function CustomerSignupPage({ signupCustomer, navigate }) {
   const { t } = useCustomerLanguage()
-  const [form, setForm] = useState({ name: '', whatsapp: '', email: '', address: '', age: '', gender: '', healthNotes: '', password: '', confirmPassword: '' })
+  const [form, setForm] = useState({ name: '', whatsapp: '', email: '', address: '', age: '', gender: '', healthNotes: '', bloodType: '', heightCm: '', weightKg: '', shoeSize: '', password: '', confirmPassword: '' })
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -1971,6 +2036,11 @@ export function CustomerSignupPage({ signupCustomer, navigate }) {
     }
     if (form.password !== form.confirmPassword) {
       setError(t('error.passwordMismatch'))
+      return
+    }
+    const profileValidationError = validateCustomerTripProfile(form)
+    if (profileValidationError) {
+      setError(profileValidationError)
       return
     }
     setIsSubmitting(true)
@@ -1996,6 +2066,11 @@ export function CustomerSignupPage({ signupCustomer, navigate }) {
           <label>{t('checkout.age')}<input type="number" min="1" placeholder={t('auth.agePlaceholder')} value={form.age} onChange={(e) => setForm({ ...form, age: e.target.value })} /></label>
           <label>{t('checkout.gender')}<select value={form.gender} onChange={(e) => setForm({ ...form, gender: e.target.value })}><option value="">{t('checkout.selectGender')}</option><option value="Laki-laki">{t('checkout.male')}</option><option value="Perempuan">{t('checkout.female')}</option></select></label>
           <label className="full">{t('checkout.healthNotes')}<textarea placeholder={t('checkout.healthPlaceholder')} value={form.healthNotes} onChange={(e) => setForm({ ...form, healthNotes: e.target.value })} /></label>
+          <div className="auth-form-section full">
+            <h2>{t('profile.signupSection')}</h2>
+            <p>{t('profile.signupHelper')}</p>
+          </div>
+          <CustomerTripProfileFields form={form} setForm={setForm} t={t} />
           <label>Password<input type="password" placeholder={t('auth.passwordMinPlaceholder')} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></label>
           <label>{t('auth.confirmPassword')}<input type="password" placeholder={t('auth.confirmPasswordPlaceholder')} value={form.confirmPassword} onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })} /></label>
           <button className="primary-btn full" type="submit" disabled={isSubmitting}>

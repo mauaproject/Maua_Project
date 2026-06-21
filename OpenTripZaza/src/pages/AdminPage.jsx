@@ -1394,6 +1394,17 @@ function AdminPrivateScheduleDetail({ registration, trips, jobs, setRegistration
         <section className="schedule-detail-grid">
           <DataPanel title="Data Peserta">
             <div className="registration-status-list">
+              <article className="registration-status-card">
+                <div className="registration-card-main">
+                  <h4>Data keselamatan & equipment pemesan</h4>
+                  <dl>
+                    <div><dt>Golongan darah</dt><dd>{registration.bloodType || '-'}</dd></div>
+                    <div><dt>Tinggi badan</dt><dd>{registration.heightCm ? `${registration.heightCm} cm` : '-'}</dd></div>
+                    <div><dt>Berat badan</dt><dd>{registration.weightKg ? `${registration.weightKg} kg` : '-'}</dd></div>
+                    <div><dt>Ukuran sepatu</dt><dd>{registration.shoeSize || '-'}</dd></div>
+                  </dl>
+                </div>
+              </article>
               {participantDetails.map((participant, index) => (
                 <article className="registration-status-card" key={`${registration.id}-${index}`}>
                   <div className="registration-card-main">
@@ -1736,6 +1747,16 @@ function RegistrationDetailModal({ item, trip, jobs = [], setRegistrationStatus,
                 </div>
               ))}
             </div>
+          </section>
+
+          <section>
+            <h3>Keselamatan & Equipment</h3>
+            <dl>
+              <div><dt>Golongan darah</dt><dd>{item.bloodType || '-'}</dd></div>
+              <div><dt>Tinggi badan</dt><dd>{item.heightCm ? `${item.heightCm} cm` : '-'}</dd></div>
+              <div><dt>Berat badan</dt><dd>{item.weightKg ? `${item.weightKg} kg` : '-'}</dd></div>
+              <div><dt>Ukuran sepatu</dt><dd>{item.shoeSize || '-'}</dd></div>
+            </dl>
           </section>
 
           <section>

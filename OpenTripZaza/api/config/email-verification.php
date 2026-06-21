@@ -48,5 +48,9 @@ function publicCustomerUser(array $user): array
         'age' => $user['age'] ?? '',
         'gender' => $user['gender'] ?? '',
         'healthNotes' => $user['health_notes'] ?? '',
+        'bloodType' => $user['blood_type'] ?? '',
+        'heightCm' => $user['height_cm'] ?? '',
+        'weightKg' => $user['weight_kg'] ?? '',
+        'shoeSize' => $user['shoe_size'] ?? '',
     ];
 }

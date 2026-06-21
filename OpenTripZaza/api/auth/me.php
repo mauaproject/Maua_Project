@@ -16,10 +16,5 @@ runEndpoint(function (PDO $pdo): void {
     if (!$user) {
         jsonError('Akun customer tidak ditemukan.', 404);
     }
-    jsonSuccess([
-        'id' => (int) $user['id'],
-        'email' => $user['email'],
-        'emailVerified' => (bool) $user['email_verified'],
-        'emailVerifiedAt' => $user['email_verified_at'] ?? null,
-    ]);
+    jsonSuccess(publicCustomerUser($user));
 });

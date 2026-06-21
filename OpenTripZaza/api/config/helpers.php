@@ -50,6 +50,44 @@ function nullableInt(mixed $value): ?int
     return $value === null || $value === '' ? null : (int) $value;
 }
 
+function nullableFloat(mixed $value): ?float
+{
+    return $value === null || $value === '' ? null : (float) $value;
+}
+
+function customerTripProfileValues(array $data, bool $required = false): array
+{
+    $bloodType = trim((string) ($data['bloodType'] ?? ''));
+    $heightCm = nullableInt($data['heightCm'] ?? null);
+    $weightKg = nullableFloat($data['weightKg'] ?? null);
+    $shoeSize = nullableFloat($data['shoeSize'] ?? null);
+
+    if ($required && ($bloodType === '' || $heightCm === null || $weightKg === null || $shoeSize === null)) {
+        throw new InvalidArgumentException(
+            'Lengkapi Golongan Darah, Tinggi Badan, Berat Badan, dan Ukuran Sepatu pada profil sebelum checkout.'
+        );
+    }
+    if ($bloodType !== '' && !in_array($bloodType, ['A', 'B', 'AB', 'O', 'Tidak tahu'], true)) {
+        throw new InvalidArgumentException('Golongan darah tidak valid.');
+    }
+    if ($heightCm !== null && ($heightCm < 50 || $heightCm > 250)) {
+        throw new InvalidArgumentException('Tinggi badan harus antara 50 sampai 250 cm.');
+    }
+    if ($weightKg !== null && ($weightKg < 20 || $weightKg > 300)) {
+        throw new InvalidArgumentException('Berat badan harus antara 20 sampai 300 kg.');
+    }
+    if ($shoeSize !== null && ($shoeSize < 20 || $shoeSize > 55)) {
+        throw new InvalidArgumentException('Ukuran sepatu harus antara 20 sampai 55.');
+    }
+
+    return [
+        $bloodType === '' ? null : $bloodType,
+        $heightCm,
+        $weightKg,
+        $shoeSize,
+    ];
+}
+
 function publicUploadPath(string $folder, string $filename): string
 {
     $path = '/uploads/' . trim($folder, '/') . '/' . $filename;
@@ -415,6 +453,22 @@ function mapBookings(PDO $pdo, array $bookings): array
     }
     $bookingIds = array_map(static fn(array $booking): int => (int) $booking['id'], $bookings);
     $placeholders = implode(',', array_fill(0, count($bookingIds), '?'));
+    $userIds = array_values(array_unique(array_filter(array_map(
+        static fn(array $booking): int => (int) ($booking['user_id'] ?? 0),
+        $bookings
+    ))));
+    $userProfiles = [];
+    if ($userIds) {
+        $userPlaceholders = implode(',', array_fill(0, count($userIds), '?'));
+        $userStatement = $pdo->prepare(
+            "SELECT id, blood_type, height_cm, weight_kg, shoe_size
+             FROM users WHERE id IN ($userPlaceholders)"
+        );
+        $userStatement->execute($userIds);
+        foreach ($userStatement->fetchAll() as $userProfile) {
+            $userProfiles[(int) $userProfile['id']] = $userProfile;
+        }
+    }
     $payments = [];
     $paymentStatement = $pdo->prepare(
         "SELECT booking_id, amount, payment_method, payment_proof_url, payment_status, submitted_at
@@ -479,14 +533,15 @@ function mapBookings(PDO $pdo, array $bookings): array
             $sessions[(int) $session['id']] = $session;
         }
     }
-    return array_map(static function (array $booking) use ($payments, $participants, $addons, $schedules, $sessions): array {
+    return array_map(static function (array $booking) use ($payments, $participants, $addons, $schedules, $sessions, $userProfiles): array {
         $id = (int) $booking['id'];
         $payment = $payments[$id] ?? [];
         $bookingParticipants = $participants[$id] ?? [];
         $bookingAddons = $addons[$id] ?? [];
         $schedule = $schedules[(int) ($booking['schedule_id'] ?? 0)] ?? [];
         $session = $sessions[(int) ($booking['session_id'] ?? 0)] ?? [];
-        return mapBookingRecord($booking, $payment, $bookingParticipants, $bookingAddons, $schedule, $session);
+        $userProfile = $userProfiles[(int) ($booking['user_id'] ?? 0)] ?? [];
+        return mapBookingRecord($booking, $payment, $bookingParticipants, $bookingAddons, $schedule, $session, $userProfile);
     }, $bookings);
 }
 
@@ -496,7 +551,8 @@ function mapBookingRecord(
     array $participants,
     array $bookingAddons,
     array $schedule,
-    array $session
+    array $session,
+    array $userProfile = []
 ): array {
     $id = (int) $booking['id'];
     $primary = $participants[0] ?? [];
@@ -547,6 +603,10 @@ function mapBookingRecord(
         'age' => $primary['age'] ?? '',
         'gender' => $primary['gender'] ?? '',
         'healthNotes' => $primary['health_notes'] ?? '',
+        'bloodType' => $userProfile['blood_type'] ?? '',
+        'heightCm' => $userProfile['height_cm'] ?? '',
+        'weightKg' => $userProfile['weight_kg'] ?? '',
+        'shoeSize' => $userProfile['shoe_size'] ?? '',
         'isPrivateTour' => $booking['trip_type'] === 'private',
         'isPrivateTrip' => $booking['trip_type'] === 'private',
         'participantDetails' => array_map(static fn(array $item): array => [

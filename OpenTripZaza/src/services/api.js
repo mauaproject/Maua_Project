@@ -87,5 +87,6 @@ export const registerCustomer = (data) => jsonPost('auth/register.php', data)
 export const resendEmailVerification = (email) => jsonPost('auth/resend-verification.php', { email })
 export const verifyEmail = (email, otp) => jsonPost('auth/verify-email.php', { email, otp })
 export const getCurrentCustomer = (email) => request(`auth/me.php?email=${encodeURIComponent(email)}`)
+export const updateCustomerProfile = (data) => jsonPost('auth/update-profile.php', data)
 
 export { API_BASE_URL }
