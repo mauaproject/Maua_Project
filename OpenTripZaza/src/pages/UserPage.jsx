@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import testimoni1 from '../assets/testimoni1.webp'
 import testimoni2 from '../assets/testimoni2.webp'
@@ -61,6 +61,8 @@ export function PublicNav({ navigate, session, logout }) {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false)
+  const scrollFrameRef = useRef(0)
+  const scrolledRef = useRef(false)
   const isLoggedIn = Boolean(session)
 
   const changeLanguage = (nextLang) => {
@@ -69,10 +71,23 @@ export function PublicNav({ navigate, session, logout }) {
   }
 
   useEffect(() => {
-    const handleScroll = () => setIsScrolled(window.scrollY > 28)
+    const updateScrollState = () => {
+      scrollFrameRef.current = 0
+      const nextScrolled = window.scrollY > 28
+      if (nextScrolled === scrolledRef.current) return
+      scrolledRef.current = nextScrolled
+      setIsScrolled(nextScrolled)
+    }
+    const handleScroll = () => {
+      if (scrollFrameRef.current) return
+      scrollFrameRef.current = window.requestAnimationFrame(updateScrollState)
+    }
     handleScroll()
     window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => window.removeEventListener('scroll', handleScroll)
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      if (scrollFrameRef.current) window.cancelAnimationFrame(scrollFrameRef.current)
+    }
   }, [])
 
   useEffect(() => {
