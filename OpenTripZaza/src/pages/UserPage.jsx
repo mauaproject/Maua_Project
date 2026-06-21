@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import testimoni1 from '../assets/testimoni1.png'
-import testimoni2 from '../assets/testimoni2.png'
-import testimoni3 from '../assets/testimoni3.png'
-import backgroundLandingPageUser from '../assets/backgroundlandingpageuser.png'
-import horizontalLogo from '../assets/desainHorizontal.png'
-import verticalLogo from '../assets/desainvertikal.png'
+import testimoni1 from '../assets/testimoni1.webp'
+import testimoni2 from '../assets/testimoni2.webp'
+import testimoni3 from '../assets/testimoni3.webp'
+import horizontalLogo from '../assets/desainHorizontal.webp'
+import verticalLogo from '../assets/desainvertikal.webp'
 import qrisDummy from '../assets/Qris-Dummy.jpg'
 import { addonOptions } from '../config/constants'
 import { formatCurrency, formatDate, tripName } from '../utils/formatters'
@@ -137,7 +136,7 @@ export function PublicNav({ navigate, session, logout }) {
       )}
       <header className={`public-nav ${isScrolled ? 'is-scrolled' : ''} ${isMenuOpen ? 'is-menu-open' : ''}`}>
         <button className="public-nav-logo" type="button" onClick={() => goToPage('/')} aria-label="MAUA home">
-          <img src={horizontalLogo} alt="MAUA" />
+          <img src={horizontalLogo} alt="MAUA" width="600" height="180" decoding="async" />
         </button>
 
         <nav className="public-nav-menu" aria-label={t('nav.main')}>
@@ -221,18 +220,24 @@ const testimonials = [
     name: 'Rakabumink',
     trip: 'Goa Pindul Cave Tubing',
     image: testimoni1,
+    width: 600,
+    height: 355,
     quoteKey: 'testimonials.quote1',
   },
   {
     name: 'Anisa Azizah',
     trip: 'Goa Jomblang Vertical Cave',
     image: testimoni2,
+    width: 600,
+    height: 400,
     quoteKey: 'testimonials.quote2',
   },
   {
     name: 'Maya Lestari',
     trip: 'Private Cave Tour Pacitan',
     image: testimoni3,
+    width: 600,
+    height: 400,
     quoteKey: 'testimonials.quote3',
   },
 ]
@@ -370,7 +375,7 @@ function TestimonialCarousel() {
       <div className="testimonial-carousel-track">
         {visibleTestimonials.map(({ item, position }) => (
           <article className={`testimonial-card testimonial-slide testimonial-slide-${position}`} key={`${position}-${item.name}`}>
-            <img src={item.image} alt={`Testimoni ${item.name}`} />
+            <img src={item.image} alt={`Testimoni ${item.name}`} width={item.width} height={item.height} loading="lazy" decoding="async" />
             <div>
               <p>{t(item.quoteKey)}</p>
               <h3>{item.name}</h3>
@@ -440,10 +445,10 @@ export function CustomerCatalog({ trips, reviews = [], navigate, session, logout
   return (
     <main className="public-page home-page">
       <PublicNav navigate={navigate} session={session} logout={logout} />
-      <section className="search-hero" style={{ '--landing-bg': `url(${backgroundLandingPageUser})` }}>
+      <section className="search-hero">
         <div className="hero-content">
           <div className="hero-brand">
-            <img src={verticalLogo} alt="MAUA" />
+            <img src={verticalLogo} alt="MAUA" width="500" height="500" fetchPriority="high" decoding="async" />
             <h1>{t('hero.title')}</h1>
             <p>{t('hero.subtitle')}</p>
           </div>
@@ -643,12 +648,12 @@ const getTripImages = (trip) => {
   return [...urls, trip?.imageUrl].filter(Boolean)
 }
 
-function TripVisual({ trip, large }) {
+function TripVisual({ trip, large, priority = false }) {
   const [firstImage] = getTripImages(trip)
 
   return (
     <div className={large ? 'trip-visual trip-visual-large' : 'trip-visual'} role="img" aria-label={trip?.name || 'Open trip goa'}>
-      {firstImage && <img src={firstImage} alt="" loading="lazy" />}
+      {firstImage && <img src={firstImage} alt="" width="800" height="600" loading={priority ? 'eager' : 'lazy'} fetchPriority={priority ? 'high' : 'auto'} decoding="async" />}
       {!firstImage && <span>{trip?.name || 'Open Trip Goa'}</span>}
     </div>
   )
@@ -734,13 +739,13 @@ function TripGallery({ trip }) {
   return (
     <section className="trip-gallery" aria-label={t('detail.gallery', { name: trip.name })}>
       <div className="trip-gallery-main">
-        <img src={activeImage} alt={t('detail.preview', { name: trip.name })} />
+        <img src={activeImage} alt={t('detail.preview', { name: trip.name })} width="1200" height="800" fetchPriority="high" decoding="async" />
       </div>
       {images.length > 1 && (
         <div className="trip-gallery-thumbs">
           {images.map((image, index) => (
             <button className={index === activeIndex ? 'is-active' : ''} key={image} onClick={() => setActiveIndex(index)} type="button" aria-label={t('detail.showImage', { number: index + 1 })}>
-              <img src={image} alt="" loading="lazy" />
+              <img src={image} alt="" width="400" height="300" loading="lazy" decoding="async" />
             </button>
           ))}
         </div>
@@ -1515,7 +1520,7 @@ export function PaymentConfirmationPage({
               <div className="payment-method-grid">
                 <div className="qris-payment-panel">
                   <h3>QRIS</h3>
-                  <img src={qrisDummy} alt="QRIS dummy untuk pembayaran trip" />
+                  <img src={qrisDummy} alt="QRIS dummy untuk pembayaran trip" width="800" height="800" loading="lazy" decoding="async" />
                   <small>Scan QRIS menggunakan aplikasi pembayaran pilihanmu.</small>
                 </div>
                 <div className="bank-payment-panel">
@@ -1536,7 +1541,7 @@ export function PaymentConfirmationPage({
               </label>
               {previewUrl && (
                 <div className="payment-proof-preview">
-                  <img src={previewUrl} alt="Preview bukti pembayaran" />
+                  <img src={previewUrl} alt="Preview bukti pembayaran" width="800" height="600" loading="lazy" decoding="async" />
                   <div><strong>{paymentProof?.name}</strong><small>{Math.ceil((paymentProof?.size || 0) / 1024)} KB</small></div>
                 </div>
               )}
@@ -1995,7 +2000,7 @@ function AuthShell({ children, navigate }) {
       <section className="auth-shell">
         <aside className="auth-brand-panel">
           <button className="brand brand-logo-btn" onClick={() => navigate('/')} aria-label="Open Cave Trip">
-            <img src={horizontalLogo} alt="Open Cave Trip" />
+            <img src={horizontalLogo} alt="Open Cave Trip" width="600" height="180" loading="lazy" decoding="async" />
           </button>
           <div>
             <p className="eyebrow">{t('auth.customerArea')}</p>

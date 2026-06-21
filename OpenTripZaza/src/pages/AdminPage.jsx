@@ -933,7 +933,7 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
                   <div className="admin-trip-image-grid">
                     {currentImages.map((imageUrl, index) => (
                       <article className="admin-trip-image-item" key={imageUrl}>
-                        <img src={imageUrl} alt={`Gambar trip ${index + 1}`} />
+                        <img src={imageUrl} alt={`Gambar trip ${index + 1}`} width="400" height="300" loading="lazy" decoding="async" />
                         <div>
                           <span>{index === 0 ? 'Gambar utama' : `Gambar ${index + 1}`}</span>
                           <button className="outline-btn danger-btn" disabled={isSaving} type="button" onClick={() => removeCurrentImage(imageUrl)}>Hapus</button>

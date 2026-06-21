@@ -21,6 +21,7 @@ const jsonPost = (path, data) => request(path, {
 })
 
 export const getTrips = (includeAll = true) => request(`trips/index.php${includeAll ? '?all=1' : ''}`)
+export const getTripSummaries = (includeAll = false) => request(`trips/index.php?summary=1${includeAll ? '&all=1' : ''}`)
 export const getTripDetail = (id) => request(`trips/detail.php?id=${encodeURIComponent(id)}`)
 export const createTrip = (data) => jsonPost('trips/create.php', data)
 export const updateTrip = (data) => jsonPost('trips/update.php', data)
@@ -37,6 +38,7 @@ export const createBooking = (data, paymentProof = null) => {
 }
 export const getBookings = (archived = false) => request(`bookings/index.php${archived ? '?archived=1' : ''}`)
 export const getUserBookings = (email, archived = false) => request(`bookings/user.php?email=${encodeURIComponent(email)}${archived ? '&archived=1' : ''}`)
+export const getPrivateBookingAvailability = (tripId) => request(`bookings/availability.php?trip_id=${encodeURIComponent(tripId)}`)
 export const updateBookingStatus = (id, status) => jsonPost('bookings/update-status.php', { id, status })
 
 export const getReviews = (all = false, adminEmail = '') => request(`reviews/index.php${all ? `?all=1&admin_email=${encodeURIComponent(adminEmail)}` : ''}`)

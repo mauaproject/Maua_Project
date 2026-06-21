@@ -5,11 +5,20 @@ requireMethod('GET');
 
 runEndpoint(function (PDO $pdo): void {
     $showAll = ($_GET['all'] ?? '') === '1';
-    $sql = 'SELECT * FROM trips';
+    $summary = ($_GET['summary'] ?? '') === '1';
+    $sql = $summary
+        ? 'SELECT id, name, trip_type, experience_type, status, destination_id, destination_en,
+                  price, quota, slots, min_participants, max_participants,
+                  available_start_date, available_end_date, private_booking_mode
+           FROM trips'
+        : 'SELECT * FROM trips';
     if (!$showAll) {
         $sql .= " WHERE status IN ('Tersedia', 'Penuh')";
     }
     $sql .= ' ORDER BY id';
-    $trips = array_map(fn(array $trip): array => mapTrip($pdo, $trip), $pdo->query($sql)->fetchAll());
+    $rows = $pdo->query($sql)->fetchAll();
+    $trips = $summary
+        ? mapTripSummaries($pdo, $rows)
+        : array_map(fn(array $trip): array => mapTrip($pdo, $trip), $rows);
     jsonSuccess($trips);
 });

@@ -43,51 +43,13 @@ body {
   box-shadow: 0 16px 34px rgba(8, 8, 8, 0.24);
   pointer-events: none;
 }
-.loading-page {
-  position: relative;
+.route-loading {
   display: grid;
   min-height: 100vh;
   place-items: center;
-  overflow: hidden;
-  background: var(--color-ink);
-  color: var(--color-text);
-  padding: clamp(18px, 4vw, 48px);
-}
-.loading-page::after {
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(
-      circle at 50% 52%,
-      rgba(226, 184, 95, 0.18),
-      transparent 34%
-    ),
-    linear-gradient(180deg, rgba(5, 4, 3, 0.42), rgba(5, 4, 3, 0.9));
-  content: "";
-}
-.loading-panel {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  width: min(42vw, 220px);
-  min-width: 132px;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  box-shadow: none;
-  padding: 0;
-}
-.loading-video {
-  display: block;
-  width: 100%;
-  aspect-ratio: 1;
-  border: 1px solid rgba(226, 184, 95, 0.62);
-  border-radius: 8px;
-  background: #050403;
-  object-fit: contain;
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 247, 228, 0.08),
-    0 16px 40px rgba(0, 0, 0, 0.36);
+  background: var(--color-cream);
+  color: #6f5b2c;
+  font-weight: 700;
 }
 button {
   cursor: pointer;
@@ -621,7 +583,7 @@ button:disabled {
       rgba(247, 241, 232, 0.18),
       rgba(247, 241, 232, 0.08)
     ),
-    var(--landing-bg, none) center / cover no-repeat,
+    url("./assets/backgroundlandingpageuser.webp") center / cover no-repeat,
     var(--color-cream);
   overflow: hidden;
 }
@@ -1132,6 +1094,13 @@ button:disabled {
 .catalog-section-list {
   display: grid;
   gap: clamp(26px, 4vw, 50px);
+}
+.catalog-trip-section,
+.testimonial-carousel,
+.visitor-review-section,
+.faq-section {
+  content-visibility: auto;
+  contain-intrinsic-size: 1px 720px;
 }
 .home-page .catalog-section-list {
   margin-top: -1px;
@@ -3221,7 +3190,7 @@ button:disabled {
       rgba(10, 9, 7, 0.7)
     ),
     linear-gradient(135deg, rgba(36, 26, 8, 0.32), rgba(36, 26, 8, 0)),
-    url("./assets/loginsignuppicture.jpg") center / cover no-repeat;
+    url("./assets/loginsignuppicture.webp") center / cover no-repeat;
   color: #ffffff;
 }
 .auth-brand-panel .brand {

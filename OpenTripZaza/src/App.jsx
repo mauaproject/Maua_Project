@@ -1,9 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import './App.css'
 import i18n from './i18n'
-import { AdminDashboard, AdminReviews, AdminSchedule, AdminTrips, AdminWorkers, TripForm } from './pages/AdminPage'
 import { CustomerAccountPage, CustomerCatalog, CustomerLoginPage, CustomerSignupPage, DestinationPage, EmailVerificationPage, PaymentConfirmationPage, RegistrationPage, ReviewsPage, TripDetail } from './pages/UserPage'
-import { MyJobs, WorkerDashboard, WorkerJobDetail, WorkerJobs } from './pages/WorkerPage'
 import { LoginPage, NotFound } from './pages/shared'
 import * as api from './services/api'
 import { ABOVE_MAX_PAX_RULE, getPrivatePricePerPerson, normalizePricePerPersonTiers } from './utils/pricing'
@@ -19,6 +17,19 @@ import {
 
 const getJobScope = (job) => job.registrationId ? `registration-${job.registrationId}` : `trip-${job.tripId}`
 const CHECKOUT_DRAFT_KEY = 'mauaCheckoutDraft'
+const lazyNamed = (loader, name) => lazy(() => loader().then((module) => ({ default: module[name] })))
+const loadAdminPage = () => import('./pages/AdminPage')
+const loadWorkerPage = () => import('./pages/WorkerPage')
+const AdminDashboard = lazyNamed(loadAdminPage, 'AdminDashboard')
+const AdminReviews = lazyNamed(loadAdminPage, 'AdminReviews')
+const AdminSchedule = lazyNamed(loadAdminPage, 'AdminSchedule')
+const AdminTrips = lazyNamed(loadAdminPage, 'AdminTrips')
+const AdminWorkers = lazyNamed(loadAdminPage, 'AdminWorkers')
+const TripForm = lazyNamed(loadAdminPage, 'TripForm')
+const MyJobs = lazyNamed(loadWorkerPage, 'MyJobs')
+const WorkerDashboard = lazyNamed(loadWorkerPage, 'WorkerDashboard')
+const WorkerJobDetail = lazyNamed(loadWorkerPage, 'WorkerJobDetail')
+const WorkerJobs = lazyNamed(loadWorkerPage, 'WorkerJobs')
 
 const readCheckoutDraft = () => {
   try {
@@ -41,6 +52,7 @@ function App() {
   const [adminReviews, setAdminReviews] = useState([])
   const [checkoutDraft, setCheckoutDraft] = useState(readCheckoutDraft)
   const [toast, setToast] = useState('')
+  const detailRequestsRef = useRef(new Set())
 
   const navigate = (target) => {
     window.history.pushState({}, '', target)
@@ -59,23 +71,53 @@ function App() {
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
 
-  const refreshData = async () => {
-    const detailMatch = window.location.pathname.match(/^\/open-trip\/(\d+)$/)
-    const [tripData, bookingData, taskData, customerData, workerData, reviewData, detailTrip] = await Promise.all([
-      api.getTrips(true),
-      api.getBookings(),
-      api.getWorkerTasks(),
-      api.getUsers('customer'),
-      api.getUsers('worker'),
+  const refreshData = async (activeSession = session) => {
+    const role = activeSession?.role
+
+    if (role === 'admin') {
+      const [tripData, bookingData, taskData, customerData, workerData, reviewData] = await Promise.all([
+        api.getTrips(true),
+        api.getBookings(),
+        api.getWorkerTasks(),
+        api.getUsers('customer'),
+        api.getUsers('worker'),
+        api.getReviews(),
+      ])
+      setTrips(tripData)
+      setRegistrations(bookingData)
+      setJobs(taskData)
+      setCustomerAccounts(customerData)
+      setWorkerAccounts(workerData)
+      setReviews(reviewData)
+      return
+    }
+
+    if (role === 'pekerja') {
+      const [tripData, bookingData, taskData] = await Promise.all([
+        api.getTripSummaries(true),
+        api.getBookings(),
+        api.getWorkerTasks(),
+      ])
+      setTrips(tripData)
+      setRegistrations(bookingData)
+      setJobs(taskData)
+      return
+    }
+
+    const [tripData, reviewData] = await Promise.all([
+      api.getTripSummaries(),
       api.getReviews(),
-      detailMatch ? api.getTripDetail(Number(detailMatch[1])) : Promise.resolve(null),
     ])
-    setTrips(detailTrip ? tripData.map((trip) => trip.id === detailTrip.id ? detailTrip : trip) : tripData)
-    setRegistrations(bookingData)
-    setJobs(taskData)
-    setCustomerAccounts(customerData)
-    setWorkerAccounts(workerData)
+    setTrips(tripData)
     setReviews(reviewData)
+    if (role === 'customer') {
+      const [bookingData, userReviewData] = await Promise.all([
+        api.getUserBookings(activeSession.email),
+        api.getUserReviews(activeSession.email, activeSession.id),
+      ])
+      setRegistrations(bookingData)
+      setUserReviews(userReviewData)
+    }
   }
 
   useEffect(() => {
@@ -83,13 +125,34 @@ function App() {
       refreshData().catch((error) => showToast(error.message))
     }, 0)
     return () => window.clearTimeout(timer)
+    // Initial public bootstrap only; later refreshes are driven by mutations and authentication.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    const detailMatch = path.match(/^\/(?:open-trip|daftar)\/(\d+)$/)
+    if (!detailMatch) return
+    const tripId = Number(detailMatch[1])
+    if (trips.some((trip) => trip.id === tripId && Array.isArray(trip.imageUrls))) return
+    if (detailRequestsRef.current.has(tripId)) return
+    detailRequestsRef.current.add(tripId)
+    Promise.all([
+      api.getTripDetail(tripId),
+      path.startsWith('/daftar/') ? api.getPrivateBookingAvailability(tripId) : Promise.resolve([]),
+    ]).then(([detailTrip, availability]) => {
+      setTrips((current) => [...current.filter((trip) => trip.id !== detailTrip.id), detailTrip])
+      if (availability.length) {
+        setRegistrations((current) => [...current, ...availability.filter((item) => !current.some((existing) => existing.id === item.id))])
+      }
+    }).catch((error) => showToast(error.message))
+      .finally(() => detailRequestsRef.current.delete(tripId))
+  }, [path, trips])
 
   const login = async (role, form) => {
     try {
       const account = await api.loginUser(form.email, form.password, role)
       setSession(account)
-      await refreshData()
+      await refreshData(account)
       if (role === 'admin') setAdminReviews(await api.getReviews(true, account.email))
       navigate(role === 'admin' ? '/admin/dashboard' : '/pekerja/dashboard')
       return true
@@ -202,15 +265,6 @@ function App() {
     setCheckoutDraft(null)
     window.sessionStorage.removeItem(CHECKOUT_DRAFT_KEY)
   }
-
-  const approvedByTrip = useMemo(() => {
-    return registrations.reduce((result, item) => {
-      if (item.status === 'Disetujui' || item.status === 'Selesai') {
-        result[item.tripId] = (result[item.tripId] || 0) + item.participants
-      }
-      return result
-    }, {})
-  }, [registrations])
 
   const submitRegistration = async (form) => {
     if (!session?.emailVerified || Number(session.id) !== Number(form.userId)) return false
@@ -462,7 +516,6 @@ function App() {
     reviews,
     userReviews,
     adminReviews,
-    approvedByTrip,
     navigate,
     login,
     loginCustomer,
@@ -489,13 +542,15 @@ function App() {
   return (
     <>
       {toast && <div className="toast">{toast}</div>}
-      <RouteRenderer {...props} />
+      <Suspense fallback={<div className="route-loading" role="status">Memuat halaman...</div>}>
+        <RouteRenderer {...props} />
+      </Suspense>
     </>
   )
 }
 
 function RouteRenderer(props) {
-  const { path, session, navigate } = props
+  const { path, session, navigate, trips } = props
   const parts = path.split('/').filter(Boolean)
   const id = Number(parts[1] || parts[2] || 0)
 
@@ -516,13 +571,17 @@ function RouteRenderer(props) {
   if (path === '/login' || path === '/customer/login') return <CustomerLoginPage {...props} />
   if (path === '/signup' || path === '/customer/signup') return <CustomerSignupPage {...props} />
   if (path.startsWith('/verify-email')) return <EmailVerificationPage {...props} />
-  if (parts[0] === 'open-trip' && id) return <TripDetail tripId={id} {...props} />
+  if (parts[0] === 'open-trip' && id) {
+    if (!trips.some((trip) => trip.id === id && Array.isArray(trip.imageUrls))) return <div className="route-loading">Memuat detail trip...</div>
+    return <TripDetail tripId={id} {...props} />
+  }
   if (path === '/payment-confirmation') {
     if (session?.role !== 'customer') return <CustomerLoginPage afterLoginPath="/payment-confirmation" {...props} />
     return <PaymentConfirmationPage {...props} />
   }
   if (parts[0] === 'daftar' && id) {
     if (session?.role !== 'customer') return <CustomerLoginPage afterLoginPath={`/daftar/${id}`} {...props} />
+    if (!trips.some((trip) => trip.id === id && Array.isArray(trip.imageUrls))) return <div className="route-loading">Memuat checkout...</div>
     return <RegistrationPage tripId={id} {...props} />
   }
   if (path === '/admin/login') return <LoginPage role="admin" {...props} />

@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
-import loadingVideo from '../assets/videoloading.mp4'
-import horizontalLogo from '../assets/desainHorizontal.png'
+import horizontalLogo from '../assets/desainHorizontal.webp'
 
 export function LoginPage({ role, login, navigate }) {
   const [form, setForm] = useState({ email: '', password: '' })
@@ -25,7 +24,7 @@ export function LoginPage({ role, login, navigate }) {
       <section className="auth-shell">
         <aside className="auth-brand-panel">
           <button className="brand brand-logo-btn" onClick={() => navigate('/')} aria-label="Open Cave Trip">
-            <img src={horizontalLogo} alt="Open Cave Trip" />
+            <img src={horizontalLogo} alt="Open Cave Trip" width="600" height="180" decoding="async" />
           </button>
           <div>
             <p className="eyebrow">{isAdmin ? 'Admin area' : 'Pekerja area'}</p>
@@ -52,16 +51,6 @@ export function LoginPage({ role, login, navigate }) {
   )
 }
 
-export function LoadingPage({ onIntroFinished }) {
-  return (
-    <main className="loading-page">
-      <section className="loading-panel" aria-label="Loading">
-        <video className="loading-video" src={loadingVideo} autoPlay muted playsInline onEnded={onIntroFinished} onError={onIntroFinished} aria-label="Video loading Open Cave Trip" />
-      </section>
-    </main>
-  )
-}
-
 export function Sidebar({ title, links, navigate, logout, path }) {
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false)
 
@@ -74,7 +63,7 @@ export function Sidebar({ title, links, navigate, logout, path }) {
     <aside className="sidebar">
       <div className="sidebar-brand">
         <button className="brand inverse brand-logo-btn" onClick={() => navigate('/')} aria-label="Open Cave Trip">
-          <img src={horizontalLogo} alt="Open Cave Trip" />
+          <img src={horizontalLogo} alt="Open Cave Trip" width="600" height="180" decoding="async" />
         </button>
         <span>{title}</span>
       </div>

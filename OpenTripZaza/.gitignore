@@ -27,6 +27,10 @@ uploads/*
 !uploads/trips/
 !uploads/payment-proofs/
 !uploads/worker-proofs/
+uploads/trips/*
+uploads/payment-proofs/*
+uploads/worker-proofs/*
+!uploads/trips/.htaccess
 !uploads/**/.gitkeep
 
 # Editor directories and files

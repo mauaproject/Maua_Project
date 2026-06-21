@@ -109,6 +109,10 @@ Upload gambar trip menerima maksimal 10MB per file. Pastikan konfigurasi PHP
 server memiliki `upload_max_filesize` minimal `10M` dan `post_max_size` lebih
 besar, misalnya `12M` atau `16M`.
 
+Jika ekstensi GD PHP tersedia, gambar trip otomatis di-resize maksimal 1200x800
+dan dikonversi ke WebP saat upload, dengan target hasil di bawah 2MB. Jalankan juga migrasi
+`api/migrations/2026-06-21-performance-indexes.sql` untuk index query utama.
+
 ## Email reminder H-7, H-1, dan H+1
 
 1. Jalankan migrasi `api/migrations/2026-06-19-email-reminders.sql` satu kali

@@ -14,5 +14,5 @@ runEndpoint(function (PDO $pdo): void {
         : 'archived_at IS NULL AND (visible_until IS NULL OR visible_until >= CURDATE())';
     $statement = $pdo->prepare("SELECT * FROM bookings WHERE customer_email = ? AND {$retentionWhere} ORDER BY id DESC");
     $statement->execute([$email]);
-    jsonSuccess(array_map(fn(array $row): array => mapBooking($pdo, $row), $statement->fetchAll()));
+    jsonSuccess(mapBookings($pdo, $statement->fetchAll()));
 });

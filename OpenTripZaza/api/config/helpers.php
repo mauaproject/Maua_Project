@@ -65,6 +65,62 @@ function publicUploadPath(string $folder, string $filename): string
     return $scheme . '://' . $host . $path;
 }
 
+function storeTripImageAsWebp(array $file, string $mime, string $uploadDirectory): ?array
+{
+    if (!function_exists('imagewebp') || !function_exists('imagecreatetruecolor')) {
+        return null;
+    }
+    $loaders = [
+        'image/jpeg' => 'imagecreatefromjpeg',
+        'image/png' => 'imagecreatefrompng',
+        'image/webp' => 'imagecreatefromwebp',
+    ];
+    $loader = $loaders[$mime] ?? null;
+    if (!$loader || !function_exists($loader)) {
+        return null;
+    }
+    $info = @getimagesize($file['tmp_name']);
+    if (!$info || empty($info[0]) || empty($info[1])) {
+        return null;
+    }
+    $source = @$loader($file['tmp_name']);
+    if (!$source) {
+        return null;
+    }
+    $sourceWidth = (int) $info[0];
+    $sourceHeight = (int) $info[1];
+    $scale = min(1, 1200 / $sourceWidth, 800 / $sourceHeight);
+    $width = max(1, (int) round($sourceWidth * $scale));
+    $height = max(1, (int) round($sourceHeight * $scale));
+    $target = imagecreatetruecolor($width, $height);
+    imagealphablending($target, false);
+    imagesavealpha($target, true);
+    $transparent = imagecolorallocatealpha($target, 0, 0, 0, 127);
+    imagefilledrectangle($target, 0, 0, $width, $height, $transparent);
+    imagecopyresampled($target, $source, 0, 0, 0, 0, $width, $height, $sourceWidth, $sourceHeight);
+
+    $filename = bin2hex(random_bytes(16)) . '.webp';
+    $destination = $uploadDirectory . DIRECTORY_SEPARATOR . $filename;
+    $saved = imagewebp($target, $destination, 82);
+    clearstatcache(true, $destination);
+    if ($saved && filesize($destination) > 2 * 1024 * 1024) {
+        $saved = imagewebp($target, $destination, 68);
+        clearstatcache(true, $destination);
+    }
+    if ($saved && filesize($destination) > 2 * 1024 * 1024) {
+        $saved = imagewebp($target, $destination, 54);
+    }
+    imagedestroy($target);
+    imagedestroy($source);
+    if (!$saved) {
+        if (is_file($destination)) {
+            unlink($destination);
+        }
+        return null;
+    }
+    return ['path' => publicUploadPath('trips', $filename), 'filename' => $filename];
+}
+
 function storeUploadedImage(array $file, string $folder, int $maxSizeMb = 5): array
 {
     if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
@@ -88,6 +144,12 @@ function storeUploadedImage(array $file, string $folder, int $maxSizeMb = 5): ar
     $uploadDirectory = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . trim($folder, '/');
     if (!is_dir($uploadDirectory) && !mkdir($uploadDirectory, 0755, true) && !is_dir($uploadDirectory)) {
         throw new RuntimeException('Folder upload tidak dapat dibuat.');
+    }
+    if (trim($folder, '/') === 'trips') {
+        $optimized = storeTripImageAsWebp($file, $mime, $uploadDirectory);
+        if ($optimized !== null) {
+            return $optimized;
+        }
     }
 
     $filename = bin2hex(random_bytes(16)) . '.' . $allowed[$mime];
@@ -234,42 +296,176 @@ function mapTrip(PDO $pdo, array $trip): array
     ];
 }
 
+function mapTripSummaries(PDO $pdo, array $trips): array
+{
+    if (!$trips) {
+        return [];
+    }
+    $tripIds = array_map(static fn(array $trip): int => (int) $trip['id'], $trips);
+    $placeholders = implode(',', array_fill(0, count($tripIds), '?'));
+    $imageStatement = $pdo->prepare(
+        "SELECT trip_id, image_url FROM trip_images
+         WHERE trip_id IN ($placeholders) ORDER BY trip_id, sort_order, id"
+    );
+    $imageStatement->execute($tripIds);
+    $images = [];
+    foreach ($imageStatement->fetchAll() as $image) {
+        $tripId = (int) $image['trip_id'];
+        if (!isset($images[$tripId])) {
+            $images[$tripId] = (string) $image['image_url'];
+        }
+    }
+    $scheduleStatement = $pdo->prepare(
+        "SELECT trip_id, schedule_code, schedule_date, start_time, end_time, visible_until,
+                archived_at, quota, booked_count, status
+         FROM trip_schedules WHERE trip_id IN ($placeholders)
+         ORDER BY trip_id, schedule_date, start_time, id"
+    );
+    $scheduleStatement->execute($tripIds);
+    $schedules = [];
+    foreach ($scheduleStatement->fetchAll() as $schedule) {
+        $tripId = (int) $schedule['trip_id'];
+        $schedules[$tripId][] = [
+            'id' => $schedule['schedule_code'],
+            'date' => $schedule['schedule_date'],
+            'startTime' => $schedule['start_time'] ? substr((string) $schedule['start_time'], 0, 5) : '',
+            'endTime' => $schedule['end_time'] ? substr((string) $schedule['end_time'], 0, 5) : '',
+            'visibleUntil' => $schedule['visible_until'] ?? null,
+            'isArchived' => !empty($schedule['archived_at'])
+                || (!empty($schedule['visible_until']) && $schedule['visible_until'] < date('Y-m-d')),
+            'quota' => (int) $schedule['quota'],
+            'bookedCount' => (int) $schedule['booked_count'],
+            'status' => $schedule['status'],
+        ];
+    }
+    return array_map(static function (array $trip) use ($images, $schedules): array {
+        $tripId = (int) $trip['id'];
+        $tripSchedules = $schedules[$tripId] ?? [];
+        $isPrivate = ($trip['trip_type'] ?? 'open') === 'private';
+        $isArchived = $isPrivate
+            ? (!empty($trip['available_end_date'])
+                && date('Y-m-d', strtotime((string) $trip['available_end_date'] . ' +7 days')) < date('Y-m-d'))
+            : ($tripSchedules && !array_filter($tripSchedules, static fn(array $schedule): bool => !$schedule['isArchived']));
+        return [
+            'id' => $tripId,
+            'name' => $trip['name'],
+            'type' => $trip['trip_type'],
+            'isPrivateTrip' => $isPrivate,
+            'experienceType' => $trip['experience_type'],
+            'status' => $trip['status'],
+            'isArchived' => (bool) $isArchived,
+            'destination' => ['id' => $trip['destination_id'] ?? '', 'en' => $trip['destination_en'] ?? ''],
+            'price' => (float) $trip['price'],
+            'quota' => (int) $trip['quota'],
+            'slots' => (int) $trip['slots'],
+            'minParticipants' => (int) $trip['min_participants'],
+            'maxParticipants' => (int) $trip['max_participants'],
+            'availableStartDate' => $trip['available_start_date'],
+            'availableEndDate' => $trip['available_end_date'],
+            'privateBookingMode' => ($trip['private_booking_mode'] ?? 'exclusive') === 'shared' ? 'shared' : 'exclusive',
+            'date' => $tripSchedules[0]['date'] ?? '',
+            'imageUrl' => $images[$tripId] ?? '',
+            'schedules' => $tripSchedules,
+        ];
+    }, $trips);
+}
+
 function mapBooking(PDO $pdo, array $booking): array
 {
-    $id = (int) $booking['id'];
-    $paymentStmt = $pdo->prepare(
-        'SELECT amount, payment_method, payment_proof_url, payment_status, submitted_at
-         FROM payments WHERE booking_id = ? ORDER BY id DESC LIMIT 1'
+    return mapBookings($pdo, [$booking])[0];
+}
+
+function mapBookings(PDO $pdo, array $bookings): array
+{
+    if (!$bookings) {
+        return [];
+    }
+    $bookingIds = array_map(static fn(array $booking): int => (int) $booking['id'], $bookings);
+    $placeholders = implode(',', array_fill(0, count($bookingIds), '?'));
+    $payments = [];
+    $paymentStatement = $pdo->prepare(
+        "SELECT booking_id, amount, payment_method, payment_proof_url, payment_status, submitted_at
+         FROM payments WHERE booking_id IN ($placeholders) ORDER BY booking_id, id DESC"
     );
-    $paymentStmt->execute([$id]);
-    $payment = $paymentStmt->fetch() ?: [];
-    $participantsStmt = $pdo->prepare('SELECT name, address, age, gender, health_notes FROM booking_participants WHERE booking_id = ? ORDER BY id');
-    $participantsStmt->execute([$id]);
-    $participants = $participantsStmt->fetchAll();
-    $addonsStmt = $pdo->prepare(
-        "SELECT ba.addon_id, ba.trip_addon_id, ba.price,
+    $paymentStatement->execute($bookingIds);
+    foreach ($paymentStatement->fetchAll() as $payment) {
+        $bookingId = (int) $payment['booking_id'];
+        if (!isset($payments[$bookingId])) {
+            $payments[$bookingId] = $payment;
+        }
+    }
+    $participants = [];
+    $participantStatement = $pdo->prepare(
+        "SELECT booking_id, name, address, age, gender, health_notes
+         FROM booking_participants WHERE booking_id IN ($placeholders) ORDER BY booking_id, id"
+    );
+    $participantStatement->execute($bookingIds);
+    foreach ($participantStatement->fetchAll() as $participant) {
+        $participants[(int) $participant['booking_id']][] = $participant;
+    }
+    $addons = [];
+    $addonStatement = $pdo->prepare(
+        "SELECT ba.booking_id, ba.addon_id, ba.trip_addon_id, ba.price,
                 COALESCE(ta.name, a.label, ba.addon_id) addon_name,
                 COALESCE(ta.worker_action, 'none') worker_action
          FROM booking_addons ba
          LEFT JOIN trip_addons ta ON ta.id = ba.trip_addon_id
          LEFT JOIN addons a ON a.id = ba.addon_id
-         WHERE ba.booking_id = ?
-         ORDER BY ba.id"
+         WHERE ba.booking_id IN ($placeholders) ORDER BY ba.booking_id, ba.id"
     );
-    $addonsStmt->execute([$id]);
-    $bookingAddons = $addonsStmt->fetchAll();
-    $schedule = null;
-    if ($booking['schedule_id']) {
-        $statement = $pdo->prepare('SELECT schedule_code FROM trip_schedules WHERE id = ?');
-        $statement->execute([(int) $booking['schedule_id']]);
-        $schedule = $statement->fetch();
+    $addonStatement->execute($bookingIds);
+    foreach ($addonStatement->fetchAll() as $addon) {
+        $addons[(int) $addon['booking_id']][] = $addon;
     }
-    $session = null;
-    if ($booking['session_id']) {
-        $statement = $pdo->prepare('SELECT session_code, name, start_time, end_time FROM trip_sessions WHERE id = ?');
-        $statement->execute([(int) $booking['session_id']]);
-        $session = $statement->fetch();
+    $scheduleIds = array_values(array_unique(array_filter(array_map(
+        static fn(array $booking): int => (int) ($booking['schedule_id'] ?? 0),
+        $bookings
+    ))));
+    $schedules = [];
+    if ($scheduleIds) {
+        $schedulePlaceholders = implode(',', array_fill(0, count($scheduleIds), '?'));
+        $statement = $pdo->prepare("SELECT id, schedule_code FROM trip_schedules WHERE id IN ($schedulePlaceholders)");
+        $statement->execute($scheduleIds);
+        foreach ($statement->fetchAll() as $schedule) {
+            $schedules[(int) $schedule['id']] = $schedule;
+        }
     }
+    $sessionIds = array_values(array_unique(array_filter(array_map(
+        static fn(array $booking): int => (int) ($booking['session_id'] ?? 0),
+        $bookings
+    ))));
+    $sessions = [];
+    if ($sessionIds) {
+        $sessionPlaceholders = implode(',', array_fill(0, count($sessionIds), '?'));
+        $statement = $pdo->prepare(
+            "SELECT id, session_code, name, start_time, end_time
+             FROM trip_sessions WHERE id IN ($sessionPlaceholders)"
+        );
+        $statement->execute($sessionIds);
+        foreach ($statement->fetchAll() as $session) {
+            $sessions[(int) $session['id']] = $session;
+        }
+    }
+    return array_map(static function (array $booking) use ($payments, $participants, $addons, $schedules, $sessions): array {
+        $id = (int) $booking['id'];
+        $payment = $payments[$id] ?? [];
+        $bookingParticipants = $participants[$id] ?? [];
+        $bookingAddons = $addons[$id] ?? [];
+        $schedule = $schedules[(int) ($booking['schedule_id'] ?? 0)] ?? [];
+        $session = $sessions[(int) ($booking['session_id'] ?? 0)] ?? [];
+        return mapBookingRecord($booking, $payment, $bookingParticipants, $bookingAddons, $schedule, $session);
+    }, $bookings);
+}
+
+function mapBookingRecord(
+    array $booking,
+    array $payment,
+    array $participants,
+    array $bookingAddons,
+    array $schedule,
+    array $session
+): array {
+    $id = (int) $booking['id'];
     $primary = $participants[0] ?? [];
     return [
         'id' => $id,
