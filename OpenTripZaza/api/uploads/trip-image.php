@@ -13,7 +13,7 @@ runEndpoint(function (PDO $pdo): void {
     if (!$exists->fetch()) {
         jsonError('Trip tidak ditemukan.', 404);
     }
-    $stored = storeUploadedImage($_FILES['image'], 'trips');
+    $stored = storeUploadedImage($_FILES['image'], 'trips', 10);
     $sortStatement = $pdo->prepare('SELECT COALESCE(MAX(sort_order), -1) + 1 FROM trip_images WHERE trip_id = ?');
     $sortStatement->execute([$tripId]);
     $sortOrder = (int) $sortStatement->fetchColumn();

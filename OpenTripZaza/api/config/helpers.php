@@ -65,13 +65,13 @@ function publicUploadPath(string $folder, string $filename): string
     return $scheme . '://' . $host . $path;
 }
 
-function storeUploadedImage(array $file, string $folder): array
+function storeUploadedImage(array $file, string $folder, int $maxSizeMb = 5): array
 {
     if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
         throw new InvalidArgumentException('File upload tidak ditemukan atau gagal diunggah.');
     }
-    if (($file['size'] ?? 0) > 5 * 1024 * 1024) {
-        throw new InvalidArgumentException('Ukuran file maksimal 5MB.');
+    if (($file['size'] ?? 0) > $maxSizeMb * 1024 * 1024) {
+        throw new InvalidArgumentException("Ukuran file maksimal {$maxSizeMb}MB.");
     }
 
     $finfo = new finfo(FILEINFO_MIME_TYPE);

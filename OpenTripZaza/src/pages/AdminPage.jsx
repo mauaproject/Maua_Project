@@ -15,7 +15,7 @@ const parseImageUrls = (value) => String(value || '')
   .map((item) => item.trim())
   .filter(Boolean)
 
-const MAX_TRIP_IMAGE_SIZE = 5 * 1024 * 1024
+const MAX_TRIP_IMAGE_SIZE = 10 * 1024 * 1024
 const ALLOWED_TRIP_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 
 const adminText = (value) => localizedText(value, 'id') || '-'
@@ -607,7 +607,7 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
       return
     }
     if (oversized) {
-      setFormError(`File "${oversized.name}" berukuran ${(oversized.size / 1024 / 1024).toFixed(1)}MB. Maksimal ukuran gambar adalah 5MB per file.`)
+      setFormError(`File "${oversized.name}" berukuran ${(oversized.size / 1024 / 1024).toFixed(1)}MB. Maksimal ukuran gambar adalah 10MB per file.`)
       return
     }
     setFormError('')
@@ -925,7 +925,7 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
             <div className="data-form section-fields">
               <label className="full">Upload gambar trip
                 <input disabled={isSaving} type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" multiple onChange={handleImageSelection} />
-                <small>Maksimal 5MB per file. Format JPG, PNG, atau WebP.</small>
+                <small>Maksimal 10MB per file. Format JPG, PNG, atau WebP.</small>
               </label>
               {currentImages.length > 0 && (
                 <div className="admin-trip-image-manager full">
