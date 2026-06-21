@@ -25,8 +25,8 @@ runEndpoint(function (PDO $pdo): void {
             $sortStatement->execute([$tripId]);
             $sortOrder = (int) $sortStatement->fetchColumn();
         }
-        $statement = $pdo->prepare('INSERT INTO trip_images (trip_id, image_url, sort_order) VALUES (?,?,?)');
-        $statement->execute([$tripId, $stored['path'], $sortOrder]);
+        $statement = $pdo->prepare('INSERT INTO trip_images (trip_id, image_url, thumbnail_url, sort_order) VALUES (?,?,?,?)');
+        $statement->execute([$tripId, $stored['path'], $stored['thumbnailPath'] ?? null, $sortOrder]);
         $imageId = (int) $pdo->lastInsertId();
         $pdo->commit();
     } catch (Throwable $error) {
@@ -34,7 +34,18 @@ runEndpoint(function (PDO $pdo): void {
             $pdo->rollBack();
         }
         deleteStoredUpload($stored['path'], 'trips');
+        if (!empty($stored['thumbnailPath'])) {
+            deleteStoredUpload($stored['thumbnailPath'], 'trips');
+        }
         throw $error;
     }
-    jsonSuccess(['id' => $imageId, 'tripId' => $tripId, 'url' => $stored['path'], 'isPrimary' => $isPrimary], 201);
+    jsonSuccess([
+        'id' => $imageId,
+        'tripId' => $tripId,
+        'url' => $stored['path'],
+        'thumbnailUrl' => $stored['thumbnailPath'] ?? $stored['path'],
+        'width' => $stored['width'] ?? null,
+        'height' => $stored['height'] ?? null,
+        'isPrimary' => $isPrimary,
+    ], 201);
 });

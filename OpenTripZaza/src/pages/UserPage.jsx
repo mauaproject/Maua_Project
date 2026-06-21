@@ -589,11 +589,16 @@ function TripCard({ trip, navigate }) {
 
 const getTripImages = (trip) => {
   const urls = Array.isArray(trip?.imageUrls) ? trip.imageUrls : []
-  return [...urls, trip?.imageUrl].filter(Boolean)
+  return [...new Set([...urls, trip?.imageUrl].filter(Boolean))]
+}
+
+const getTripThumbnailImages = (trip) => {
+  const urls = Array.isArray(trip?.thumbnailUrls) ? trip.thumbnailUrls : []
+  return [...new Set([...urls, trip?.thumbnailUrl, trip?.imageUrl].filter(Boolean))]
 }
 
 function TripVisual({ trip, large, priority = false }) {
-  const [firstImage] = getTripImages(trip)
+  const [firstImage] = getTripThumbnailImages(trip)
 
   return (
     <div className={large ? 'trip-visual trip-visual-large' : 'trip-visual'} role="img" aria-label={trip?.name || 'Open trip goa'}>
@@ -675,6 +680,7 @@ export function DestinationPage({ path, trips, navigate, session, logout }) {
 function TripGallery({ trip }) {
   const { t } = useCustomerLanguage()
   const images = getTripImages(trip)
+  const thumbnails = Array.isArray(trip?.thumbnailUrls) ? trip.thumbnailUrls : []
   const [activeIndex, setActiveIndex] = useState(0)
   const activeImage = images[activeIndex]
 
@@ -683,13 +689,13 @@ function TripGallery({ trip }) {
   return (
     <section className="trip-gallery" aria-label={t('detail.gallery', { name: trip.name })}>
       <div className="trip-gallery-main">
-        <img src={activeImage} alt={t('detail.preview', { name: trip.name })} width="1200" height="800" fetchPriority="high" decoding="async" />
+        <img src={activeImage} alt={t('detail.preview', { name: trip.name })} width="1600" height="900" loading="eager" fetchPriority="high" decoding="async" />
       </div>
       {images.length > 1 && (
         <div className="trip-gallery-thumbs">
           {images.map((image, index) => (
             <button className={index === activeIndex ? 'is-active' : ''} key={image} onClick={() => setActiveIndex(index)} type="button" aria-label={t('detail.showImage', { number: index + 1 })}>
-              <img src={image} alt="" width="400" height="300" loading="lazy" decoding="async" />
+              <img src={thumbnails[index] || image} alt="" width="320" height="180" loading="lazy" decoding="async" />
             </button>
           ))}
         </div>

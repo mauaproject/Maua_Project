@@ -226,3 +226,18 @@ Endpoint profil customer:
 
 - `GET /api/auth/me.php?email=...`
 - `POST /api/auth/update-profile.php`
+
+## Varian gambar trip
+
+Jalankan migration berikut satu kali melalui phpMyAdmin:
+
+`api/migrations/2026-06-21-trip-image-variants.sql`
+
+Upload gambar trip baru menghasilkan dua WebP:
+
+- gambar detail maksimal 1600x1000 dengan target ukuran maksimal sekitar 700KB;
+- thumbnail katalog maksimal 800x600 dengan target ukuran maksimal sekitar 300KB.
+
+Kolom `image_url` tetap menyimpan gambar detail, sedangkan `thumbnail_url`
+menyimpan gambar ringan untuk kartu katalog. Gambar lama tetap memakai
+`image_url` sebagai fallback sampai di-upload ulang.

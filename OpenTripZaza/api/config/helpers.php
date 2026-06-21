@@ -103,6 +103,56 @@ function publicUploadPath(string $folder, string $filename): string
     return $scheme . '://' . $host . $path;
 }
 
+function createTripWebpVariant(
+    GdImage $source,
+    int $sourceWidth,
+    int $sourceHeight,
+    string $uploadDirectory,
+    string $suffix,
+    int $maxWidth,
+    int $maxHeight,
+    int $targetBytes,
+    int $initialQuality
+): array
+{
+    $scale = min(1, $maxWidth / $sourceWidth, $maxHeight / $sourceHeight);
+    $width = max(1, (int) round($sourceWidth * $scale));
+    $height = max(1, (int) round($sourceHeight * $scale));
+    $target = imagecreatetruecolor($width, $height);
+    imagealphablending($target, false);
+    imagesavealpha($target, true);
+    $transparent = imagecolorallocatealpha($target, 0, 0, 0, 127);
+    imagefilledrectangle($target, 0, 0, $width, $height, $transparent);
+    imagecopyresampled($target, $source, 0, 0, 0, 0, $width, $height, $sourceWidth, $sourceHeight);
+
+    $filename = bin2hex(random_bytes(16)) . '-' . $suffix . '.webp';
+    $destination = $uploadDirectory . DIRECTORY_SEPARATOR . $filename;
+    $quality = $initialQuality;
+    $saved = false;
+    do {
+        $saved = imagewebp($target, $destination, $quality);
+        clearstatcache(true, $destination);
+        if (!$saved || !is_file($destination) || filesize($destination) <= $targetBytes) {
+            break;
+        }
+        $quality -= 6;
+    } while ($quality >= 54);
+    imagedestroy($target);
+
+    if (!$saved) {
+        if (is_file($destination)) {
+            unlink($destination);
+        }
+        throw new RuntimeException('Varian gambar WebP gagal dibuat.');
+    }
+    return [
+        'path' => publicUploadPath('trips', $filename),
+        'filename' => $filename,
+        'width' => $width,
+        'height' => $height,
+    ];
+}
+
 function storeTripImageAsWebp(array $file, string $mime, string $uploadDirectory): ?array
 {
     if (!function_exists('imagewebp') || !function_exists('imagecreatetruecolor')) {
@@ -160,36 +210,54 @@ function storeTripImageAsWebp(array $file, string $mime, string $uploadDirectory
     }
     $sourceWidth = imagesx($source);
     $sourceHeight = imagesy($source);
-    $scale = min(1, 1200 / $sourceWidth, 800 / $sourceHeight);
-    $width = max(1, (int) round($sourceWidth * $scale));
-    $height = max(1, (int) round($sourceHeight * $scale));
-    $target = imagecreatetruecolor($width, $height);
-    imagealphablending($target, false);
-    imagesavealpha($target, true);
-    $transparent = imagecolorallocatealpha($target, 0, 0, 0, 127);
-    imagefilledrectangle($target, 0, 0, $width, $height, $transparent);
-    imagecopyresampled($target, $source, 0, 0, 0, 0, $width, $height, $sourceWidth, $sourceHeight);
-
-    $filename = bin2hex(random_bytes(16)) . '.webp';
-    $destination = $uploadDirectory . DIRECTORY_SEPARATOR . $filename;
-    $saved = imagewebp($target, $destination, 82);
-    clearstatcache(true, $destination);
-    if ($saved && filesize($destination) > 2 * 1024 * 1024) {
-        $saved = imagewebp($target, $destination, 68);
-        clearstatcache(true, $destination);
-    }
-    if ($saved && filesize($destination) > 2 * 1024 * 1024) {
-        $saved = imagewebp($target, $destination, 54);
-    }
-    imagedestroy($target);
-    imagedestroy($source);
-    if (!$saved) {
-        if (is_file($destination)) {
-            unlink($destination);
+    $detail = null;
+    $thumbnail = null;
+    try {
+        $detail = createTripWebpVariant(
+            $source,
+            $sourceWidth,
+            $sourceHeight,
+            $uploadDirectory,
+            'detail',
+            1600,
+            1000,
+            700 * 1024,
+            84
+        );
+        $thumbnail = createTripWebpVariant(
+            $source,
+            $sourceWidth,
+            $sourceHeight,
+            $uploadDirectory,
+            'thumb',
+            800,
+            600,
+            300 * 1024,
+            80
+        );
+    } catch (Throwable $exception) {
+        foreach ([$detail, $thumbnail] as $variant) {
+            if (is_array($variant) && !empty($variant['filename'])) {
+                $path = $uploadDirectory . DIRECTORY_SEPARATOR . $variant['filename'];
+                if (is_file($path)) {
+                    unlink($path);
+                }
+            }
         }
-        return null;
+        imagedestroy($source);
+        throw $exception;
     }
-    return ['path' => publicUploadPath('trips', $filename), 'filename' => $filename];
+    imagedestroy($source);
+    return [
+        'path' => $detail['path'],
+        'filename' => $detail['filename'],
+        'width' => $detail['width'],
+        'height' => $detail['height'],
+        'thumbnailPath' => $thumbnail['path'],
+        'thumbnailFilename' => $thumbnail['filename'],
+        'thumbnailWidth' => $thumbnail['width'],
+        'thumbnailHeight' => $thumbnail['height'],
+    ];
 }
 
 function storeUploadedImage(array $file, string $folder, int $maxSizeMb = 5): array
@@ -260,7 +328,7 @@ function mapTrip(PDO $pdo, array $trip): array
         $statement->execute([$tripId]);
         return $statement->fetchAll();
     };
-    $images = $query('SELECT id, image_url, sort_order FROM trip_images WHERE trip_id = ? ORDER BY sort_order, id');
+    $images = $query('SELECT id, image_url, thumbnail_url, sort_order FROM trip_images WHERE trip_id = ? ORDER BY sort_order, id');
     $schedules = $query('SELECT id, schedule_code, schedule_date, start_time, end_time, visible_until, archived_at, quota, booked_count, status FROM trip_schedules WHERE trip_id = ? ORDER BY schedule_date, start_time, id');
     $sessions = $query('SELECT id, session_code, name, start_time, end_time, status FROM trip_sessions WHERE trip_id = ? ORDER BY start_time, id');
     $packages = $query('SELECT id, package_code, name, price, max_custom_pax, destinations_json, description, status, sort_order FROM private_trip_packages WHERE trip_id = ? ORDER BY sort_order, id');
@@ -332,6 +400,11 @@ function mapTrip(PDO $pdo, array $trip): array
         'date' => $mappedSchedules[0]['date'] ?? '',
         'imageUrl' => $images[0]['image_url'] ?? '',
         'imageUrls' => array_column($images, 'image_url'),
+        'thumbnailUrl' => $images[0]['thumbnail_url'] ?? ($images[0]['image_url'] ?? ''),
+        'thumbnailUrls' => array_map(
+            static fn(array $image): string => (string) ($image['thumbnail_url'] ?: $image['image_url']),
+            $images
+        ),
         'schedules' => $mappedSchedules,
         'sessions' => $mappedSessions,
         'privatePackages' => array_map(static function (array $item) use ($packageTiers): array {
@@ -375,7 +448,7 @@ function mapTripSummaries(PDO $pdo, array $trips): array
     $tripIds = array_map(static fn(array $trip): int => (int) $trip['id'], $trips);
     $placeholders = implode(',', array_fill(0, count($tripIds), '?'));
     $imageStatement = $pdo->prepare(
-        "SELECT trip_id, image_url FROM trip_images
+        "SELECT trip_id, image_url, thumbnail_url FROM trip_images
          WHERE trip_id IN ($placeholders) ORDER BY trip_id, sort_order, id"
     );
     $imageStatement->execute($tripIds);
@@ -383,7 +456,7 @@ function mapTripSummaries(PDO $pdo, array $trips): array
     foreach ($imageStatement->fetchAll() as $image) {
         $tripId = (int) $image['trip_id'];
         if (!isset($images[$tripId])) {
-            $images[$tripId] = (string) $image['image_url'];
+            $images[$tripId] = (string) ($image['thumbnail_url'] ?: $image['image_url']);
         }
     }
     $scheduleStatement = $pdo->prepare(

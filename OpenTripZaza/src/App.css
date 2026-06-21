@@ -1737,10 +1737,12 @@ button:disabled {
 }
 .trip-detail-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
-  gap: 24px;
+  grid-template-columns: minmax(0, 960px) minmax(320px, 360px);
+  justify-content: center;
+  gap: clamp(24px, 2.4vw, 36px);
   align-items: start;
-  margin-top: 24px;
+  width: min(100%, 1440px);
+  margin: 24px auto 0;
   padding: 0 clamp(20px, 4vw, 56px);
   padding-top: 108px;
 }
@@ -1769,32 +1771,36 @@ button:disabled {
 .trip-gallery {
   display: grid;
   gap: 12px;
+  width: min(100%, 960px);
 }
 .trip-gallery-main {
   overflow: hidden;
-  width: min(100%, 1040px);
+  width: 100%;
+  aspect-ratio: 16 / 9;
   justify-self: start;
   border: 1px solid var(--color-line);
   border-radius: 20px;
-  background: #111111;
+  background: #f5f1e8;
   box-shadow: var(--shadow-soft);
 }
 .trip-gallery-main img {
   display: block;
   width: 100%;
-  height: clamp(320px, 40vw, 560px);
-  object-fit: contain;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
 }
 .trip-gallery-thumbs {
   display: grid;
-  width: min(100%, 1040px);
-  grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+  width: 100%;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 132px));
   gap: 10px;
 }
 .trip-gallery-thumbs button {
   overflow: hidden;
+  aspect-ratio: 16 / 9;
   border: 2px solid transparent;
-  border-radius: 20px;
+  border-radius: 14px;
   background: #ffffff;
   padding: 0;
   opacity: 0.68;
@@ -1813,7 +1819,7 @@ button:disabled {
 .trip-gallery-thumbs img {
   display: block;
   width: 100%;
-  aspect-ratio: 16 / 9;
+  height: 100%;
   object-fit: cover;
 }
 .trip-detail-main .info-block {
@@ -5459,7 +5465,8 @@ td {
     width: min(100%, 240px);
   }
   .trip-gallery-main img {
-    height: clamp(220px, 70vw, 420px);
+    width: 100%;
+    height: 100%;
   }
   .registration-card-actions,
   .registration-approval-card dl {
