@@ -4035,6 +4035,11 @@ button:disabled {
   border-radius: 18px;
   background: #fffdf8;
 }
+.admin-trip-image-item.is-primary,
+.admin-selected-image-item.is-primary {
+  border-color: #c8922e;
+  box-shadow: 0 0 0 2px rgba(200, 146, 46, 0.16);
+}
 .admin-trip-image-item img {
   display: block;
   width: 100%;
@@ -4049,6 +4054,16 @@ button:disabled {
   gap: 12px;
   padding: 12px;
 }
+.admin-image-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.admin-image-actions .outline-btn {
+  min-height: 40px;
+  padding: 8px 12px;
+}
 .admin-trip-image-item span,
 .admin-selected-image-list span {
   min-width: 0;
@@ -4060,6 +4075,25 @@ button:disabled {
   border: 1px solid #e6cfa8;
   border-radius: 14px;
   background: #fffdf8;
+}
+.admin-selected-image-item {
+  overflow: hidden;
+}
+.admin-selected-image-item > img {
+  display: block;
+  width: 120px;
+  height: 90px;
+  flex: 0 0 120px;
+  border-radius: 10px;
+  object-fit: cover;
+}
+.admin-selected-image-item > div {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 .form-sticky-actions {
   position: sticky;

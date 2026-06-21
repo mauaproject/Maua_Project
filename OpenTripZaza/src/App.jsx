@@ -412,8 +412,10 @@ function App() {
 
   const saveTrip = async (trip) => {
     const imageFiles = Array.isArray(trip.imageFiles) ? trip.imageFiles : []
+    const newImageIsPrimary = Boolean(trip.newImageIsPrimary)
     const tripData = { ...trip }
     delete tripData.imageFiles
+    delete tripData.newImageIsPrimary
     const schedules = Array.isArray(trip.schedules)
       ? trip.schedules.map((schedule, index) => ({
         id: schedule.id || `schedule_${index + 1}`,
@@ -469,7 +471,9 @@ function App() {
       savedTrip = await api.createTrip(normalizedTrip)
     }
     try {
-      await Promise.all(imageFiles.map((file) => api.uploadTripImage(file, savedTrip.id)))
+      for (let index = 0; index < imageFiles.length; index += 1) {
+        await api.uploadTripImage(imageFiles[index], savedTrip.id, newImageIsPrimary && index === 0)
+      }
     } catch (error) {
       await refreshData()
       showToast(`Data trip sudah tersimpan, tetapi gambar gagal di-upload: ${error.message}`)

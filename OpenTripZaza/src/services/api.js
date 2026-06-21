@@ -63,10 +63,11 @@ export const completeWorkerTask = (id, data = {}) => {
   return jsonPost('worker-tasks/complete.php', { id, ...data })
 }
 
-export const uploadTripImage = (file, tripId) => {
+export const uploadTripImage = (file, tripId, isPrimary = false) => {
   const form = new FormData()
   form.append('image', file)
   form.append('trip_id', tripId)
+  form.append('is_primary', isPrimary ? '1' : '0')
   return request('uploads/trip-image.php', { method: 'POST', body: form })
 }
 

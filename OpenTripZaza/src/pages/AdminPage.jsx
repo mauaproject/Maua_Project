@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { addonOptions, registrationStatuses, tripStatuses } from '../config/constants'
 import { formatCurrency, formatDate, tripName } from '../utils/formatters'
@@ -17,6 +17,20 @@ const parseImageUrls = (value) => String(value || '')
 
 const MAX_TRIP_IMAGE_SIZE = 10 * 1024 * 1024
 const ALLOWED_TRIP_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+const getInitialPrimaryImage = (trip) => {
+  const imageUrl = Array.isArray(trip?.imageUrls) && trip.imageUrls.length
+    ? trip.imageUrls[0]
+    : trip?.imageUrl
+  return imageUrl ? { type: 'existing', id: imageUrl } : null
+}
+
+function SelectedTripImagePreview({ file }) {
+  const [previewUrl] = useState(() => URL.createObjectURL(file))
+
+  useEffect(() => () => URL.revokeObjectURL(previewUrl), [previewUrl])
+
+  return <img src={previewUrl} alt={`Pratinjau ${file.name}`} width="400" height="300" />
+}
 
 const adminText = (value) => localizedText(value, 'id') || '-'
 const adminListText = (value) => localizedList(value, 'id').join(', ')
@@ -426,6 +440,7 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
   const selected = trips.find((item) => item.id === tripId)
   const [form, setForm] = useState(normalizeTripForm(selected))
   const [imageFiles, setImageFiles] = useState([])
+  const [primaryImage, setPrimaryImage] = useState(() => getInitialPrimaryImage(selected))
   const [formError, setFormError] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const isPrivateTrip = Boolean(form.isPrivateTrip)
@@ -585,15 +600,32 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
   }
 
   const removeCurrentImage = (imageUrl) => {
+    const remainingImages = currentImages.filter((url) => url !== imageUrl)
     setForm({
       ...form,
-      imageUrl: form.imageUrl === imageUrl ? '' : form.imageUrl,
-      imageUrls: currentImages.filter((url) => url !== imageUrl),
+      imageUrl: form.imageUrl === imageUrl ? remainingImages[0] || '' : form.imageUrl,
+      imageUrls: remainingImages,
     })
+    if (primaryImage?.type === 'existing' && primaryImage.id === imageUrl) {
+      const fallbackFile = imageFiles[0]
+      setPrimaryImage(remainingImages[0]
+        ? { type: 'existing', id: remainingImages[0] }
+        : fallbackFile
+          ? { type: 'new', id: fallbackFile.id }
+          : null)
+    }
   }
 
-  const removeSelectedImage = (index) => {
-    setImageFiles((files) => files.filter((_, fileIndex) => fileIndex !== index))
+  const removeSelectedImage = (imageId) => {
+    const remainingFiles = imageFiles.filter((item) => item.id !== imageId)
+    setImageFiles(remainingFiles)
+    if (primaryImage?.type === 'new' && primaryImage.id === imageId) {
+      setPrimaryImage(currentImages[0]
+        ? { type: 'existing', id: currentImages[0] }
+        : remainingFiles[0]
+          ? { type: 'new', id: remainingFiles[0].id }
+          : null)
+    }
   }
 
   const handleImageSelection = (event) => {
@@ -610,8 +642,15 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
       setFormError(`File "${oversized.name}" berukuran ${(oversized.size / 1024 / 1024).toFixed(1)}MB. Maksimal ukuran gambar adalah 10MB per file.`)
       return
     }
+    const selectedFiles = files.map((file) => ({
+      id: globalThis.crypto?.randomUUID?.() || `${file.name}-${file.size}-${file.lastModified}-${Math.random()}`,
+      file,
+    }))
     setFormError('')
-    setImageFiles((currentFiles) => [...currentFiles, ...files])
+    setImageFiles((currentFiles) => [...currentFiles, ...selectedFiles])
+    if (!primaryImage && selectedFiles[0]) {
+      setPrimaryImage({ type: 'new', id: selectedFiles[0].id })
+    }
   }
 
   const onSubmit = async (event) => {
@@ -671,6 +710,15 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
       return
     }
     const imageUrls = Array.isArray(form.imageUrls) ? form.imageUrls.filter(Boolean) : []
+    const orderedImageUrls = primaryImage?.type === 'existing'
+      ? [primaryImage.id, ...imageUrls.filter((url) => url !== primaryImage.id)]
+      : imageUrls
+    const orderedImageFiles = primaryImage?.type === 'new'
+      ? [
+        ...imageFiles.filter((item) => item.id === primaryImage.id),
+        ...imageFiles.filter((item) => item.id !== primaryImage.id),
+      ]
+      : imageFiles
     const tripForm = { ...form }
     delete tripForm.imageUrlsText
     delete tripForm.durationDays
@@ -738,9 +786,10 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
         schedules: isPrivateTrip ? [] : form.schedules.map((schedule, index) => newSchedule(index, schedule)),
         sessions: isPrivateTrip ? form.sessions.map((session, index) => newSession(index, session)) : [],
         privatePackages: isPrivateTrip ? normalizedPrivatePackages : [],
-        imageUrl: imageUrls[0] || '',
-        imageUrls,
-        imageFiles,
+        imageUrl: orderedImageUrls[0] || '',
+        imageUrls: orderedImageUrls,
+        imageFiles: orderedImageFiles.map((item) => item.file),
+        newImageIsPrimary: primaryImage?.type === 'new',
         addons: (form.addons || []).map((addon) => ({
           ...addon,
           name: addon.name.trim(),
@@ -925,18 +974,23 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
             <div className="data-form section-fields">
               <label className="full">Upload gambar trip
                 <input disabled={isSaving} type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" multiple onChange={handleImageSelection} />
-                <small>Maksimal 10MB per file. Format JPG, PNG, atau WebP.</small>
+                <small>Maksimal 10MB per file. Format JPG, PNG, atau WebP. Orientasi foto akan dipertahankan seperti file asli.</small>
               </label>
               {currentImages.length > 0 && (
                 <div className="admin-trip-image-manager full">
                   <h4>Gambar saat ini</h4>
                   <div className="admin-trip-image-grid">
                     {currentImages.map((imageUrl, index) => (
-                      <article className="admin-trip-image-item" key={imageUrl}>
+                      <article className={`admin-trip-image-item ${primaryImage?.type === 'existing' && primaryImage.id === imageUrl ? 'is-primary' : ''}`} key={imageUrl}>
                         <img src={imageUrl} alt={`Gambar trip ${index + 1}`} width="400" height="300" loading="lazy" decoding="async" />
                         <div>
-                          <span>{index === 0 ? 'Gambar utama' : `Gambar ${index + 1}`}</span>
-                          <button className="outline-btn danger-btn" disabled={isSaving} type="button" onClick={() => removeCurrentImage(imageUrl)}>Hapus</button>
+                          <span>{primaryImage?.type === 'existing' && primaryImage.id === imageUrl ? 'Gambar depan' : `Gambar ${index + 1}`}</span>
+                          <div className="admin-image-actions">
+                            {!(primaryImage?.type === 'existing' && primaryImage.id === imageUrl) && (
+                              <button className="outline-btn" disabled={isSaving} type="button" onClick={() => setPrimaryImage({ type: 'existing', id: imageUrl })}>Jadikan gambar depan</button>
+                            )}
+                            <button className="outline-btn danger-btn" disabled={isSaving} type="button" onClick={() => removeCurrentImage(imageUrl)}>Hapus</button>
+                          </div>
                         </div>
                       </article>
                     ))}
@@ -946,10 +1000,18 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
               {imageFiles.length > 0 && (
                 <div className="admin-selected-image-list full">
                   <h4>Gambar baru yang akan di-upload</h4>
-                  {imageFiles.map((file, index) => (
-                    <div key={`${file.name}-${file.lastModified}-${index}`}>
-                      <span>{file.name} · {(file.size / 1024 / 1024).toFixed(1)}MB</span>
-                      <button className="outline-btn danger-btn" disabled={isSaving} type="button" onClick={() => removeSelectedImage(index)}>Batalkan</button>
+                  {imageFiles.map((item) => (
+                    <div className={`admin-selected-image-item ${primaryImage?.type === 'new' && primaryImage.id === item.id ? 'is-primary' : ''}`} key={item.id}>
+                      <SelectedTripImagePreview file={item.file} />
+                      <div>
+                        <span>{primaryImage?.type === 'new' && primaryImage.id === item.id ? 'Gambar depan · ' : ''}{item.file.name} · {(item.file.size / 1024 / 1024).toFixed(1)}MB</span>
+                        <div className="admin-image-actions">
+                          {!(primaryImage?.type === 'new' && primaryImage.id === item.id) && (
+                            <button className="outline-btn" disabled={isSaving} type="button" onClick={() => setPrimaryImage({ type: 'new', id: item.id })}>Jadikan gambar depan</button>
+                          )}
+                          <button className="outline-btn danger-btn" disabled={isSaving} type="button" onClick={() => removeSelectedImage(item.id)}>Batalkan</button>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>

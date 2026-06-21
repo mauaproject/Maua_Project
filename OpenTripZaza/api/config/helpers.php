@@ -87,8 +87,41 @@ function storeTripImageAsWebp(array $file, string $mime, string $uploadDirectory
     if (!$source) {
         return null;
     }
-    $sourceWidth = (int) $info[0];
-    $sourceHeight = (int) $info[1];
+    if ($mime === 'image/jpeg' && function_exists('exif_read_data')) {
+        $exif = @exif_read_data($file['tmp_name']);
+        $orientation = is_array($exif) ? (int) ($exif['Orientation'] ?? 1) : 1;
+        if ($orientation === 2 && function_exists('imageflip')) {
+            imageflip($source, IMG_FLIP_HORIZONTAL);
+        } elseif ($orientation === 3) {
+            $rotated = imagerotate($source, 180, 0);
+            if ($rotated !== false) {
+                imagedestroy($source);
+                $source = $rotated;
+            }
+        } elseif ($orientation === 4 && function_exists('imageflip')) {
+            imageflip($source, IMG_FLIP_VERTICAL);
+        } elseif (in_array($orientation, [5, 6], true)) {
+            $rotated = imagerotate($source, -90, 0);
+            if ($rotated !== false) {
+                imagedestroy($source);
+                $source = $rotated;
+                if ($orientation === 5 && function_exists('imageflip')) {
+                    imageflip($source, IMG_FLIP_HORIZONTAL);
+                }
+            }
+        } elseif (in_array($orientation, [7, 8], true)) {
+            $rotated = imagerotate($source, 90, 0);
+            if ($rotated !== false) {
+                imagedestroy($source);
+                $source = $rotated;
+                if ($orientation === 7 && function_exists('imageflip')) {
+                    imageflip($source, IMG_FLIP_HORIZONTAL);
+                }
+            }
+        }
+    }
+    $sourceWidth = imagesx($source);
+    $sourceHeight = imagesy($source);
     $scale = min(1, 1200 / $sourceWidth, 800 / $sourceHeight);
     $width = max(1, (int) round($sourceWidth * $scale));
     $height = max(1, (int) round($sourceHeight * $scale));
