@@ -107,6 +107,24 @@ function privateTripEndAt(array $trip, array $sessions = []): ?DateTimeImmutable
     return scheduledEndAt($endDate, $latestEndTime !== '' ? $latestEndTime : null);
 }
 
+function tripLastEndAt(array $trip, array $schedules, array $sessions = []): ?DateTimeImmutable
+{
+    if (($trip['trip_type'] ?? $trip['type'] ?? 'open') === 'private') {
+        return privateTripEndAt($trip, $sessions);
+    }
+    $latestEndAt = null;
+    foreach ($schedules as $schedule) {
+        $endAt = scheduledEndAt(
+            (string) ($schedule['schedule_date'] ?? $schedule['date'] ?? ''),
+            $schedule['end_time'] ?? $schedule['endTime'] ?? null
+        );
+        if ($latestEndAt === null || $endAt > $latestEndAt) {
+            $latestEndAt = $endAt;
+        }
+    }
+    return $latestEndAt;
+}
+
 function privateTripHasBookableSlot(array $trip, array $sessions, ?DateTimeImmutable $now = null): bool
 {
     $now ??= appNow();
@@ -129,29 +147,7 @@ function privateTripHasBookableSlot(array $trip, array $sessions, ?DateTimeImmut
 function tripLifecycleStatus(array $trip, array $schedules, array $sessions = [], ?DateTimeImmutable $now = null): string
 {
     $now ??= appNow();
-    if (($trip['trip_type'] ?? $trip['type'] ?? 'open') === 'private') {
-        $endAt = privateTripEndAt($trip, $sessions);
-        if ($endAt === null) {
-            return 'active';
-        }
-        if ($endAt->modify('+7 days') < $now) {
-            return 'archived';
-        }
-        return $endAt <= $now ? 'completed' : 'active';
-    }
-    if (!$schedules) {
-        return 'active';
-    }
-    $latestEndAt = null;
-    foreach ($schedules as $schedule) {
-        $endAt = scheduledEndAt(
-            (string) ($schedule['schedule_date'] ?? $schedule['date'] ?? ''),
-            $schedule['end_time'] ?? $schedule['endTime'] ?? null
-        );
-        if ($latestEndAt === null || $endAt > $latestEndAt) {
-            $latestEndAt = $endAt;
-        }
-    }
+    $latestEndAt = tripLastEndAt($trip, $schedules, $sessions);
     if ($latestEndAt === null) {
         return 'active';
     }
@@ -483,6 +479,9 @@ function mapTrip(PDO $pdo, array $trip, bool $customerView = false): array
         ? array_values(array_filter($allMappedSessions, static fn(array $item): bool => $item['status'] === 'active'))
         : $allMappedSessions;
     $lifecycleStatus = tripLifecycleStatus($trip, $schedules, $sessions, $now);
+    $lastEndAt = tripLastEndAt($trip, $schedules, $sessions);
+    $archiveEligibleAt = $lastEndAt?->modify('+7 days');
+    $permanentDeleteEligibleAt = $lastEndAt?->modify('+37 days');
     $hasBookableSchedule = ($trip['trip_type'] ?? 'open') === 'private'
         ? privateTripHasBookableSlot($trip, $sessions, $now)
         : (bool) array_filter($allMappedSchedules, static fn(array $item): bool => $item['isBookable']);
@@ -497,6 +496,11 @@ function mapTrip(PDO $pdo, array $trip, bool $customerView = false): array
         'isArchived' => $lifecycleStatus === 'archived',
         'lifecycleStatus' => $lifecycleStatus,
         'hasBookableSchedule' => $hasBookableSchedule,
+        'archiveEligibleAt' => $archiveEligibleAt?->format(DATE_ATOM),
+        'permanentDeleteEligibleAt' => $permanentDeleteEligibleAt?->format(DATE_ATOM),
+        'canPermanentlyDelete' => $lifecycleStatus === 'archived'
+            && $permanentDeleteEligibleAt !== null
+            && $permanentDeleteEligibleAt <= $now,
         'destination' => ['id' => $trip['destination_id'] ?? '', 'en' => $trip['destination_en'] ?? ''],
         'description' => ['id' => $trip['description_id'] ?? '', 'en' => $trip['description_en'] ?? ''],
         'activities' => ['id' => decodeText($trip['activities_id'] ?? '') ?: [], 'en' => decodeText($trip['activities_en'] ?? '') ?: []],
@@ -628,6 +632,9 @@ function mapTripSummaries(PDO $pdo, array $trips, bool $customerView = false): a
         $tripSessions = $sessions[$tripId] ?? [];
         $isPrivate = ($trip['trip_type'] ?? 'open') === 'private';
         $lifecycleStatus = tripLifecycleStatus($trip, $allTripSchedules, $tripSessions, $now);
+        $lastEndAt = tripLastEndAt($trip, $allTripSchedules, $tripSessions);
+        $archiveEligibleAt = $lastEndAt?->modify('+7 days');
+        $permanentDeleteEligibleAt = $lastEndAt?->modify('+37 days');
         $hasBookableSchedule = $isPrivate
             ? privateTripHasBookableSlot($trip, $tripSessions, $now)
             : (bool) array_filter($allTripSchedules, static fn(array $schedule): bool => $schedule['isBookable']);
@@ -641,6 +648,11 @@ function mapTripSummaries(PDO $pdo, array $trips, bool $customerView = false): a
             'isArchived' => $lifecycleStatus === 'archived',
             'lifecycleStatus' => $lifecycleStatus,
             'hasBookableSchedule' => $hasBookableSchedule,
+            'archiveEligibleAt' => $archiveEligibleAt?->format(DATE_ATOM),
+            'permanentDeleteEligibleAt' => $permanentDeleteEligibleAt?->format(DATE_ATOM),
+            'canPermanentlyDelete' => $lifecycleStatus === 'archived'
+                && $permanentDeleteEligibleAt !== null
+                && $permanentDeleteEligibleAt <= $now,
             'destination' => ['id' => $trip['destination_id'] ?? '', 'en' => $trip['destination_en'] ?? ''],
             'price' => (float) $trip['price'],
             'quota' => $customerView && !$isPrivate

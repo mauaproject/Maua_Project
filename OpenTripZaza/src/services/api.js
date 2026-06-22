@@ -26,6 +26,7 @@ export const getTripDetail = (id, includeAll = false) => request(`trips/detail.p
 export const createTrip = (data) => jsonPost('trips/create.php', data)
 export const updateTrip = (data) => jsonPost('trips/update.php', data)
 export const deleteTrip = (id) => jsonPost('trips/delete.php', { id })
+export const permanentlyDeleteTrip = (id, confirmation, adminEmail) => jsonPost('trips/permanent-delete.php', { id, confirmation, adminEmail })
 
 export const createBooking = (data, paymentProof = null) => {
   if (paymentProof instanceof File) {

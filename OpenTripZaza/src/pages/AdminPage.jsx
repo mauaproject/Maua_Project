@@ -445,6 +445,10 @@ export function AdminTrips(props) {
 
 export function AdminTripArchive(props) {
   const [search, setSearch] = useState('')
+  const [tripToDelete, setTripToDelete] = useState(null)
+  const [deleteConfirmation, setDeleteConfirmation] = useState('')
+  const [deleteError, setDeleteError] = useState('')
+  const [isDeleting, setIsDeleting] = useState(false)
   const searchTerm = search.trim().toLowerCase()
   const archivedTrips = props.trips
     .filter((trip) => trip.isArchived || trip.lifecycleStatus === 'archived')
@@ -456,6 +460,26 @@ export function AdminTripArchive(props) {
         .toLowerCase()
         .includes(searchTerm)
     })
+  const confirmPermanentDelete = async () => {
+    if (!tripToDelete || deleteConfirmation !== 'HAPUS PERMANEN') return
+    setIsDeleting(true)
+    setDeleteError('')
+    try {
+      await props.permanentlyDeleteTrip(tripToDelete.id, deleteConfirmation)
+      setTripToDelete(null)
+      setDeleteConfirmation('')
+    } catch (error) {
+      setDeleteError(error.message || 'Trip arsip gagal dihapus permanen.')
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+  const closeDeleteModal = () => {
+    if (isDeleting) return
+    setTripToDelete(null)
+    setDeleteConfirmation('')
+    setDeleteError('')
+  }
 
   return (
     <AdminShell title="" {...props}>
@@ -490,14 +514,50 @@ export function AdminTripArchive(props) {
                   <div><dt>Jenis</dt><dd>{getAdminTripTypeLabel(trip)}</dd></div>
                   <div><dt>Jadwal</dt><dd>{trip.isPrivateTrip ? 'Private trip' : `${schedules.length} jadwal tersimpan`}</dd></div>
                   <div><dt>Status</dt><dd>Arsip</dd></div>
+                  <div><dt>Hapus permanen</dt><dd>{trip.canPermanentlyDelete
+                    ? 'Sudah tersedia'
+                    : trip.permanentDeleteEligibleAt
+                      ? new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Jakarta' }).format(new Date(trip.permanentDeleteEligibleAt))
+                      : '-'}</dd></div>
                 </dl>
                 <div className="admin-trip-actions">
                   <button className="outline-btn compact-action-btn" type="button" onClick={() => props.navigate(trip.isPrivateTrip ? `/admin/arsip-trip/private-trip/${trip.id}` : `/admin/arsip-trip/${trip.id}`)}>Lihat Detail</button>
+                  <button
+                    className="outline-btn compact-action-btn danger-btn"
+                    disabled={!trip.canPermanentlyDelete}
+                    type="button"
+                    onClick={() => setTripToDelete(trip)}
+                  >
+                    Hapus Permanen
+                  </button>
                 </div>
               </article>
             )
           }) : <p className="empty-state">Belum ada trip yang masuk arsip.</p>}
         </div>
+        <AppModal
+          isOpen={Boolean(tripToDelete)}
+          title="Hapus trip arsip secara permanen?"
+          description={`Seluruh booking, pembayaran, peserta, jadwal, review, tugas worker, reminder, dan file terkait ${tripToDelete?.name || 'trip ini'} akan dihapus dan tidak dapat dipulihkan.`}
+          confirmText={isDeleting ? 'Menghapus...' : 'Hapus Permanen'}
+          cancelText="Batal"
+          variant="danger"
+          confirmDisabled={deleteConfirmation !== 'HAPUS PERMANEN' || isDeleting}
+          cancelDisabled={isDeleting}
+          onConfirm={confirmPermanentDelete}
+          onCancel={closeDeleteModal}
+        >
+          <label className="archive-delete-confirmation">
+            Ketik <strong>HAPUS PERMANEN</strong> untuk melanjutkan
+            <input
+              autoComplete="off"
+              disabled={isDeleting}
+              value={deleteConfirmation}
+              onChange={(event) => setDeleteConfirmation(event.target.value)}
+            />
+          </label>
+          {deleteError && <p className="form-error">{deleteError}</p>}
+        </AppModal>
       </section>
     </AdminShell>
   )

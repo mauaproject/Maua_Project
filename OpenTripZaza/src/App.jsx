@@ -523,6 +523,13 @@ function App() {
     await refreshData()
   }
 
+  const permanentlyDeleteTrip = async (id, confirmation) => {
+    if (session?.role !== 'admin') throw new Error('Akses admin diperlukan.')
+    await api.permanentlyDeleteTrip(id, confirmation, session.email)
+    await refreshData()
+    showToast('Trip arsip dan seluruh data terkait berhasil dihapus permanen.')
+  }
+
   const takeJob = async (id) => {
     const job = jobs.find((item) => item.id === id)
     if (!job || job.status !== 'Tersedia') return
@@ -573,6 +580,7 @@ function App() {
     setReviewStatus,
     saveTrip,
     deleteTrip,
+    permanentlyDeleteTrip,
     takeJob,
     updateJobStatus,
     showToast,

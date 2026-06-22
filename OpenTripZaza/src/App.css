@@ -1694,6 +1694,13 @@ button:disabled {
   background: #e2e8f0;
   color: #475569;
 }
+.archive-delete-confirmation {
+  display: grid;
+  gap: 8px;
+}
+.archive-delete-confirmation input {
+  width: 100%;
+}
 .badge-approved {
   background: rgba(47, 135, 93, 0.14);
   color: #216d4a;
