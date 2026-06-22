@@ -2406,6 +2406,7 @@ button:disabled {
   display: grid;
   align-self: start;
   align-content: start;
+  height: fit-content;
   gap: 10px;
   border: 1px solid var(--color-line);
   border-radius: 20px;
@@ -2413,26 +2414,19 @@ button:disabled {
   padding: 18px;
 }
 .qris-payment-panel {
-  grid-template-columns: minmax(140px, 180px) minmax(0, 1fr);
-  grid-template-rows: auto auto 1fr;
-  column-gap: 18px;
-}
-.qris-payment-panel h3 {
-  grid-column: 2;
-  align-self: end;
+  justify-items: center;
 }
 .qris-payment-panel img {
-  grid-column: 1;
-  grid-row: 1 / 4;
   display: block;
-  width: 100%;
-  aspect-ratio: 1;
-  margin: 0;
+  width: min(100%, 280px);
+  height: auto;
+  margin: 2px auto;
   border-radius: 14px;
   object-fit: contain;
 }
+.qris-payment-panel h3,
 .qris-payment-panel small {
-  grid-column: 2;
+  width: min(100%, 280px);
 }
 .qris-payment-panel small,
 .bank-payment-panel small,
@@ -5492,22 +5486,6 @@ td {
   .payment-summary-list div {
     grid-template-columns: 1fr;
     gap: 5px;
-  }
-  .qris-payment-panel img {
-    width: min(100%, 240px);
-  }
-  .qris-payment-panel {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto;
-  }
-  .qris-payment-panel h3,
-  .qris-payment-panel img,
-  .qris-payment-panel small {
-    grid-column: 1;
-    grid-row: auto;
-  }
-  .qris-payment-panel img {
-    justify-self: center;
   }
   .trip-gallery-main img {
     width: 100%;
