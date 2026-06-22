@@ -14,5 +14,6 @@ runEndpoint(function (PDO $pdo): void {
     if (!$trip) {
         jsonError('Trip tidak ditemukan.', 404);
     }
-    jsonSuccess(mapTrip($pdo, $trip));
+    $adminView = ($_GET['all'] ?? '') === '1';
+    jsonSuccess(mapTrip($pdo, $trip, !$adminView));
 });

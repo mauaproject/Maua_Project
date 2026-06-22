@@ -24,6 +24,7 @@ const loadWorkerPage = () => import('./pages/WorkerPage')
 const AdminDashboard = lazyNamed(loadAdminPage, 'AdminDashboard')
 const AdminReviews = lazyNamed(loadAdminPage, 'AdminReviews')
 const AdminSchedule = lazyNamed(loadAdminPage, 'AdminSchedule')
+const AdminTripArchive = lazyNamed(loadAdminPage, 'AdminTripArchive')
 const AdminTrips = lazyNamed(loadAdminPage, 'AdminTrips')
 const AdminWorkers = lazyNamed(loadAdminPage, 'AdminWorkers')
 const TripForm = lazyNamed(loadAdminPage, 'TripForm')
@@ -78,7 +79,7 @@ function App() {
     if (role === 'admin') {
       const [tripData, bookingData, taskData, customerData, workerData, reviewData] = await Promise.all([
         api.getTrips(true),
-        api.getBookings(),
+        api.getBookings('all'),
         api.getWorkerTasks(),
         api.getUsers('customer'),
         api.getUsers('worker'),
@@ -113,7 +114,10 @@ function App() {
     setReviews(reviewData)
     if (role === 'customer') {
       const [bookingData, userReviewData] = await Promise.all([
-        api.getUserBookings(activeSession.email),
+        Promise.all([
+          api.getUserBookings(activeSession.email, 'active'),
+          api.getUserBookings(activeSession.email, 'history'),
+        ]).then(([activeBookings, historyBookings]) => [...activeBookings, ...historyBookings]),
         api.getUserReviews(activeSession.email, activeSession.id),
       ])
       setRegistrations(bookingData)
@@ -167,7 +171,10 @@ function App() {
       const account = await api.loginUser(form.email, form.password, 'customer')
       setSession(account)
       const [bookingData, reviewData] = await Promise.all([
-        api.getUserBookings(account.email),
+        Promise.all([
+          api.getUserBookings(account.email, 'active'),
+          api.getUserBookings(account.email, 'history'),
+        ]).then(([activeBookings, historyBookings]) => [...activeBookings, ...historyBookings]),
         api.getUserReviews(account.email, account.id),
       ])
       setRegistrations(bookingData)
@@ -620,6 +627,7 @@ function RouteRenderer(props) {
   if (path === '/admin/dashboard') return <AdminDashboard {...props} />
   if (path === '/admin/reviews') return <AdminReviews {...props} />
   if (path === '/admin/open-trip') return <AdminTrips {...props} />
+  if (path === '/admin/arsip-trip') return <AdminTripArchive {...props} />
   if (path === '/admin/open-trip/tambah') return <TripForm {...props} />
   if (parts[0] === 'admin' && parts[1] === 'open-trip' && parts[2] === 'edit') return <TripForm tripId={Number(parts[3])} {...props} />
   if (path === '/admin/pendaftaran') return <AdminSchedule {...props} />
@@ -627,6 +635,8 @@ function RouteRenderer(props) {
   if (parts[0] === 'admin' && parts[1] === 'jadwal' && parts[2] === 'private-trip' && Number(parts[3])) return <AdminSchedule privateTripId={Number(parts[3])} {...props} />
   if (parts[0] === 'admin' && parts[1] === 'jadwal' && parts[2] === 'private' && Number(parts[3])) return <AdminSchedule scheduleRegistrationId={Number(parts[3])} {...props} />
   if (parts[0] === 'admin' && parts[1] === 'jadwal' && Number(parts[2])) return <AdminSchedule scheduleTripId={Number(parts[2])} scheduleId={parts[3] || ''} {...props} />
+  if (parts[0] === 'admin' && parts[1] === 'arsip-trip' && parts[2] === 'private-trip' && Number(parts[3])) return <AdminSchedule privateTripId={Number(parts[3])} archivedView {...props} />
+  if (parts[0] === 'admin' && parts[1] === 'arsip-trip' && Number(parts[2])) return <AdminSchedule scheduleTripId={Number(parts[2])} archivedView {...props} />
   if (path === '/admin/pekerja') return <AdminWorkers {...props} />
   if (path === '/pekerja/login') return <LoginPage role="pekerja" {...props} />
   if (path === '/pekerja/dashboard') return <WorkerDashboard {...props} />

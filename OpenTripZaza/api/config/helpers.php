@@ -55,6 +55,112 @@ function nullableFloat(mixed $value): ?float
     return $value === null || $value === '' ? null : (float) $value;
 }
 
+function appNow(): DateTimeImmutable
+{
+    return new DateTimeImmutable('now');
+}
+
+function scheduledEndAt(string $date, mixed $endTime = null): DateTimeImmutable
+{
+    $time = trim((string) $endTime);
+    if ($time === '') {
+        $time = '23:59:59';
+    } elseif (strlen($time) === 5) {
+        $time .= ':00';
+    }
+    return new DateTimeImmutable($date . ' ' . $time);
+}
+
+function scheduleLifecycleStatus(array $schedule, ?DateTimeImmutable $now = null): string
+{
+    $now ??= appNow();
+    $endAt = scheduledEndAt(
+        (string) ($schedule['schedule_date'] ?? $schedule['date'] ?? ''),
+        $schedule['end_time'] ?? $schedule['endTime'] ?? null
+    );
+    if (!empty($schedule['archived_at']) || $endAt->modify('+7 days') < $now) {
+        return 'archived';
+    }
+    return $endAt <= $now ? 'completed' : 'upcoming';
+}
+
+function scheduleIsBookable(array $schedule, ?DateTimeImmutable $now = null): bool
+{
+    return ($schedule['status'] ?? '') === 'active'
+        && scheduleLifecycleStatus($schedule, $now) === 'upcoming'
+        && (int) ($schedule['quota'] ?? 0) > (int) ($schedule['booked_count'] ?? $schedule['bookedCount'] ?? 0);
+}
+
+function privateTripEndAt(array $trip, array $sessions = []): ?DateTimeImmutable
+{
+    $endDate = trim((string) ($trip['available_end_date'] ?? $trip['availableEndDate'] ?? ''));
+    if ($endDate === '') {
+        return null;
+    }
+    $latestEndTime = '';
+    foreach ($sessions as $session) {
+        $endTime = trim((string) ($session['end_time'] ?? $session['endTime'] ?? ''));
+        if ($endTime > $latestEndTime) {
+            $latestEndTime = $endTime;
+        }
+    }
+    return scheduledEndAt($endDate, $latestEndTime !== '' ? $latestEndTime : null);
+}
+
+function privateTripHasBookableSlot(array $trip, array $sessions, ?DateTimeImmutable $now = null): bool
+{
+    $now ??= appNow();
+    $startDate = trim((string) ($trip['available_start_date'] ?? $trip['availableStartDate'] ?? ''));
+    $endDate = trim((string) ($trip['available_end_date'] ?? $trip['availableEndDate'] ?? ''));
+    if ($endDate === '' || ($startDate !== '' && $startDate > $endDate)) {
+        return false;
+    }
+    foreach ($sessions as $session) {
+        if (($session['status'] ?? '') !== 'active') {
+            continue;
+        }
+        if (scheduledEndAt($endDate, $session['end_time'] ?? $session['endTime'] ?? null) > $now) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function tripLifecycleStatus(array $trip, array $schedules, array $sessions = [], ?DateTimeImmutable $now = null): string
+{
+    $now ??= appNow();
+    if (($trip['trip_type'] ?? $trip['type'] ?? 'open') === 'private') {
+        $endAt = privateTripEndAt($trip, $sessions);
+        if ($endAt === null) {
+            return 'active';
+        }
+        if ($endAt->modify('+7 days') < $now) {
+            return 'archived';
+        }
+        return $endAt <= $now ? 'completed' : 'active';
+    }
+    if (!$schedules) {
+        return 'active';
+    }
+    $latestEndAt = null;
+    foreach ($schedules as $schedule) {
+        $endAt = scheduledEndAt(
+            (string) ($schedule['schedule_date'] ?? $schedule['date'] ?? ''),
+            $schedule['end_time'] ?? $schedule['endTime'] ?? null
+        );
+        if ($latestEndAt === null || $endAt > $latestEndAt) {
+            $latestEndAt = $endAt;
+        }
+    }
+    if ($latestEndAt === null) {
+        return 'active';
+    }
+    if ($latestEndAt->modify('+7 days') < $now) {
+        return 'archived';
+    }
+    return $latestEndAt <= $now ? 'completed' : 'active';
+}
+
 function customerTripProfileValues(array $data, bool $required = false): array
 {
     $bloodType = trim((string) ($data['bloodType'] ?? ''));
@@ -320,7 +426,7 @@ function deleteStoredUpload(string $url, string $folder): void
     }
 }
 
-function mapTrip(PDO $pdo, array $trip): array
+function mapTrip(PDO $pdo, array $trip, bool $customerView = false): array
 {
     $tripId = (int) $trip['id'];
     $query = static function (string $sql) use ($pdo, $tripId): array {
@@ -344,19 +450,28 @@ function mapTrip(PDO $pdo, array $trip): array
     foreach ($tiers as $tier) {
         $tierMap[(string) $tier['pax_count']] = (float) $tier['price_per_person'];
     }
-    $mappedSchedules = array_map(static fn(array $item): array => [
-        'id' => $item['schedule_code'] ?: (string) $item['id'],
-        'databaseId' => (int) $item['id'],
-        'date' => $item['schedule_date'],
-        'startTime' => $item['start_time'] ? substr((string) $item['start_time'], 0, 5) : '',
-        'endTime' => $item['end_time'] ? substr((string) $item['end_time'], 0, 5) : '',
-        'visibleUntil' => $item['visible_until'] ?? null,
-        'isArchived' => !empty($item['archived_at']) || (!empty($item['visible_until']) && $item['visible_until'] < date('Y-m-d')),
-        'quota' => (int) $item['quota'],
-        'bookedCount' => (int) $item['booked_count'],
-        'status' => $item['status'],
-    ], $schedules);
-    $mappedSessions = array_map(static fn(array $item): array => [
+    $now = appNow();
+    $allMappedSchedules = array_map(static function (array $item) use ($now): array {
+        $lifecycleStatus = scheduleLifecycleStatus($item, $now);
+        return [
+            'id' => $item['schedule_code'] ?: (string) $item['id'],
+            'databaseId' => (int) $item['id'],
+            'date' => $item['schedule_date'],
+            'startTime' => $item['start_time'] ? substr((string) $item['start_time'], 0, 5) : '',
+            'endTime' => $item['end_time'] ? substr((string) $item['end_time'], 0, 5) : '',
+            'visibleUntil' => $item['visible_until'] ?? null,
+            'isArchived' => $lifecycleStatus === 'archived',
+            'lifecycleStatus' => $lifecycleStatus,
+            'quota' => (int) $item['quota'],
+            'bookedCount' => (int) $item['booked_count'],
+            'status' => $item['status'],
+            'isBookable' => scheduleIsBookable($item, $now),
+        ];
+    }, $schedules);
+    $mappedSchedules = $customerView
+        ? array_values(array_filter($allMappedSchedules, static fn(array $item): bool => $item['isBookable']))
+        : $allMappedSchedules;
+    $allMappedSessions = array_map(static fn(array $item): array => [
         'id' => $item['session_code'] ?: (string) $item['id'],
         'databaseId' => (int) $item['id'],
         'name' => $item['name'],
@@ -364,13 +479,13 @@ function mapTrip(PDO $pdo, array $trip): array
         'endTime' => substr((string) $item['end_time'], 0, 5),
         'status' => $item['status'],
     ], $sessions);
-
-    $isArchived = false;
-    if (($trip['trip_type'] ?? 'open') === 'open' && $mappedSchedules) {
-        $isArchived = !array_filter($mappedSchedules, static fn(array $item): bool => !$item['isArchived']);
-    } elseif (($trip['trip_type'] ?? '') === 'private' && !empty($trip['available_end_date'])) {
-        $isArchived = date('Y-m-d', strtotime((string) $trip['available_end_date'] . ' +7 days')) < date('Y-m-d');
-    }
+    $mappedSessions = $customerView
+        ? array_values(array_filter($allMappedSessions, static fn(array $item): bool => $item['status'] === 'active'))
+        : $allMappedSessions;
+    $lifecycleStatus = tripLifecycleStatus($trip, $schedules, $sessions, $now);
+    $hasBookableSchedule = ($trip['trip_type'] ?? 'open') === 'private'
+        ? privateTripHasBookableSlot($trip, $sessions, $now)
+        : (bool) array_filter($allMappedSchedules, static fn(array $item): bool => $item['isBookable']);
 
     return [
         'id' => $tripId,
@@ -379,14 +494,23 @@ function mapTrip(PDO $pdo, array $trip): array
         'isPrivateTrip' => $trip['trip_type'] === 'private',
         'experienceType' => $trip['experience_type'],
         'status' => $trip['status'],
-        'isArchived' => $isArchived,
+        'isArchived' => $lifecycleStatus === 'archived',
+        'lifecycleStatus' => $lifecycleStatus,
+        'hasBookableSchedule' => $hasBookableSchedule,
         'destination' => ['id' => $trip['destination_id'] ?? '', 'en' => $trip['destination_en'] ?? ''],
         'description' => ['id' => $trip['description_id'] ?? '', 'en' => $trip['description_en'] ?? ''],
         'activities' => ['id' => decodeText($trip['activities_id'] ?? '') ?: [], 'en' => decodeText($trip['activities_en'] ?? '') ?: []],
         'facilities' => ['id' => decodeText($trip['facilities_id'] ?? '') ?: [], 'en' => decodeText($trip['facilities_en'] ?? '') ?: []],
         'price' => (float) $trip['price'],
-        'quota' => (int) $trip['quota'],
-        'slots' => (int) $trip['slots'],
+        'quota' => $customerView && ($trip['trip_type'] ?? 'open') === 'open'
+            ? array_sum(array_column($mappedSchedules, 'quota'))
+            : (int) $trip['quota'],
+        'slots' => $customerView && ($trip['trip_type'] ?? 'open') === 'open'
+            ? array_sum(array_map(
+                static fn(array $schedule): int => max($schedule['quota'] - $schedule['bookedCount'], 0),
+                $mappedSchedules
+            ))
+            : (int) $trip['slots'],
         'minParticipants' => (int) $trip['min_participants'],
         'maxParticipants' => (int) $trip['max_participants'],
         'maxCustomPax' => (int) $trip['max_custom_pax'],
@@ -440,7 +564,7 @@ function mapTrip(PDO $pdo, array $trip): array
     ];
 }
 
-function mapTripSummaries(PDO $pdo, array $trips): array
+function mapTripSummaries(PDO $pdo, array $trips, bool $customerView = false): array
 {
     if (!$trips) {
         return [];
@@ -467,29 +591,46 @@ function mapTripSummaries(PDO $pdo, array $trips): array
     );
     $scheduleStatement->execute($tripIds);
     $schedules = [];
+    $now = appNow();
     foreach ($scheduleStatement->fetchAll() as $schedule) {
         $tripId = (int) $schedule['trip_id'];
+        $lifecycleStatus = scheduleLifecycleStatus($schedule, $now);
         $schedules[$tripId][] = [
             'id' => $schedule['schedule_code'],
             'date' => $schedule['schedule_date'],
             'startTime' => $schedule['start_time'] ? substr((string) $schedule['start_time'], 0, 5) : '',
             'endTime' => $schedule['end_time'] ? substr((string) $schedule['end_time'], 0, 5) : '',
             'visibleUntil' => $schedule['visible_until'] ?? null,
-            'isArchived' => !empty($schedule['archived_at'])
-                || (!empty($schedule['visible_until']) && $schedule['visible_until'] < date('Y-m-d')),
+            'isArchived' => $lifecycleStatus === 'archived',
+            'lifecycleStatus' => $lifecycleStatus,
             'quota' => (int) $schedule['quota'],
             'bookedCount' => (int) $schedule['booked_count'],
             'status' => $schedule['status'],
+            'isBookable' => scheduleIsBookable($schedule, $now),
         ];
     }
-    return array_map(static function (array $trip) use ($images, $schedules): array {
+    $sessionStatement = $pdo->prepare(
+        "SELECT trip_id, start_time, end_time, status
+         FROM trip_sessions WHERE trip_id IN ($placeholders)
+         ORDER BY trip_id, start_time, id"
+    );
+    $sessionStatement->execute($tripIds);
+    $sessions = [];
+    foreach ($sessionStatement->fetchAll() as $session) {
+        $sessions[(int) $session['trip_id']][] = $session;
+    }
+    return array_map(static function (array $trip) use ($images, $schedules, $sessions, $customerView, $now): array {
         $tripId = (int) $trip['id'];
-        $tripSchedules = $schedules[$tripId] ?? [];
+        $allTripSchedules = $schedules[$tripId] ?? [];
+        $tripSchedules = $customerView
+            ? array_values(array_filter($allTripSchedules, static fn(array $schedule): bool => $schedule['isBookable']))
+            : $allTripSchedules;
+        $tripSessions = $sessions[$tripId] ?? [];
         $isPrivate = ($trip['trip_type'] ?? 'open') === 'private';
-        $isArchived = $isPrivate
-            ? (!empty($trip['available_end_date'])
-                && date('Y-m-d', strtotime((string) $trip['available_end_date'] . ' +7 days')) < date('Y-m-d'))
-            : ($tripSchedules && !array_filter($tripSchedules, static fn(array $schedule): bool => !$schedule['isArchived']));
+        $lifecycleStatus = tripLifecycleStatus($trip, $allTripSchedules, $tripSessions, $now);
+        $hasBookableSchedule = $isPrivate
+            ? privateTripHasBookableSlot($trip, $tripSessions, $now)
+            : (bool) array_filter($allTripSchedules, static fn(array $schedule): bool => $schedule['isBookable']);
         return [
             'id' => $tripId,
             'name' => $trip['name'],
@@ -497,11 +638,20 @@ function mapTripSummaries(PDO $pdo, array $trips): array
             'isPrivateTrip' => $isPrivate,
             'experienceType' => $trip['experience_type'],
             'status' => $trip['status'],
-            'isArchived' => (bool) $isArchived,
+            'isArchived' => $lifecycleStatus === 'archived',
+            'lifecycleStatus' => $lifecycleStatus,
+            'hasBookableSchedule' => $hasBookableSchedule,
             'destination' => ['id' => $trip['destination_id'] ?? '', 'en' => $trip['destination_en'] ?? ''],
             'price' => (float) $trip['price'],
-            'quota' => (int) $trip['quota'],
-            'slots' => (int) $trip['slots'],
+            'quota' => $customerView && !$isPrivate
+                ? array_sum(array_column($tripSchedules, 'quota'))
+                : (int) $trip['quota'],
+            'slots' => $customerView && !$isPrivate
+                ? array_sum(array_map(
+                    static fn(array $schedule): int => max($schedule['quota'] - $schedule['bookedCount'], 0),
+                    $tripSchedules
+                ))
+                : (int) $trip['slots'],
             'minParticipants' => (int) $trip['min_participants'],
             'maxParticipants' => (int) $trip['max_participants'],
             'availableStartDate' => $trip['available_start_date'],
@@ -526,6 +676,16 @@ function mapBookings(PDO $pdo, array $bookings): array
     }
     $bookingIds = array_map(static fn(array $booking): int => (int) $booking['id'], $bookings);
     $placeholders = implode(',', array_fill(0, count($bookingIds), '?'));
+    $tripIds = array_values(array_unique(array_map(static fn(array $booking): int => (int) $booking['trip_id'], $bookings)));
+    $tripPlaceholders = implode(',', array_fill(0, count($tripIds), '?'));
+    $tripStatement = $pdo->prepare(
+        "SELECT id, name, destination_id, destination_en FROM trips WHERE id IN ($tripPlaceholders)"
+    );
+    $tripStatement->execute($tripIds);
+    $bookingTrips = [];
+    foreach ($tripStatement->fetchAll() as $trip) {
+        $bookingTrips[(int) $trip['id']] = $trip;
+    }
     $userIds = array_values(array_unique(array_filter(array_map(
         static fn(array $booking): int => (int) ($booking['user_id'] ?? 0),
         $bookings
@@ -606,7 +766,7 @@ function mapBookings(PDO $pdo, array $bookings): array
             $sessions[(int) $session['id']] = $session;
         }
     }
-    return array_map(static function (array $booking) use ($payments, $participants, $addons, $schedules, $sessions, $userProfiles): array {
+    return array_map(static function (array $booking) use ($payments, $participants, $addons, $schedules, $sessions, $userProfiles, $bookingTrips): array {
         $id = (int) $booking['id'];
         $payment = $payments[$id] ?? [];
         $bookingParticipants = $participants[$id] ?? [];
@@ -614,7 +774,8 @@ function mapBookings(PDO $pdo, array $bookings): array
         $schedule = $schedules[(int) ($booking['schedule_id'] ?? 0)] ?? [];
         $session = $sessions[(int) ($booking['session_id'] ?? 0)] ?? [];
         $userProfile = $userProfiles[(int) ($booking['user_id'] ?? 0)] ?? [];
-        return mapBookingRecord($booking, $payment, $bookingParticipants, $bookingAddons, $schedule, $session, $userProfile);
+        $trip = $bookingTrips[(int) $booking['trip_id']] ?? [];
+        return mapBookingRecord($booking, $payment, $bookingParticipants, $bookingAddons, $schedule, $session, $userProfile, $trip);
     }, $bookings);
 }
 
@@ -625,14 +786,25 @@ function mapBookingRecord(
     array $bookingAddons,
     array $schedule,
     array $session,
-    array $userProfile = []
+    array $userProfile = [],
+    array $trip = []
 ): array {
     $id = (int) $booking['id'];
     $primary = $participants[0] ?? [];
+    $bookingDate = (string) ($booking['selected_date'] ?? substr((string) ($booking['created_at'] ?? date('Y-m-d')), 0, 10));
+    $endAt = scheduledEndAt($bookingDate, $booking['end_time'] ?? null);
+    $now = appNow();
+    $isCompleted = $endAt <= $now;
+    $isArchived = !empty($booking['archived_at']) || $endAt->modify('+7 days') < $now;
     return [
         'id' => $id,
         'userId' => (int) $booking['user_id'],
         'tripId' => (int) $booking['trip_id'],
+        'tripName' => $trip['name'] ?? '',
+        'tripDestination' => [
+            'id' => $trip['destination_id'] ?? '',
+            'en' => $trip['destination_en'] ?? '',
+        ],
         'scheduleDatabaseId' => nullableInt($booking['schedule_id']),
         'sessionDatabaseId' => nullableInt($booking['session_id']),
         'scheduleId' => $schedule['schedule_code'] ?? '',
@@ -651,7 +823,9 @@ function mapBookingRecord(
         'selectedDate' => $booking['selected_date'],
         'requestedDate' => $booking['selected_date'],
         'visibleUntil' => $booking['visible_until'] ?? null,
-        'isArchived' => !empty($booking['archived_at']) || (!empty($booking['visible_until']) && $booking['visible_until'] < date('Y-m-d')),
+        'isCompleted' => $isCompleted,
+        'isArchived' => $isArchived,
+        'lifecycleStatus' => $isArchived ? 'archived' : ($isCompleted ? 'completed' : 'upcoming'),
         'startTime' => $booking['start_time'] ? substr((string) $booking['start_time'], 0, 5) : '',
         'endTime' => $booking['end_time'] ? substr((string) $booking['end_time'], 0, 5) : '',
         'participants' => (int) $booking['participants'],

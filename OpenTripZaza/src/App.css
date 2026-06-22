@@ -1686,6 +1686,14 @@ button:disabled {
   background: #f4ead8;
   color: #6f5b2c;
 }
+.badge-aktif {
+  background: rgba(47, 135, 93, 0.14);
+  color: #216d4a;
+}
+.badge-arsip {
+  background: #e2e8f0;
+  color: #475569;
+}
 .badge-approved {
   background: rgba(47, 135, 93, 0.14);
   color: #216d4a;

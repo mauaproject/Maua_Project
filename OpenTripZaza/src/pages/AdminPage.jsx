@@ -40,6 +40,11 @@ const getAdminTripTypeLabel = (trip) => {
   if (getExperienceType(trip) === 'custom') return trip?.isPrivateTrip ? 'Private' : 'Open'
   return trip?.isPrivateTrip ? 'Private Trip' : 'Open Trip'
 }
+const lifecycleLabel = (status) => {
+  if (status === 'archived') return 'Arsip'
+  if (status === 'completed') return 'Selesai'
+  return 'Aktif'
+}
 const newSchedule = (index, source = {}) => ({
   id: source.id || `schedule_${index + 1}`,
   date: source.date || '',
@@ -152,13 +157,14 @@ const countParticipants = (items) => items.reduce((sum, item) => sum + Number(it
 
 function AdminShell({ title, children, navigate, logout, path, registrations = [] }) {
   const { t } = useTranslation()
-  const pendingParticipants = countParticipants(registrations.filter(isPendingRegistration))
+  const pendingParticipants = countParticipants(registrations.filter((item) => !item.isCompleted).filter(isPendingRegistration))
 
   return (
     <main className="app-shell">
       <Sidebar title="Admin" links={[
         ['/admin/dashboard', 'Dashboard'],
         ['/admin/open-trip', 'Paket Trip'],
+        ['/admin/arsip-trip', 'Arsip Trip'],
         ['/admin/jadwal', 'Jadwal', pendingParticipants],
         ['/admin/reviews', t('reviews.admin.menu')],
         ['/admin/pekerja', 'Akun Pekerja'],
@@ -173,12 +179,13 @@ function AdminShell({ title, children, navigate, logout, path, registrations = [
 
 export function AdminDashboard(props) {
   const { trips, registrations, jobs } = props
+  const activeRegistrations = registrations.filter((item) => !item.isCompleted)
   const stats = [
     ['Total paket trip', trips.length],
     ['Total pendaftar', registrations.length],
-    ['Menunggu approval', countParticipants(registrations.filter(isPendingRegistration))],
-    ['Disetujui', registrations.filter((item) => item.status === 'Disetujui').length],
-    ['Ditolak', registrations.filter((item) => item.status === 'Ditolak').length],
+    ['Menunggu approval', countParticipants(activeRegistrations.filter(isPendingRegistration))],
+    ['Disetujui', activeRegistrations.filter((item) => item.status === 'Disetujui').length],
+    ['Ditolak', activeRegistrations.filter((item) => item.status === 'Ditolak').length],
     ['Job tersedia', jobs.filter((item) => item.status === 'Tersedia').length],
     ['Job diambil', jobs.filter((item) => item.worker).length],
   ]
@@ -286,11 +293,11 @@ export function AdminTrips(props) {
   const [search, setSearch] = useState('')
   const [tripToDelete, setTripToDelete] = useState(null)
   const searchTerm = search.trim().toLowerCase()
-  const activeTrips = props.trips.filter((trip) => trip.status !== 'Ditutup' && !trip.isArchived)
+  const activeTrips = props.trips.filter((trip) => !trip.isArchived)
   const filteredTrips = props.trips
     .filter((trip) => {
-      if (activeStatus === 'all') return trip.status !== 'Ditutup' && !trip.isArchived
-      return trip.status === activeStatus
+      if (activeStatus === 'all') return !trip.isArchived
+      return !trip.isArchived && trip.status === activeStatus
     })
     .filter((trip) => {
       if (activeType === 'open') return !trip.isPrivateTrip
@@ -385,7 +392,7 @@ export function AdminTrips(props) {
                   </div>
                   <div className="card-badge-stack">
                     <span className="trip-type-chip">{getAdminTripTypeLabel(trip)}</span>
-                    <Badge status={trip.status} />
+                    <Badge status={lifecycleLabel(trip.lifecycleStatus)} label={lifecycleLabel(trip.lifecycleStatus)} />
                   </div>
                 </div>
                 <div className="admin-trip-subline">
@@ -406,7 +413,7 @@ export function AdminTrips(props) {
                 {!trip.isPrivateTrip && schedules.length > 0 && (
                   <div className="admin-schedule-mini-list">
                     {schedules.slice(0, 2).map((schedule) => (
-                      <span key={schedule.id}><strong>{formatDate(schedule.date)}</strong><small>{schedule.startTime && schedule.endTime ? `${schedule.startTime} - ${schedule.endTime} WIB · ` : ''}{schedule.bookedCount || 0}/{schedule.quota} peserta</small></span>
+                      <span key={schedule.id}><strong>{formatDate(schedule.date)} · {lifecycleLabel(schedule.lifecycleStatus)}</strong><small>{schedule.startTime && schedule.endTime ? `${schedule.startTime} - ${schedule.endTime} WIB · ` : ''}{schedule.bookedCount || 0}/{schedule.quota} peserta</small></span>
                     ))}
                     {schedules.length > 2 && <p>+{schedules.length - 2} jadwal lainnya</p>}
                   </div>
@@ -431,6 +438,66 @@ export function AdminTrips(props) {
           onConfirm={confirmDeleteTrip}
           onCancel={() => setTripToDelete(null)}
         />
+      </section>
+    </AdminShell>
+  )
+}
+
+export function AdminTripArchive(props) {
+  const [search, setSearch] = useState('')
+  const searchTerm = search.trim().toLowerCase()
+  const archivedTrips = props.trips
+    .filter((trip) => trip.isArchived || trip.lifecycleStatus === 'archived')
+    .filter((trip) => {
+      if (!searchTerm) return true
+      return [trip.name, adminText(trip.destination)]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(searchTerm)
+    })
+
+  return (
+    <AdminShell title="" {...props}>
+      <section className="admin-page-stack admin-trip-page">
+        <div className="admin-page-head">
+          <div>
+            <p className="eyebrow">Penyimpanan data lama</p>
+            <h2>Arsip Trip</h2>
+            <p className="muted">Trip masuk ke sini setelah melewati H+7 dari jadwal terakhir. Seluruh jadwal dan booking tetap tersimpan.</p>
+          </div>
+        </div>
+        <section className="admin-list-toolbar">
+          <label className="admin-search-field">
+            <span>Cari arsip</span>
+            <input placeholder="Nama trip atau destinasi" value={search} onChange={(event) => setSearch(event.target.value)} />
+          </label>
+        </section>
+        <div className="admin-trip-grid">
+          {archivedTrips.length ? archivedTrips.map((trip) => {
+            const schedules = trip.isPrivateTrip ? [] : getTripSchedules(trip)
+            return (
+              <article className={`admin-trip-card ${trip.isPrivateTrip ? 'is-private' : 'is-open'}`} key={trip.id}>
+                <div className="admin-trip-card-head">
+                  <div><h3>{trip.name}</h3></div>
+                  <div className="card-badge-stack">
+                    <span className="trip-type-chip">{getAdminTripTypeLabel(trip)}</span>
+                    <Badge status="Arsip" label="Arsip" />
+                  </div>
+                </div>
+                <p className="icon-line"><span className="asset-icon icon-geo" aria-hidden="true" />{adminText(trip.destination)}</p>
+                <dl className="admin-trip-meta">
+                  <div><dt>Jenis</dt><dd>{getAdminTripTypeLabel(trip)}</dd></div>
+                  <div><dt>Jadwal</dt><dd>{trip.isPrivateTrip ? 'Private trip' : `${schedules.length} jadwal tersimpan`}</dd></div>
+                  <div><dt>Status</dt><dd>Arsip</dd></div>
+                </dl>
+                <div className="admin-trip-actions">
+                  <button className="outline-btn compact-action-btn" type="button" onClick={() => props.navigate(trip.isPrivateTrip ? `/admin/arsip-trip/private-trip/${trip.id}` : `/admin/arsip-trip/${trip.id}`)}>Lihat Detail</button>
+                </div>
+              </article>
+            )
+          }) : <p className="empty-state">Belum ada trip yang masuk arsip.</p>}
+        </div>
       </section>
     </AdminShell>
   )
@@ -1141,16 +1208,16 @@ function AdminJobResultsPanel({ jobs = [], emptyText = 'Belum ada hasil pekerjaa
 }
 
 export function AdminSchedule(props) {
-  const { trips, registrations, jobs, scheduleTripId, scheduleId, scheduleRegistrationId, privateTripId } = props
+  const { trips, registrations, jobs, scheduleTripId, scheduleId, scheduleRegistrationId, privateTripId, archivedView = false } = props
   const [activeType, setActiveType] = useState('all')
   const [search, setSearch] = useState('')
   const selectedTrip = trips.find((trip) => trip.id === scheduleTripId)
   const selectedPrivateTrip = trips.find((trip) => trip.id === privateTripId)
   const selectedRegistration = registrations.find((item) => item.id === scheduleRegistrationId)
-  if (scheduleTripId && selectedTrip) return <AdminScheduleDetail trip={selectedTrip} scheduleId={scheduleId} {...props} />
+  if (scheduleTripId && selectedTrip) return <AdminScheduleDetail trip={selectedTrip} scheduleId={scheduleId} archivedView={archivedView} {...props} />
   if (privateTripId && selectedPrivateTrip) return <AdminPrivateTripScheduleDetail trip={selectedPrivateTrip} {...props} />
   if (scheduleRegistrationId && selectedRegistration) return <AdminPrivateScheduleDetail registration={selectedRegistration} {...props} />
-  const openTrips = trips.filter((trip) => !trip.isPrivateTrip)
+  const openTrips = trips.filter((trip) => !trip.isPrivateTrip && !trip.isArchived)
   const openScheduleItems = openTrips.map((trip) => {
     const schedules = getTripSchedules(trip)
     const scheduleItems = schedules.map((schedule) => {
@@ -1191,7 +1258,7 @@ export function AdminSchedule(props) {
   })
   const privateScheduleItems = registrations
     .map((registration) => ({ registration, trip: trips.find((trip) => Number(trip.id) === Number(registration.tripId)) }))
-    .filter(({ registration, trip }) => trip && (trip.isPrivateTrip || registration.isPrivateTrip || registration.isPrivateTour || registration.tripType === 'private'))
+    .filter(({ registration, trip }) => trip && !trip.isArchived && (trip.isPrivateTrip || registration.isPrivateTrip || registration.isPrivateTour || registration.tripType === 'private'))
     .map(({ registration, trip }) => {
     const relatedJobs = jobs.filter((job) => Number(job.registrationId) === Number(registration.id))
     const range = getPrivateDateRange(trip)
@@ -1282,7 +1349,7 @@ export function AdminSchedule(props) {
                   </div>
                   <div className="card-badge-stack">
                     {waitingParticipants > 0 && <span className="review-badge">Ada Pendaftar Baru</span>}
-                    <Badge status={trip.status} />
+                    <Badge status={lifecycleLabel(trip.lifecycleStatus)} label={lifecycleLabel(trip.lifecycleStatus)} />
                   </div>
                 </div>
                 <div className="schedule-date-row">
@@ -1294,7 +1361,7 @@ export function AdminSchedule(props) {
                     <div className={`admin-schedule-action-row ${schedule.waitingParticipants > 0 ? 'needs-review' : ''}`} key={schedule.id}>
                       <div>
                         <strong>{formatDate(schedule.date)}{schedule.startTime && schedule.endTime ? `, ${schedule.startTime} - ${schedule.endTime} WIB` : ''} - {schedule.approvedParticipants}/{schedule.quota} peserta, sisa {schedule.remaining}</strong>
-                        <small>Status: {scheduleStatusLabel(schedule.status)}{schedule.waitingParticipants > 0 ? ` - ${schedule.waitingParticipants} menunggu approval` : ''}</small>
+                        <small>Status: {schedule.lifecycleStatus === 'upcoming' ? scheduleStatusLabel(schedule.status) : lifecycleLabel(schedule.lifecycleStatus)}{schedule.waitingParticipants > 0 ? ` - ${schedule.waitingParticipants} menunggu approval` : ''}</small>
                       </div>
                       <button className="outline-btn schedule-detail-btn" type="button" onClick={() => props.navigate(`/admin/jadwal/${trip.id}/${schedule.id}`)}>
                         Detail jadwal
@@ -1329,7 +1396,7 @@ export function AdminSchedule(props) {
                   <div className="card-badge-stack">
                     {pendingCount > 0 && <span className="review-badge">Butuh Review</span>}
                     <span className="trip-type-chip">{getAdminTripTypeLabel(trip)}</span>
-                    <Badge status={trip.status} />
+                    <Badge status={lifecycleLabel(trip.lifecycleStatus)} label={lifecycleLabel(trip.lifecycleStatus)} />
                   </div>
                 </div>
                 <div className="schedule-date-row">
@@ -1457,7 +1524,7 @@ function AdminPrivateScheduleDetail({ registration, trips, jobs, setRegistration
   )
 }
 
-function AdminPrivateTripScheduleDetail({ trip, registrations, jobs, setRegistrationStatus, navigate, ...props }) {
+function AdminPrivateTripScheduleDetail({ trip, registrations, jobs, setRegistrationStatus, navigate, archivedView = false, ...props }) {
   const tripRegistrations = registrations
     .filter((item) => Number(item.tripId) === Number(trip.id))
     .filter((item) => item.isPrivateTrip || item.isPrivateTour || item.tripType === 'private')
@@ -1477,7 +1544,7 @@ function AdminPrivateTripScheduleDetail({ trip, registrations, jobs, setRegistra
             <h2>{trip.name}</h2>
             <p className="muted">{adminText(trip.destination)} - {range.startDate ? formatDate(range.startDate) : '-'} sampai {range.endDate ? formatDate(range.endDate) : '-'}</p>
           </div>
-          <button className="outline-btn" onClick={() => navigate('/admin/jadwal')}>Kembali ke jadwal</button>
+          <button className="outline-btn" onClick={() => navigate(archivedView ? '/admin/arsip-trip' : '/admin/jadwal')}>{archivedView ? 'Kembali ke arsip' : 'Kembali ke jadwal'}</button>
         </div>
 
         <section className="stat-grid dashboard-stats">
@@ -1511,7 +1578,7 @@ function AdminPrivateTripScheduleDetail({ trip, registrations, jobs, setRegistra
   )
 }
 
-function AdminScheduleDetail({ trip, scheduleId, registrations, jobs, setRegistrationStatus, navigate, ...props }) {
+function AdminScheduleDetail({ trip, scheduleId, registrations, jobs, setRegistrationStatus, navigate, archivedView = false, ...props }) {
   const selectedSchedule = scheduleId ? getTripSchedules(trip).find((schedule) => schedule.id === scheduleId) : null
   const tripRegistrations = registrations
     .filter((item) => item.tripId === trip.id)
@@ -1566,7 +1633,7 @@ function AdminScheduleDetail({ trip, scheduleId, registrations, jobs, setRegistr
             <p className="muted">{trip.name} - {adminText(trip.destination)} - {selectedSchedule ? `${formatDate(selectedSchedule.date)}${selectedSchedule.startTime && selectedSchedule.endTime ? `, ${selectedSchedule.startTime} - ${selectedSchedule.endTime} WIB` : ''}` : `${tripSchedules.length} jadwal`}</p>
           </div>
           <div className="registration-management-actions">
-            <button className="outline-btn" onClick={() => navigate('/admin/jadwal')}>Kembali ke jadwal</button>
+            <button className="outline-btn" onClick={() => navigate(archivedView ? '/admin/arsip-trip' : '/admin/jadwal')}>{archivedView ? 'Kembali ke arsip' : 'Kembali ke jadwal'}</button>
           </div>
         </div>
 
@@ -1596,7 +1663,7 @@ function AdminScheduleDetail({ trip, scheduleId, registrations, jobs, setRegistr
                       <div><dt>Kuota</dt><dd>{schedule.quota}</dd></div>
                       <div><dt>Disetujui</dt><dd>{schedule.approvedCount}</dd></div>
                       <div><dt>Sisa kuota</dt><dd>{schedule.remaining}</dd></div>
-                      <div><dt>Status</dt><dd>{schedule.status}</dd></div>
+                      <div><dt>Status</dt><dd><Badge status={lifecycleLabel(schedule.lifecycleStatus)} label={lifecycleLabel(schedule.lifecycleStatus)} /></dd></div>
                     </dl>
                   </div>
                 </article>

@@ -5,6 +5,27 @@ const privateBlockingStatuses = ['pending', 'menunggu approval', 'approved', 'di
 
 const normalized = (value) => String(value || '').trim().toLowerCase()
 
+const jakartaNowValue = () => {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jakarta',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date())
+  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]))
+  return `${value.year}-${value.month}-${value.day}T${value.hour}:${value.minute}:${value.second}`
+}
+
+const scheduleEndValue = (date, endTime) => `${date || ''}T${endTime || '23:59:59'}`
+
+export const getJakartaToday = () => jakartaNowValue().slice(0, 10)
+
+export const isScheduleUpcoming = (date, endTime) => Boolean(date) && scheduleEndValue(date, endTime) > jakartaNowValue()
+
 export const getRegistrationDate = (registration) => registration?.selectedDate || registration?.requestedDate || ''
 
 export const isApprovedRegistration = (registration) => approvedStatuses.includes(normalized(registration?.status))
@@ -23,6 +44,8 @@ export function getPrivateDateRange(trip) {
 export function isDateWithinPrivateRange(trip, selectedDate) {
   if (!selectedDate) return false
   const { startDate, endDate } = getPrivateDateRange(trip)
+  const today = getJakartaToday()
+  if (selectedDate < today) return false
   if (startDate && selectedDate < startDate) return false
   if (endDate && selectedDate > endDate) return false
   return true
@@ -51,6 +74,8 @@ export function getTripSchedules(trip) {
       endTime: schedule.endTime || '',
       visibleUntil: schedule.visibleUntil || '',
       isArchived: Boolean(schedule.isArchived),
+      lifecycleStatus: schedule.lifecycleStatus || (isScheduleUpcoming(schedule.date, schedule.endTime) ? 'upcoming' : 'completed'),
+      isBookable: schedule.isBookable !== false,
       quota: Number(schedule.quota || trip?.quota || 0),
       bookedCount: Number(schedule.bookedCount || 0),
       status: schedule.isArchived ? 'inactive' : normalizeScheduleStatus(schedule.status),
@@ -127,7 +152,9 @@ export function getScheduleAvailability(trip, registrations, schedule) {
 }
 
 export function getOpenTripScheduleOptions(trip, registrations = []) {
-  return getTripSchedules(trip).map((schedule) => getScheduleAvailability(trip, registrations, schedule))
+  return getTripSchedules(trip)
+    .filter((schedule) => schedule.lifecycleStatus === 'upcoming' && schedule.isBookable !== false)
+    .map((schedule) => getScheduleAvailability(trip, registrations, schedule))
 }
 
 export function isPrivateSessionBooked(registrations = [], tripId, selectedDate, sessionId) {
@@ -148,7 +175,7 @@ export function getPrivateSessionOptions(trip, registrations = [], selectedDate)
     return {
       ...session,
       isBooked: booked,
-      isSelectable: status === 'active' && !booked,
+      isSelectable: status === 'active' && !booked && isScheduleUpcoming(selectedDate, session.endTime),
     }
   })
 }

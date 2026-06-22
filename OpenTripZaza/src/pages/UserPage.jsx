@@ -10,7 +10,7 @@ import { localizedList, localizedText } from '../utils/localization'
 import { DP_PERCENTAGE, getPaymentStatusLabel, getPaymentTypeLabel, getRequiredPaymentAmount, validatePaymentProof } from '../utils/payments'
 import { getPackagePricePerPerson, getPackagePriceRange, getPrivatePackages } from '../utils/privatePackages'
 import { getPrivatePricePerPerson, getPrivatePriceRange, getTripStartingPrice } from '../utils/pricing'
-import { getOpenTripScheduleOptions, getPrivateDateRange, getPrivateSessionOptions, getRegistrationDate, getTripSchedules, isDateWithinPrivateRange } from '../utils/schedules'
+import { getJakartaToday, getOpenTripScheduleOptions, getPrivateDateRange, getPrivateSessionOptions, getRegistrationDate, getTripSchedules, isDateWithinPrivateRange } from '../utils/schedules'
 import { bloodTypeOptions, isCustomerTripProfileComplete, validateCustomerTripProfile } from '../utils/customerProfile'
 import { AppModal, Badge, InfoBlock, NotFound } from './shared'
 
@@ -834,8 +834,14 @@ export function TripDetail({ tripId, trips, registrations, navigate, session, lo
   const privatePriceRange = trip.isPrivateTrip ? getPrivatePriceRange(trip) : null
   const privatePackages = trip.isPrivateTrip ? getPrivatePackages(trip, true) : []
   const isOpen = trip.isPrivateTrip
-    ? trip.status === 'Tersedia'
+    ? trip.status === 'Tersedia' && trip.hasBookableSchedule !== false
     : trip.status === 'Tersedia' && scheduleOptions.some((schedule) => schedule.isSelectable)
+  const hasEnded = !isOpen && (
+    trip.lifecycleStatus === 'completed'
+    || trip.lifecycleStatus === 'archived'
+    || (!trip.isPrivateTrip && scheduleOptions.length === 0)
+    || (trip.isPrivateTrip && trip.hasBookableSchedule === false)
+  )
   const startCheckout = () => {
     if (session?.role !== 'customer') {
       setIsLoginModalOpen(true)
@@ -925,6 +931,7 @@ export function TripDetail({ tripId, trips, registrations, navigate, session, lo
               <button className="primary-btn wide" disabled={!isOpen} onClick={startCheckout}>
                 {isOpen ? t('common.checkout') : t('common.closed')}
               </button>
+              {hasEnded && <p className="form-error">Jadwal trip ini sudah berakhir.</p>}
             </section>
           </aside>
         </div>
@@ -1018,6 +1025,21 @@ export function RegistrationPage({
   const isTripProfileComplete = isCustomerTripProfileComplete(customerProfile)
 
   if (!trip) return <NotFound navigate={navigate} />
+  const tripHasEnded = selectedTrip?.isPrivateTrip
+    ? selectedTrip.hasBookableSchedule === false
+    : scheduleOptions.length === 0
+
+  if (tripHasEnded) {
+    return (
+      <main className="public-page">
+        <PublicNav navigate={navigate} session={session} logout={logout} />
+        <section className="account-empty-state">
+          <h1>Jadwal trip ini sudah berakhir.</h1>
+          <button className="primary-btn" type="button" onClick={() => navigate('/open-trip')}>Lihat trip lainnya</button>
+        </section>
+      </main>
+    )
+  }
 
   const onSubmit = async (event) => {
     event.preventDefault()
@@ -1262,7 +1284,7 @@ export function RegistrationPage({
                       </div>
                     ) : null}
                   </div>}
-                  <label>{t('checkout.privateDate')}<input type="date" disabled={privatePackages.length > 0 && !selectedPackage} min={privateRange.startDate || undefined} max={privateRange.endDate || undefined} value={form.requestedDate} onChange={(e) => setForm({ ...form, requestedDate: e.target.value, sessionId: '' })} />{(privateRange.startDate || privateRange.endDate) && <small>{t('schedule.availableRange')}: {privateRange.startDate ? formatDate(privateRange.startDate, dateLocale) : '-'} - {privateRange.endDate ? formatDate(privateRange.endDate, dateLocale) : '-'}</small>}</label>
+                  <label>{t('checkout.privateDate')}<input type="date" disabled={privatePackages.length > 0 && !selectedPackage} min={[privateRange.startDate, getJakartaToday()].filter(Boolean).sort().at(-1)} max={privateRange.endDate || undefined} value={form.requestedDate} onChange={(e) => setForm({ ...form, requestedDate: e.target.value, sessionId: '' })} />{(privateRange.startDate || privateRange.endDate) && <small>{t('schedule.availableRange')}: {privateRange.startDate ? formatDate(privateRange.startDate, dateLocale) : '-'} - {privateRange.endDate ? formatDate(privateRange.endDate, dateLocale) : '-'}</small>}</label>
                   <label className="full">{t('schedule.session')}<select required value={form.sessionId} disabled={(privatePackages.length > 0 && !selectedPackage) || !form.requestedDate || !isPrivateDateInRange} onChange={(e) => setForm({ ...form, sessionId: e.target.value })}>
                     <option value="">{privatePackages.length > 0 && !selectedPackage ? 'Pilih paket terlebih dahulu' : !form.requestedDate ? t('schedule.chooseDateFirst') : !isPrivateDateInRange ? t('schedule.dateUnavailable') : t('schedule.chooseSession')}</option>
                     {sessionOptions.map((sessionItem) => (
@@ -1684,6 +1706,7 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], userRevie
     ...(session || {}),
   }
   const [activeFilter, setActiveFilter] = useState('Semua')
+  const [accountSection, setAccountSection] = useState('active')
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [isProfileEditing, setIsProfileEditing] = useState(false)
   const [profileForm, setProfileForm] = useState(() => getCustomerProfileForm(customerProfile))
@@ -1703,21 +1726,24 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], userRevie
     const participants = Array.isArray(item.participantDetails) ? item.participantDetails : []
     return participants.some((participant) => participant.email === session.email || (session.whatsapp && participant.whatsapp === session.whatsapp))
   })
-  const waitingCount = myRegistrations.filter((item) => item.status === 'Menunggu Approval').length
-  const approvedCount = myRegistrations.filter((item) => item.status === 'Disetujui' || item.status === 'Selesai').length
-  const rejectedCount = myRegistrations.filter((item) => item.status === 'Ditolak').length
+  const activeRegistrations = myRegistrations.filter((item) => !item.isCompleted)
+  const historyRegistrations = myRegistrations.filter((item) => item.isCompleted)
+  const sectionRegistrations = accountSection === 'history' ? historyRegistrations : activeRegistrations
+  const waitingCount = sectionRegistrations.filter((item) => item.status === 'Menunggu Approval').length
+  const approvedCount = sectionRegistrations.filter((item) => item.status === 'Disetujui' || item.status === 'Selesai').length
+  const rejectedCount = sectionRegistrations.filter((item) => item.status === 'Ditolak').length
   const reviewedBookingIds = new Set(userReviews.map((review) => Number(review.bookingId)))
-  const reviewableBookings = myRegistrations.filter((item) => (
+  const reviewableBookings = historyRegistrations.filter((item) => (
     (item.status === 'Disetujui' || item.status === 'Selesai')
     && !reviewedBookingIds.has(Number(item.id))
   ))
   const filterOptions = [
-    ['Semua', t('account.all'), myRegistrations.length],
+    ['Semua', t('account.all'), sectionRegistrations.length],
     ['Menunggu', t('account.waiting'), waitingCount],
     ['Disetujui', t('account.approved'), approvedCount],
     ['Ditolak', t('account.rejected'), rejectedCount],
   ]
-  const visibleRegistrations = myRegistrations.filter((item) => {
+  const visibleRegistrations = sectionRegistrations.filter((item) => {
     if (activeFilter === 'Semua') return true
     if (activeFilter === 'Menunggu') return item.status === 'Menunggu Approval'
     if (activeFilter === 'Disetujui') return item.status === 'Disetujui' || item.status === 'Selesai'
@@ -1764,9 +1790,9 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], userRevie
 
         <section className="account-summary-grid">
           <div className="metric account-metric"><span>{t('account.totalOrders')}</span><strong>{myRegistrations.length}</strong></div>
-          <div className="metric account-metric"><span>{t('account.waitingApproval')}</span><strong>{waitingCount}</strong></div>
-          <div className="metric account-metric"><span>{t('account.approved')}</span><strong>{approvedCount}</strong></div>
-          <div className="metric account-metric"><span>{t('account.rejected')}</span><strong>{rejectedCount}</strong></div>
+          <div className="metric account-metric"><span>Trip aktif</span><strong>{activeRegistrations.length}</strong></div>
+          <div className="metric account-metric"><span>Riwayat trip</span><strong>{historyRegistrations.length}</strong></div>
+          <div className="metric account-metric"><span>{t('account.waitingApproval')}</span><strong>{activeRegistrations.filter((item) => item.status === 'Menunggu Approval').length}</strong></div>
         </section>
 
         <section className={`account-profile-card ${profileComplete ? '' : 'is-incomplete'}`}>
@@ -1842,7 +1868,7 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], userRevie
                 <label>{t('reviews.chooseTrip')}<select required value={reviewForm.bookingId} onChange={(event) => setReviewForm({ ...reviewForm, bookingId: event.target.value })}>
                   <option value="">{t('reviews.chooseBooking')}</option>
                   {reviewableBookings.map((booking) => (
-                    <option key={booking.id} value={booking.id}>{tripName(trips, booking.tripId)} — MAUA-{booking.id}</option>
+                    <option key={booking.id} value={booking.id}>{booking.tripName || tripName(trips, booking.tripId)} — MAUA-{booking.id}</option>
                   ))}
                 </select></label>
                 <label>{t('reviews.rating')}<select required value={reviewForm.rating} onChange={(event) => setReviewForm({ ...reviewForm, rating: Number(event.target.value) })}>
@@ -1854,6 +1880,23 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], userRevie
             </form>
           ) : <p className="review-empty-state">{t('reviews.noEligibleBooking')}</p>}
         </section>
+
+        <div className="account-filter-tabs" role="tablist" aria-label="Jenis perjalanan">
+          <button
+            className={accountSection === 'active' ? 'is-active' : ''}
+            onClick={() => { setAccountSection('active'); setActiveFilter('Semua') }}
+            type="button"
+          >
+            Trip Aktif<span>{activeRegistrations.length}</span>
+          </button>
+          <button
+            className={accountSection === 'history' ? 'is-active' : ''}
+            onClick={() => { setAccountSection('history'); setActiveFilter('Semua') }}
+            type="button"
+          >
+            Riwayat Trip<span>{historyRegistrations.length}</span>
+          </button>
+        </div>
 
         <div className="account-filter-tabs" role="tablist" aria-label={t('account.filterLabel')}>
           {filterOptions.map(([value, label, count]) => (
@@ -1880,8 +1923,8 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], userRevie
               <article className="account-registration-card" key={item.id}>
                 <div className="account-registration-head">
                   <div>
-                    <h2>{tripName(trips, item.tripId)}</h2>
-                    <p className="icon-line"><span className="asset-icon icon-geo" aria-hidden="true" />{trip ? getTripDestination(trip, lang) : t('common.unavailableDestination')}</p>
+                    <h2>{item.tripName || tripName(trips, item.tripId)}</h2>
+                    <p className="icon-line"><span className="asset-icon icon-geo" aria-hidden="true" />{trip ? getTripDestination(trip, lang) : localizedText(item.tripDestination, lang) || t('common.unavailableDestination')}</p>
                   </div>
                   <Badge status={item.status} label={statusLabel(item.status)} />
                 </div>
@@ -1909,7 +1952,7 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], userRevie
             <div className="account-empty-state">
               <span className="account-empty-icon"><span className="asset-icon icon-ticket" aria-hidden="true" /></span>
               <h2>{t('account.noOrders')}</h2>
-              <p>{myRegistrations.length ? t('account.noStatusOrders') : t('account.emptyCopy')}</p>
+              <p>{sectionRegistrations.length ? t('account.noStatusOrders') : accountSection === 'history' ? 'Belum ada riwayat trip.' : t('account.emptyCopy')}</p>
               <button className="primary-btn" onClick={() => navigate('/open-trip')} type="button">{t('common.viewTrip')}</button>
             </div>
           )}
@@ -1921,7 +1964,7 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], userRevie
             <div className="modal-head">
               <div>
                 <p className="eyebrow">{t('account.orderDetail')}</p>
-                <h2>{tripName(trips, selectedOrder.tripId)}</h2>
+                <h2>{selectedOrder.tripName || tripName(trips, selectedOrder.tripId)}</h2>
               </div>
               <button className="outline-btn" onClick={() => setSelectedOrder(null)} type="button">{t('common.close')}</button>
             </div>

@@ -149,7 +149,13 @@ runEndpoint(function (PDO $pdo): void {
             $scheduleStatement = $pdo->prepare('SELECT * FROM trip_schedules WHERE trip_id = ? AND (schedule_code = ? OR id = ?) FOR UPDATE');
             $scheduleStatement->execute([(int) $data['tripId'], $data['scheduleId'] ?? '', nullableInt($data['scheduleId'] ?? null)]);
             $schedule = $scheduleStatement->fetch();
-            if (!$schedule || $schedule['status'] !== 'active') {
+            if (!$schedule) {
+                throw new InvalidArgumentException('Jadwal trip tidak tersedia.');
+            }
+            if (scheduleLifecycleStatus($schedule) !== 'upcoming') {
+                throw new InvalidArgumentException('Jadwal ini sudah berakhir dan tidak dapat dipesan.');
+            }
+            if ($schedule['status'] !== 'active' || !empty($schedule['archived_at'])) {
                 throw new InvalidArgumentException('Jadwal trip tidak tersedia.');
             }
             if (((int) $schedule['quota'] - (int) $schedule['booked_count']) < (int) $data['participants']) {
@@ -163,11 +169,22 @@ runEndpoint(function (PDO $pdo): void {
 
         $sessionId = null;
         if ($tripType === 'private') {
+            $selectedDate = trim((string) ($data['selectedDate'] ?? ''));
+            if (
+                $selectedDate === ''
+                || (!empty($trip['available_start_date']) && $selectedDate < $trip['available_start_date'])
+                || (!empty($trip['available_end_date']) && $selectedDate > $trip['available_end_date'])
+            ) {
+                throw new InvalidArgumentException('Tanggal private trip tidak tersedia.');
+            }
             $sessionStatement = $pdo->prepare('SELECT id, start_time, end_time FROM trip_sessions WHERE trip_id = ? AND (session_code = ? OR id = ?) AND status = "active"');
             $sessionStatement->execute([(int) $data['tripId'], $data['sessionId'] ?? '', nullableInt($data['sessionId'] ?? null)]);
             $selectedSession = $sessionStatement->fetch();
             if (!$selectedSession) {
                 throw new InvalidArgumentException('Sesi private trip tidak tersedia.');
+            }
+            if (scheduledEndAt($selectedDate, $selectedSession['end_time'] ?? null) <= appNow()) {
+                throw new InvalidArgumentException('Jadwal ini sudah berakhir dan tidak dapat dipesan.');
             }
             $sessionId = (int) $selectedSession['id'];
             $bookingStartTime = $selectedSession['start_time'] ?? null;
@@ -177,7 +194,7 @@ runEndpoint(function (PDO $pdo): void {
                     "SELECT COUNT(*) FROM bookings WHERE trip_id = ? AND session_id = ? AND selected_date = ?
                      AND status IN ('Menunggu Approval','Disetujui')"
                 );
-                $collision->execute([(int) $data['tripId'], $sessionId, $data['selectedDate'] ?? null]);
+                $collision->execute([(int) $data['tripId'], $sessionId, $selectedDate]);
                 if ((int) $collision->fetchColumn() > 0) {
                     throw new InvalidArgumentException('Sesi pada tanggal tersebut sudah dipesan.');
                 }

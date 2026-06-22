@@ -22,7 +22,7 @@ const jsonPost = (path, data) => request(path, {
 
 export const getTrips = (includeAll = true) => request(`trips/index.php${includeAll ? '?all=1' : ''}`)
 export const getTripSummaries = (includeAll = false) => request(`trips/index.php?summary=1${includeAll ? '&all=1' : ''}`)
-export const getTripDetail = (id) => request(`trips/detail.php?id=${encodeURIComponent(id)}`)
+export const getTripDetail = (id, includeAll = false) => request(`trips/detail.php?id=${encodeURIComponent(id)}${includeAll ? '&all=1' : ''}`)
 export const createTrip = (data) => jsonPost('trips/create.php', data)
 export const updateTrip = (data) => jsonPost('trips/update.php', data)
 export const deleteTrip = (id) => jsonPost('trips/delete.php', { id })
@@ -36,8 +36,8 @@ export const createBooking = (data, paymentProof = null) => {
   }
   return jsonPost('bookings/create.php', data)
 }
-export const getBookings = (archived = false) => request(`bookings/index.php${archived ? '?archived=1' : ''}`)
-export const getUserBookings = (email, archived = false) => request(`bookings/user.php?email=${encodeURIComponent(email)}${archived ? '&archived=1' : ''}`)
+export const getBookings = (view = 'active') => request(`bookings/index.php?view=${encodeURIComponent(view)}`)
+export const getUserBookings = (email, view = 'active') => request(`bookings/user.php?email=${encodeURIComponent(email)}&view=${encodeURIComponent(view)}`)
 export const getPrivateBookingAvailability = (tripId) => request(`bookings/availability.php?trip_id=${encodeURIComponent(tripId)}`)
 export const updateBookingStatus = (id, status) => jsonPost('bookings/update-status.php', { id, status })
 

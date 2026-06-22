@@ -200,11 +200,87 @@ function invoiceHtml(array $invoice): string
         . '<h3>Payment details</h3>' . $payments . '</div>';
 }
 
+function h1ReminderHtml(array $booking, array $invoice): string
+{
+    $customerName = reminderEscape($booking['customer_name']);
+    $tripName = reminderEscape($booking['trip_name']);
+    $tripDate = reminderEscape(reminderDate((string) $booking['selected_date']));
+    $paidAmount = reminderMoney((float) $invoice['paidAmount']);
+    $balanceDue = reminderMoney((float) $invoice['balanceDue']);
+
+    return '<div style="line-height:1.65">'
+        . '<p>Hi, Kak <strong>' . $customerName . '</strong>.</p>'
+        . '<p>Tidak terasa, pengalaman seru bersama Maua Project sudah semakin dekat. '
+        . 'Terima kasih telah mempercayakan petualangan Anda kepada kami. Sebagai pengingat, '
+        . 'berikut kami sampaikan informasi reservasi yang masih memiliki kekurangan pembayaran:</p>'
+        . '<p style="margin-bottom:8px">&#128204; <strong>Kegiatan:</strong> ' . $tripName . '<br>'
+        . '&#128197; <strong>Tanggal:</strong> ' . $tripDate . '</p>'
+        . '<p style="margin-bottom:8px"><strong>Rincian Pembayaran (terlampir invoice)</strong></p>'
+        . '<p style="margin-top:0">&#9989; <strong>DP Diterima:</strong> ' . $paidAmount . '<br>'
+        . '&#128179; <strong>Sisa Pelunasan:</strong> ' . $balanceDue . '</p>'
+        . '<p><strong>Transfer ke:</strong><br>'
+        . 'BCA<br>'
+        . '4561504789<br>'
+        . 'a.n. Zakkiatuz Zahrolazizah</p>'
+        . '<p style="margin-bottom:8px">&#128221; <strong>Notes:</strong></p>'
+        . '<ul style="margin-top:0;padding-left:22px">'
+        . '<li>Mohon melakukan pelunasan sebelum kegiatan dimulai agar proses registrasi pada hari pelaksanaan dapat berjalan lebih lancar dan nyaman.</li>'
+        . '<li>Setelah melakukan pembayaran, mohon membalas email ini dengan menyertakan bukti transfer untuk membantu proses verifikasi.</li>'
+        . '<li>Pelunasan dapat dilakukan sebelum hari kegiatan maupun pada hari pelaksanaan sebelum aktivitas dimulai.</li>'
+        . '<li>Mohon tidak melakukan transfer pada pukul 22.00–03.00 WIB untuk menghindari keterlambatan verifikasi.</li>'
+        . '<li>Penambahan layanan dokumentasi hanya dapat dilakukan maksimal H-1 sebelum kegiatan.</li>'
+        . '<li>Reservasi yang telah dilakukan bersifat non-refundable. Reschedule tersedia sesuai syarat dan ketentuan yang berlaku.</li>'
+        . '</ul>'
+        . '<p>Kami tidak sabar untuk menyambut <strong>' . $customerName . '</strong> dalam petualangan bersama Maua Project. '
+        . 'Sampai jumpa esok hari dan mari ciptakan pengalaman yang aman, seru, dan berkesan bersama&#129293;&#10024;</p>'
+        . '<p>Salam hangat,<br><strong>Maua Project</strong></p>'
+        . '</div>';
+}
+
+function hPlus1ReminderHtml(array $booking): string
+{
+    $customerName = reminderEscape($booking['customer_name']);
+    $tripName = reminderEscape($booking['trip_name']);
+    $accountUrl = trim((string) (getenv('CUSTOMER_ACCOUNT_URL') ?: 'https://mauaproject.com/akun'));
+    $reviewUrl = trim((string) getenv('REVIEW_URL'));
+    $accountLink = '<a href="' . reminderEscape($accountUrl) . '" style="color:#173f35;font-weight:bold">'
+        . reminderEscape(preg_replace('#^https?://#', '', $accountUrl) ?? $accountUrl)
+        . '</a>';
+    $reviewLink = $reviewUrl !== ''
+        ? '<a href="' . reminderEscape($reviewUrl) . '" style="display:inline-block;background:#173f35;color:#fff;'
+            . 'padding:12px 18px;border-radius:8px;text-decoration:none;font-weight:bold">Berikan Review Anda</a>'
+        : '<strong>Silakan membalas email ini untuk memberikan ulasan Anda.</strong>';
+
+    return '<div style="line-height:1.65">'
+        . '<p>Hi, Kak <strong>' . $customerName . '</strong>.</p>'
+        . '<p>Terima kasih telah menjadi bagian dari perjalanan bersama Maua Project. Kami merasa senang dapat berbagi '
+        . 'pengalaman dan petualangan dalam kegiatan <strong>' . $tripName . '</strong> bersama Kakak.</p>'
+        . '<p>Sebagai kenang-kenangan dari perjalanan tersebut, dokumentasi kegiatan telah kami unggah dan dapat diakses '
+        . 'melalui tautan berikut:<br>' . $accountLink . '</p>'
+        . '<p>Dokumentasi dapat diakses selama 7 (tujuh) hari sejak email ini dikirimkan. Setelah periode tersebut berakhir, '
+        . 'file akan kami arsipkan. Apabila berkenan, kami sarankan untuk mengunduh seluruh dokumentasi sebelum batas waktu '
+        . 'akses berakhir.</p>'
+        . '<p>Kami juga mohon izin apabila beberapa foto atau video dari kegiatan kemarin digunakan sebagai materi promosi '
+        . 'dan dokumentasi di media sosial maupun platform resmi Maua Project. Apabila terdapat foto atau video yang tidak '
+        . 'berkenan untuk dipublikasikan, silakan membalas email ini atau menghubungi admin kami.</p>'
+        . '<p>Kiranya berkenan mengunggah momen selama kegiatan di media sosial, kami akan sangat senang apabila Kakak '
+        . 'berkenan menandai atau mengajak kolaborasi akun <strong>@mauaproject</strong>. Cerita dan pengalaman yang Kakak '
+        . 'bagikan akan sangat berarti bagi kami.</p>'
+        . '<p>Selain itu, kami juga ingin meminta sedikit waktu Anda untuk memberikan ulasan mengenai pengalaman bersama '
+        . 'Maua Project.</p>'
+        . '<p>&#11088; <strong>Berikan Review Anda di:</strong><br>' . $reviewLink . '</p>'
+        . '<p>Atas kepercayaan yang telah diberikan, kami mengucapkan terima kasih. Apabila selama kegiatan terdapat '
+        . 'kekurangan dalam pelayanan kami, kami memohon maaf sebesar-besarnya dan akan menjadikannya sebagai bahan evaluasi '
+        . 'untuk menjadi lebih baik ke depannya.</p>'
+        . '<p>Semoga pengalaman ini menjadi cerita yang menyenangkan untuk dikenang, dan kami berharap dapat kembali bertemu '
+        . 'dalam petualangan berikutnya bersama Maua Project.</p>'
+        . '<p>Sampai jumpa di perjalanan selanjutnya.</p>'
+        . '<p>Salam hangat,<br><strong>Maua Project</strong></p>'
+        . '</div>';
+}
+
 function buildReminderMessage(PDO $pdo, array $booking, string $type): array
 {
-    $name = reminderEscape($booking['customer_name']);
-    $tripName = reminderEscape($booking['trip_name']);
-
     if ($type === 'H7') {
         $subjectTemplate = trim((string) ($booking['h7_reminder_subject'] ?? ''));
         $bodyTemplate = trim((string) ($booking['h7_reminder_body'] ?? ''));
@@ -218,13 +294,12 @@ function buildReminderMessage(PDO $pdo, array $booking, string $type): array
 
     if ($type === 'H1') {
         $invoice = fetchReminderInvoice($pdo, $booking);
-        $content = "<p>Halo <strong>{$name}</strong>, besok adalah jadwal keberangkatan untuk <strong>{$tripName}</strong>.</p>"
-            . '<p>Invoice perjalanan tersedia di bawah ini dan terlampir dalam format PDF.</p>'
-            . invoiceHtml($invoice)
-            . '<p>Ada pertanyaan? Hubungi admin: ' . adminContactHtml() . '</p>';
         return [
-            'subject' => "Pengingat keberangkatan & invoice: {$booking['trip_name']}",
-            'html' => reminderLayout('Pengingat H-1 dan invoice', $content),
+            'subject' => "Informasi Pelunasan – {$booking['trip_name']}",
+            'html' => reminderLayout(
+                'Informasi Pelunasan – ' . (string) $booking['trip_name'],
+                h1ReminderHtml($booking, $invoice)
+            ),
             'attachments' => [[
                 'filename' => 'invoice-MAUA-' . $invoice['bookingId'] . '.pdf',
                 'contentType' => 'application/pdf',
@@ -233,14 +308,11 @@ function buildReminderMessage(PDO $pdo, array $booking, string $type): array
         ];
     }
 
-    $reviewUrl = trim((string) getenv('REVIEW_URL'));
-    $reviewAction = $reviewUrl !== ''
-        ? '<p><a style="display:inline-block;background:#173f35;color:#fff;padding:12px 18px;border-radius:8px;text-decoration:none" href="'
-            . reminderEscape($reviewUrl) . '">Berikan review</a></p>'
-        : '<p>Balas email ini jika Anda ingin membagikan review atau masukan.</p>';
-    $content = "<p>Halo <strong>{$name}</strong>, terima kasih sudah mengikuti <strong>{$tripName}</strong>.</p>"
-        . '<p>Semoga perjalanannya menyenangkan. Cerita dan masukan Anda sangat berarti bagi kami.</p>' . $reviewAction;
-    return ['subject' => "Terima kasih telah mengikuti {$booking['trip_name']}", 'html' => reminderLayout('Terima kasih!', $content), 'attachments' => []];
+    return [
+        'subject' => 'Love Letter from Maua Project 💌',
+        'html' => reminderLayout('Love Letter from Maua Project 💌', hPlus1ReminderHtml($booking)),
+        'attachments' => [],
+    ];
 }
 
 function claimReminder(PDO $pdo, int $bookingId, string $type, string $email): bool
@@ -278,13 +350,19 @@ function runDailyReminders(PDO $pdo): array
     $pdo->exec(
         "UPDATE bookings
          SET archived_at=COALESCE(archived_at, NOW())
-         WHERE visible_until IS NOT NULL AND visible_until < CURDATE()"
+         WHERE DATE_ADD(
+             TIMESTAMP(selected_date, COALESCE(end_time, '23:59:59')),
+             INTERVAL 7 DAY
+         ) < NOW()"
     );
     $pdo->exec(
         "UPDATE trip_schedules
          SET archived_at=COALESCE(archived_at, NOW()),
              status=CASE WHEN status='inactive' THEN status ELSE 'inactive' END
-         WHERE visible_until IS NOT NULL AND visible_until < CURDATE()"
+         WHERE DATE_ADD(
+             TIMESTAMP(schedule_date, COALESCE(end_time, '23:59:59')),
+             INTERVAL 7 DAY
+         ) < NOW()"
     );
 
     $candidate = $pdo->prepare(

@@ -41,6 +41,8 @@ function database(): PDO
     }
 
     loadLocalEnvironment();
+    $timezone = trim((string) (getenv('APP_TIMEZONE') ?: 'Asia/Jakarta'));
+    date_default_timezone_set($timezone);
     $localConfig = [];
     $localFile = __DIR__ . DIRECTORY_SEPARATOR . 'database.local.php';
     if (is_file($localFile)) {
@@ -72,5 +74,10 @@ function database(): PDO
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         PDO::ATTR_EMULATE_PREPARES => false,
     ]);
+    $offsetSeconds = (new DateTimeImmutable('now', new DateTimeZone($timezone)))->getOffset();
+    $offsetSign = $offsetSeconds < 0 ? '-' : '+';
+    $offsetSeconds = abs($offsetSeconds);
+    $offset = sprintf('%s%02d:%02d', $offsetSign, intdiv($offsetSeconds, 3600), intdiv($offsetSeconds % 3600, 60));
+    $pdo->exec("SET time_zone = " . $pdo->quote($offset));
     return $pdo;
 }
