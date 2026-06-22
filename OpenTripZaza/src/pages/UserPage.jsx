@@ -1442,8 +1442,8 @@ export function PaymentConfirmationPage({
   const selectedAddons = Array.isArray(checkoutDraft?.selectedAddonDetails)
     ? checkoutDraft.selectedAddonDetails
     : (trip?.addons || []).filter((addon) => checkoutDraft?.addons?.includes(addon.id))
-  const bcaAccountNumber = import.meta.env.VITE_BCA_ACCOUNT_NUMBER || ''
-  const bcaAccountName = import.meta.env.VITE_BCA_ACCOUNT_NAME || ''
+  const bcaAccountNumber = import.meta.env.VITE_BCA_ACCOUNT_NUMBER || '4561504789'
+  const bcaAccountName = import.meta.env.VITE_BCA_ACCOUNT_NAME || 'Zakkiatuz Zahrolazizah'
 
   useEffect(() => () => {
     if (previewUrl) URL.revokeObjectURL(previewUrl)
@@ -1559,8 +1559,8 @@ export function PaymentConfirmationPage({
                 </div>
                 <div className="bank-payment-panel">
                   <span>Transfer Bank BCA</span>
-                  <strong>{bcaAccountNumber || 'Nomor rekening belum dikonfigurasi'}</strong>
-                  <p>{bcaAccountName || 'Nama rekening belum dikonfigurasi'}</p>
+                  <strong>{bcaAccountNumber}</strong>
+                  <p>a.n. {bcaAccountName}</p>
                   <small>Pastikan nominal transfer sesuai dengan nominal yang harus dibayar.</small>
                 </div>
               </div>

@@ -139,7 +139,10 @@ runEndpoint(function (PDO $pdo): void {
             ? $totalPrice
             : round($totalPrice * 0.5);
         $paymentStatus = $hasPayment ? 'waiting_verification' : null;
-        $bcaAccountNumber = trim((string) (getenv('VITE_BCA_ACCOUNT_NUMBER') ?: ($data['bcaAccountNumber'] ?? '')));
+        $bcaAccountNumber = trim((string) (
+            getenv('VITE_BCA_ACCOUNT_NUMBER')
+            ?: ($data['bcaAccountNumber'] ?? '4561504789')
+        ));
 
         $scheduleId = null;
         $selectedDate = $data['selectedDate'] ?? null;
