@@ -1199,7 +1199,7 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
               <div className="h7-placeholder-help full">
                 <strong>Placeholder yang tersedia</strong>
                 <div>
-                  {['{nama_customer}', '{nama_trip}', '{tanggal_trip}', '{jam_trip}', '{jumlah_peserta}', '{nama_admin}', '{nama_brand}'].map((placeholder) => (
+                  {['{nama_customer}', '{nama_trip}', '{tanggal_trip}', '{jam_trip}', '{jumlah_peserta}', '{sisa_hari}', '{nama_admin}', '{nama_brand}'].map((placeholder) => (
                     <code key={placeholder}>{placeholder}</code>
                   ))}
                 </div>

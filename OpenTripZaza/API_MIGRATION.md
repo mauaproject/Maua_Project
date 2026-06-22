@@ -166,9 +166,10 @@ https://DOMAIN/api/cron/send-reminders.php?token=ISI_CRON_SECRET
 Gunakan URL HTTPS dan token acak yang panjang. Script akan:
 
 - mengirim H-7, H-1 beserta PDF invoice, dan H+1;
+- mengirim susulan email persiapan H-7 untuk booking yang baru disetujui pada H-6 sampai H-2;
 - memakai template H-7 milik trip, atau template default jika subject/isi kosong;
 - mendukung placeholder H-7 `{nama_customer}`, `{nama_trip}`, `{tanggal_trip}`,
-  `{jam_trip}`, `{jumlah_peserta}`, `{nama_admin}`, dan `{nama_brand}`;
+  `{jam_trip}`, `{jumlah_peserta}`, `{sisa_hari}`, `{nama_admin}`, dan `{nama_brand}`;
 - hanya memproses booking berstatus `Disetujui` atau `Selesai`;
 - mencatat hasil ke tabel `reminder_logs` agar email sukses tidak terkirim ulang;
 - mengarsipkan booking dan jadwal dari daftar aktif setelah `visible_until`;

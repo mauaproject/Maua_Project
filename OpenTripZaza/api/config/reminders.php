@@ -51,12 +51,16 @@ function h7PlaceholderValues(array $booking): array
 {
     $brand = trim((string) (getenv('MAIL_FROM_NAME') ?: 'MAUA Project'));
     $admin = trim((string) (getenv('ADMIN_NAME') ?: $brand));
+    $today = new DateTimeImmutable('today');
+    $tripDate = new DateTimeImmutable((string) $booking['selected_date']);
+    $remainingDays = max(0, (int) $today->diff($tripDate)->format('%r%a'));
     return [
         '{nama_customer}' => (string) $booking['customer_name'],
         '{nama_trip}' => (string) $booking['trip_name'],
         '{tanggal_trip}' => reminderDate((string) $booking['selected_date']),
         '{jam_trip}' => reminderTimeRange($booking['start_time'] ?? null, $booking['end_time'] ?? null),
         '{jumlah_peserta}' => (string) ((int) $booking['participants']),
+        '{sisa_hari}' => (string) $remainingDays,
         '{nama_admin}' => $admin,
         '{nama_brand}' => $brand,
         '{nama_admin / nama_brand}' => $admin !== '' ? $admin : $brand,
@@ -75,6 +79,7 @@ function reminderTimeRange(mixed $startTime, mixed $endTime): string
 
 function renderH7Template(string $template, array $booking): string
 {
+    $template = str_ireplace('7 hari lagi', '{sisa_hari} hari lagi', $template);
     return strtr($template, h7PlaceholderValues($booking));
 }
 
@@ -86,7 +91,7 @@ function defaultH7Subject(): string
 function defaultH7Body(): string
 {
     return "Halo {nama_customer},\n\n"
-        . "Trip {nama_trip} akan berlangsung 7 hari lagi.\n\n"
+        . "Trip {nama_trip} akan berlangsung {sisa_hari} hari lagi.\n\n"
         . "Tanggal trip: {tanggal_trip}\n"
         . "Jam trip: {jam_trip}\n"
         . "Jumlah peserta: {jumlah_peserta}";
@@ -341,10 +346,19 @@ function runDailyReminders(PDO $pdo): array
     $timezone = trim((string) (getenv('APP_TIMEZONE') ?: 'Asia/Jakarta'));
     date_default_timezone_set($timezone);
     $today = new DateTimeImmutable('today');
-    $dates = [
-        'H7' => $today->modify('+7 days')->format('Y-m-d'),
-        'H1' => $today->modify('+1 day')->format('Y-m-d'),
-        'HPLUS1' => $today->modify('-1 day')->format('Y-m-d'),
+    $reminderWindows = [
+        'H7' => [
+            $today->modify('+2 days')->format('Y-m-d'),
+            $today->modify('+7 days')->format('Y-m-d'),
+        ],
+        'H1' => [
+            $today->modify('+1 day')->format('Y-m-d'),
+            $today->modify('+1 day')->format('Y-m-d'),
+        ],
+        'HPLUS1' => [
+            $today->modify('-1 day')->format('Y-m-d'),
+            $today->modify('-1 day')->format('Y-m-d'),
+        ],
     ];
 
     $pdo->exec(
@@ -370,13 +384,13 @@ function runDailyReminders(PDO $pdo): array
          FROM bookings b
          INNER JOIN trips t ON t.id = b.trip_id
          WHERE b.status IN ('Disetujui','Selesai')
-           AND b.selected_date = ?
+           AND b.selected_date BETWEEN ? AND ?
            AND b.customer_email <> ''"
     );
     $result = ['sent' => 0, 'failed' => 0, 'skipped' => 0, 'archived' => true, 'details' => []];
 
-    foreach ($dates as $type => $targetDate) {
-        $candidate->execute([$targetDate]);
+    foreach ($reminderWindows as $type => [$startDate, $endDate]) {
+        $candidate->execute([$startDate, $endDate]);
         foreach ($candidate->fetchAll() as $booking) {
             $bookingId = (int) $booking['id'];
             $email = strtolower(trim((string) $booking['customer_email']));
