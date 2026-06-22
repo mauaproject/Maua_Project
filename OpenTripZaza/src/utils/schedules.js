@@ -69,6 +69,7 @@ export function getTripSchedules(trip) {
   if (Array.isArray(trip?.schedules) && trip.schedules.length) {
     return trip.schedules.map((schedule, index) => ({
       id: schedule.id || `schedule_${index + 1}`,
+      name: schedule.name || schedule.sessionName || `Sesi ${index + 1}`,
       date: schedule.date || '',
       startTime: schedule.startTime || '',
       endTime: schedule.endTime || '',
@@ -86,6 +87,7 @@ export function getTripSchedules(trip) {
   const status = trip?.status === 'Penuh' ? 'full' : trip?.status === 'Ditutup' || trip?.status === 'Selesai' ? 'inactive' : 'active'
   return [{
     id: 'legacy_date',
+    name: 'Sesi 1',
     date: trip?.date || '',
     startTime: '',
     endTime: '',

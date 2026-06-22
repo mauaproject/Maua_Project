@@ -100,34 +100,44 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
     }
     $scheduleInsert = $pdo->prepare(
         'INSERT INTO trip_schedules
-         (trip_id, schedule_code, schedule_date, start_time, end_time, visible_until, archived_at, quota, booked_count, status)
-         VALUES (?,?,?,?,?,DATE_ADD(?, INTERVAL 7 DAY),NULL,?,?,?)'
+         (trip_id, schedule_code, session_name, schedule_date, start_time, end_time, visible_until, archived_at, quota, booked_count, status)
+         VALUES (?,?,?,?,?,?,DATE_ADD(?, INTERVAL 7 DAY),NULL,?,?,?)'
     );
     $scheduleUpdate = $pdo->prepare(
         'UPDATE trip_schedules
-         SET schedule_code=?, schedule_date=?, start_time=?, end_time=?,
+         SET schedule_code=?, session_name=?, schedule_date=?, start_time=?, end_time=?,
              visible_until=DATE_ADD(?, INTERVAL 7 DAY), archived_at=NULL,
              quota=?, booked_count=?, status=?
          WHERE id=? AND trip_id=?'
     );
     $retainedScheduleCodes = [];
+    $scheduleKeys = [];
     foreach ($schedules as $index => $schedule) {
         $code = (string) ($schedule['id'] ?? 'schedule_' . ($index + 1));
+        $scheduleName = trim((string) ($schedule['name'] ?? $schedule['sessionName'] ?? ''));
         $scheduleDate = trim((string) ($schedule['date'] ?? ''));
         $scheduleStartTime = trim((string) ($schedule['startTime'] ?? ''));
         $scheduleEndTime = trim((string) ($schedule['endTime'] ?? ''));
         if (
-            $scheduleDate === ''
+            $scheduleName === ''
+            || (function_exists('mb_strlen') ? mb_strlen($scheduleName, 'UTF-8') : strlen($scheduleName)) > 100
+            || $scheduleDate === ''
             || !preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $scheduleStartTime)
             || !preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $scheduleEndTime)
             || $scheduleEndTime <= $scheduleStartTime
             || (int) ($schedule['quota'] ?? 0) <= 0
         ) {
-            throw new InvalidArgumentException('Setiap jadwal Open Trip wajib memiliki tanggal, jam mulai, jam selesai, dan kuota yang valid.');
+            throw new InvalidArgumentException('Setiap sesi Open Trip wajib memiliki nama, tanggal, jam mulai, jam selesai, dan kuota yang valid.');
         }
+        $scheduleKey = $scheduleDate . '|' . $scheduleStartTime . '|' . $scheduleEndTime;
+        if (isset($scheduleKeys[$scheduleKey])) {
+            throw new InvalidArgumentException('Dua sesi Open Trip tidak boleh memiliki tanggal dan jam yang sama persis.');
+        }
+        $scheduleKeys[$scheduleKey] = true;
         $retainedScheduleCodes[] = $code;
         $values = [
             $code,
+            $scheduleName,
             $scheduleDate,
             $scheduleStartTime,
             $scheduleEndTime,

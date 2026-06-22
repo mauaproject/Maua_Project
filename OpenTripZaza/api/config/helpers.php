@@ -431,7 +431,7 @@ function mapTrip(PDO $pdo, array $trip, bool $customerView = false): array
         return $statement->fetchAll();
     };
     $images = $query('SELECT id, image_url, thumbnail_url, sort_order FROM trip_images WHERE trip_id = ? ORDER BY sort_order, id');
-    $schedules = $query('SELECT id, schedule_code, schedule_date, start_time, end_time, visible_until, archived_at, quota, booked_count, status FROM trip_schedules WHERE trip_id = ? ORDER BY schedule_date, start_time, id');
+    $schedules = $query('SELECT id, schedule_code, session_name, schedule_date, start_time, end_time, visible_until, archived_at, quota, booked_count, status FROM trip_schedules WHERE trip_id = ? ORDER BY schedule_date, start_time, id');
     $sessions = $query('SELECT id, session_code, name, start_time, end_time, status FROM trip_sessions WHERE trip_id = ? ORDER BY start_time, id');
     $packages = $query('SELECT id, package_code, name, price, max_custom_pax, destinations_json, description, status, sort_order FROM private_trip_packages WHERE trip_id = ? ORDER BY sort_order, id');
     $packageTiers = $query(
@@ -452,6 +452,7 @@ function mapTrip(PDO $pdo, array $trip, bool $customerView = false): array
         return [
             'id' => $item['schedule_code'] ?: (string) $item['id'],
             'databaseId' => (int) $item['id'],
+            'name' => $item['session_name'] ?: 'Sesi 1',
             'date' => $item['schedule_date'],
             'startTime' => $item['start_time'] ? substr((string) $item['start_time'], 0, 5) : '',
             'endTime' => $item['end_time'] ? substr((string) $item['end_time'], 0, 5) : '',
@@ -588,7 +589,7 @@ function mapTripSummaries(PDO $pdo, array $trips, bool $customerView = false): a
         }
     }
     $scheduleStatement = $pdo->prepare(
-        "SELECT trip_id, schedule_code, schedule_date, start_time, end_time, visible_until,
+        "SELECT trip_id, schedule_code, session_name, schedule_date, start_time, end_time, visible_until,
                 archived_at, quota, booked_count, status
          FROM trip_schedules WHERE trip_id IN ($placeholders)
          ORDER BY trip_id, schedule_date, start_time, id"
@@ -601,6 +602,7 @@ function mapTripSummaries(PDO $pdo, array $trips, bool $customerView = false): a
         $lifecycleStatus = scheduleLifecycleStatus($schedule, $now);
         $schedules[$tripId][] = [
             'id' => $schedule['schedule_code'],
+            'name' => $schedule['session_name'] ?: 'Sesi 1',
             'date' => $schedule['schedule_date'],
             'startTime' => $schedule['start_time'] ? substr((string) $schedule['start_time'], 0, 5) : '',
             'endTime' => $schedule['end_time'] ? substr((string) $schedule['end_time'], 0, 5) : '',
@@ -756,7 +758,7 @@ function mapBookings(PDO $pdo, array $bookings): array
     $schedules = [];
     if ($scheduleIds) {
         $schedulePlaceholders = implode(',', array_fill(0, count($scheduleIds), '?'));
-        $statement = $pdo->prepare("SELECT id, schedule_code FROM trip_schedules WHERE id IN ($schedulePlaceholders)");
+        $statement = $pdo->prepare("SELECT id, schedule_code, session_name FROM trip_schedules WHERE id IN ($schedulePlaceholders)");
         $statement->execute($scheduleIds);
         foreach ($statement->fetchAll() as $schedule) {
             $schedules[(int) $schedule['id']] = $schedule;
@@ -821,7 +823,9 @@ function mapBookingRecord(
         'sessionDatabaseId' => nullableInt($booking['session_id']),
         'scheduleId' => $schedule['schedule_code'] ?? '',
         'sessionId' => $session['session_code'] ?? '',
-        'sessionName' => $session['name'] ?? '',
+        'sessionName' => $booking['trip_type'] === 'open'
+            ? ($schedule['session_name'] ?? 'Sesi 1')
+            : ($session['name'] ?? ''),
         'selectedPackageId' => nullableInt($booking['selected_package_id'] ?? null),
         'selectedPackageName' => $booking['selected_package_name'] ?? '',
         'selectedPackagePrice' => (float) ($booking['selected_package_price'] ?? 0),

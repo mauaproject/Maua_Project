@@ -121,9 +121,12 @@ dan dikonversi ke WebP saat upload, dengan target hasil di bawah 2MB. Jalankan j
    untuk menambahkan subject dan isi email H-7 per trip.
 3. Jalankan migrasi `api/migrations/2026-06-21-open-trip-schedule-times.sql`
    untuk menambahkan jam mulai dan selesai pada setiap jadwal Open Trip.
-4. Jalankan migrasi `api/migrations/2026-06-21-private-trip-booking-mode.sql`
+4. Jalankan migrasi `api/migrations/2026-06-22-open-trip-sessions.sql`
+   untuk menambahkan nama sesi pada jadwal Open Trip. Satu tanggal dapat memiliki
+   beberapa sesi dengan jam dan kuota masing-masing.
+5. Jalankan migrasi `api/migrations/2026-06-21-private-trip-booking-mode.sql`
    untuk menambahkan pilihan kapasitas booking Private Trip.
-5. Tambahkan konfigurasi berikut ke `.env` server:
+6. Tambahkan konfigurasi berikut ke `.env` server:
 
 ```env
 MAIL_HOST=smtp.gmail.com

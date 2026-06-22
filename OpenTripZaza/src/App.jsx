@@ -371,7 +371,7 @@ function App() {
       selectedDate,
       requestedDate: selectedDate,
       sessionId: isPrivateTour ? selectedSession.id : '',
-      sessionName: isPrivateTour ? selectedSession.name : '',
+      sessionName: isPrivateTour ? selectedSession.name : selectedSchedule.name,
       startTime: isPrivateTour ? selectedSession.startTime : selectedSchedule.startTime,
       endTime: isPrivateTour ? selectedSession.endTime : selectedSchedule.endTime,
       selectedPackageId: selectedPackage?.id || null,
@@ -453,6 +453,7 @@ function App() {
     const schedules = Array.isArray(trip.schedules)
       ? trip.schedules.map((schedule, index) => ({
         id: schedule.id || `schedule_${index + 1}`,
+        name: schedule.name || schedule.sessionName || `Sesi ${index + 1}`,
         date: schedule.date || '',
         startTime: schedule.startTime || '',
         endTime: schedule.endTime || '',
