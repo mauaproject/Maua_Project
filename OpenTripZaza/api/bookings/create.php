@@ -259,7 +259,7 @@ runEndpoint(function (PDO $pdo): void {
             $paymentStatement->execute([
                 $bookingId,
                 $requiredPaymentAmount,
-                trim((string) ($data['paymentChannel'] ?? 'qris_or_bca')),
+                trim((string) ($data['paymentChannel'] ?? 'bca')),
                 $storedPaymentProof['path'],
                 $paymentStatus,
             ]);

@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import horizontalLogo from '../assets/desainHorizontal.webp'
 import verticalLogo from '../assets/desainvertikal.webp'
-import qrisDummy from '../assets/Qris-Dummy.jpg'
 import { addonOptions } from '../config/constants'
 import { formatCurrency, formatDate, tripName } from '../utils/formatters'
 import { getCustomerJobStatusLabel, getJobAddonLabel, getJobCompletedAt, getJobResultLink, getJobWorkerName, getNormalizedJobStatus, getRegistrationResultJobs } from '../utils/jobResults'
@@ -1524,7 +1523,7 @@ export function PaymentConfirmationPage({
           <div>
             <p className="eyebrow">Konfirmasi pembayaran</p>
             <h1>Selesaikan Pembayaran Trip</h1>
-            <p className="muted">Periksa ringkasan, lakukan pembayaran melalui QRIS atau BCA, lalu unggah bukti pembayaran.</p>
+            <p className="muted">Periksa ringkasan, lakukan pembayaran melalui transfer Bank BCA, lalu unggah bukti pembayaran.</p>
           </div>
           <button className="outline-btn" type="button" onClick={() => navigate(`/daftar/${checkoutDraft.tripId}`)}>Kembali ke Checkout</button>
         </div>
@@ -1552,11 +1551,6 @@ export function PaymentConfirmationPage({
             <section className="payment-card">
               <h2>Metode Pembayaran</h2>
               <div className="payment-method-grid">
-                <div className="qris-payment-panel">
-                  <h3>QRIS</h3>
-                  <img src={qrisDummy} alt="QRIS dummy untuk pembayaran trip" width="800" height="800" loading="lazy" decoding="async" />
-                  <small>Scan QRIS menggunakan aplikasi pembayaran pilihanmu.</small>
-                </div>
                 <div className="bank-payment-panel">
                   <span>Transfer Bank BCA</span>
                   <strong>{bcaAccountNumber}</strong>

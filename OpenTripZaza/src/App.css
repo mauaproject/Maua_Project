@@ -2397,11 +2397,10 @@ button:disabled {
 }
 .payment-method-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.08fr) minmax(240px, 0.92fr);
+  grid-template-columns: minmax(240px, 520px);
   align-items: start;
   gap: 16px;
 }
-.qris-payment-panel,
 .bank-payment-panel {
   display: grid;
   align-self: start;
@@ -2413,22 +2412,6 @@ button:disabled {
   background: #fffdf8;
   padding: 18px;
 }
-.qris-payment-panel {
-  justify-items: center;
-}
-.qris-payment-panel img {
-  display: block;
-  width: min(100%, 280px);
-  height: auto;
-  margin: 2px auto;
-  border-radius: 14px;
-  object-fit: contain;
-}
-.qris-payment-panel h3,
-.qris-payment-panel small {
-  width: min(100%, 280px);
-}
-.qris-payment-panel small,
 .bank-payment-panel small,
 .bank-payment-panel p {
   color: var(--color-muted);

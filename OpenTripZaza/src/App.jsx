@@ -396,7 +396,7 @@ function App() {
       paidAmount: requiredPaymentAmount,
       requiredPaymentAmount,
       bcaAccountNumber: form.bcaAccountNumber || '',
-      paymentChannel: 'qris_or_bca',
+      paymentChannel: 'bca',
       status: 'Menunggu Approval',
     }
     await api.createBooking(nextItem, form.paymentProof)
