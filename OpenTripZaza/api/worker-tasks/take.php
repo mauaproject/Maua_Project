@@ -12,7 +12,7 @@ runEndpoint(function (PDO $pdo): void {
         $userStatement->execute([strtolower(trim((string) $data['workerEmail']))]);
         $worker = $userStatement->fetch();
         if (!$worker) {
-            throw new InvalidArgumentException('Akun worker tidak ditemukan.');
+            throw new InvalidArgumentException('Akun tim tidak ditemukan.');
         }
         $taskStatement = $pdo->prepare('SELECT * FROM worker_tasks WHERE id = ? FOR UPDATE');
         $taskStatement->execute([(int) $data['id']]);
@@ -23,7 +23,7 @@ runEndpoint(function (PDO $pdo): void {
         $scopeStatement = $pdo->prepare('SELECT COUNT(*) FROM worker_tasks WHERE booking_id = ? AND worker_id = ?');
         $scopeStatement->execute([(int) $task['booking_id'], (int) $worker['id']]);
         if ((int) $scopeStatement->fetchColumn() > 0) {
-            throw new InvalidArgumentException('Worker sudah mengambil tugas untuk booking ini.');
+            throw new InvalidArgumentException('Tim sudah mengambil tugas untuk booking ini.');
         }
         $pdo->prepare("UPDATE worker_tasks SET worker_id=?, status='Diambil', updated_at=CURRENT_TIMESTAMP WHERE id=?")
             ->execute([(int) $worker['id'], (int) $data['id']]);

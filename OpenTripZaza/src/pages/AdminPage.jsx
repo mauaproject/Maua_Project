@@ -168,7 +168,7 @@ function AdminShell({ title, children, navigate, logout, path, registrations = [
         ['/admin/arsip-trip', 'Arsip Trip'],
         ['/admin/jadwal', 'Jadwal', pendingParticipants],
         ['/admin/reviews', t('reviews.admin.menu')],
-        ['/admin/pekerja', 'Akun Pekerja'],
+        ['/admin/pekerja', 'Akun Tim'],
       ]} navigate={navigate} logout={logout} path={path} />
       <section className="workspace">
         {title && <h1>{title}</h1>}
@@ -489,7 +489,7 @@ export function AdminTripArchive(props) {
           <div>
             <p className="eyebrow">Penyimpanan data lama</p>
             <h2>Arsip Trip</h2>
-            <p className="muted">Trip masuk ke sini setelah melewati H+7 dari jadwal terakhir. Seluruh jadwal dan booking tetap tersimpan.</p>
+            <p className="muted">Trip masuk ke sini setelah melewati H+1 dari jadwal terakhir. Seluruh jadwal dan booking tetap tersimpan.</p>
           </div>
         </div>
         <section className="admin-list-toolbar">
@@ -539,7 +539,7 @@ export function AdminTripArchive(props) {
         <AppModal
           isOpen={Boolean(tripToDelete)}
           title="Hapus trip arsip secara permanen?"
-          description={`Seluruh booking, pembayaran, peserta, jadwal, review, tugas worker, reminder, dan file terkait ${tripToDelete?.name || 'trip ini'} akan dihapus dan tidak dapat dipulihkan.`}
+          description={`Seluruh booking, pembayaran, peserta, jadwal, review, tugas tim, reminder, dan file terkait ${tripToDelete?.name || 'trip ini'} akan dihapus dan tidak dapat dipulihkan.`}
           confirmText={isDeleting ? 'Menghapus...' : 'Hapus Permanen'}
           cancelText="Batal"
           variant="danger"
@@ -1092,9 +1092,9 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
                   <h4>Add-on {index + 1}</h4>
                   <label>Nama add-on<input required value={addon.name} onChange={(event) => updateTripAddon(index, 'name', event.target.value)} /></label>
                   <label>Harga add-on<input required type="number" min="0" value={addon.price} onChange={(event) => updateTripAddon(index, 'price', event.target.value)} /></label>
-                  <label>Aksi worker<select value={addon.workerAction} onChange={(event) => updateTripAddon(index, 'workerAction', event.target.value)}>
-                    <option value="drive_link">Worker upload link Google Drive</option>
-                    <option value="none">Worker tidak perlu upload apa pun</option>
+                  <label>Aksi tim<select value={addon.workerAction} onChange={(event) => updateTripAddon(index, 'workerAction', event.target.value)}>
+                    <option value="drive_link">Tim upload link Google Drive</option>
+                    <option value="none">Tim tidak perlu upload apa pun</option>
                   </select></label>
                   <button className="outline-btn danger-btn" type="button" onClick={() => removeTripAddon(index)}>Hapus add-on</button>
                 </div>
@@ -1254,11 +1254,11 @@ function RegistrationTable({ registrations, trips, setRegistrationStatus, compac
   )
 }
 
-function AdminJobResultsPanel({ jobs = [], emptyText = 'Belum ada hasil pekerjaan worker.' }) {
+function AdminJobResultsPanel({ jobs = [], emptyText = 'Belum ada hasil pekerjaan tim.' }) {
   return (
     <div className="table-wrap compact-table">
       <table>
-        <thead><tr><th>Jenis pekerjaan</th><th>Worker</th><th>Status</th><th>Link hasil</th><th>Waktu selesai</th></tr></thead>
+        <thead><tr><th>Jenis pekerjaan</th><th>Tim</th><th>Status</th><th>Link hasil</th><th>Waktu selesai</th></tr></thead>
         <tbody>{jobs.length ? jobs.map((job) => {
           const resultLink = getJobResultLink(job)
           const completedAt = getJobCompletedAt(job)
@@ -1447,7 +1447,7 @@ export function AdminSchedule(props) {
                   <div><dt><span className="asset-icon icon-people" aria-hidden="true" />Peserta</dt><dd>{approvedParticipants}/{quota}</dd></div>
                   <div><dt>Sisa</dt><dd>{remaining}</dd></div>
                   <div className={waitingParticipants > 0 ? 'metric-highlight' : ''}><dt>Menunggu</dt><dd>{waitingParticipants}</dd></div>
-                  <div><dt><span className="asset-icon icon-people" aria-hidden="true" />Pekerja</dt><dd>{assignedWorkers}/{workerTarget}</dd></div>
+                  <div><dt><span className="asset-icon icon-people" aria-hidden="true" />Tim</dt><dd>{assignedWorkers}/{workerTarget}</dd></div>
                 </dl>
                 
                 <div className="schedule-card-footer">
@@ -1483,7 +1483,7 @@ export function AdminSchedule(props) {
                 <dl className="schedule-metrics">
                   <div><dt>Booking</dt><dd>{bookingCount}</dd></div>
                   <div className={pendingCount > 0 ? 'metric-highlight' : ''}><dt>Pending</dt><dd>{pendingCount}</dd></div>
-                  <div><dt><span className="asset-icon icon-people" aria-hidden="true" />Pekerja</dt><dd>{assignedWorkers}/{workerTarget}</dd></div>
+                  <div><dt><span className="asset-icon icon-people" aria-hidden="true" />Tim</dt><dd>{assignedWorkers}/{workerTarget}</dd></div>
                 </dl>
                 <div className="schedule-card-footer">
                   <div className="participant-list"><span>{registration.name} ({registration.participants || 1})</span><span>{registration.status}</span></div>
@@ -1525,7 +1525,7 @@ function AdminPrivateScheduleDetail({ registration, trips, jobs, setRegistration
         <section className="stat-grid dashboard-stats">
           <Metric label="Jumlah peserta" value={registration.participants} />
           <Metric label="Status" value={registration.status} />
-          <Metric label="Pekerja terisi" value={`${assignedJobs.length}/${tripJobs.length || getSelectedAddons(registration).length || 0}`} />
+          <Metric label="Tim terisi" value={`${assignedJobs.length}/${tripJobs.length || getSelectedAddons(registration).length || 0}`} />
           <Metric label="Tanggal request" value={formatDate(registrationDate)} />
           <Metric label="Sesi" value={registration.sessionName ? `${registration.sessionName}${registration.startTime && registration.endTime ? ` (${registration.startTime} - ${registration.endTime})` : ''}` : '-'} />
           <Metric label="Paket" value={registration.selectedPackageName || '-'} />
@@ -1587,7 +1587,7 @@ function AdminPrivateScheduleDetail({ registration, trips, jobs, setRegistration
             </div>
           </DataPanel>
 
-          <DataPanel title="Hasil Pekerjaan Worker">
+          <DataPanel title="Hasil Pekerjaan Tim">
             <AdminJobResultsPanel jobs={tripJobs} />
           </DataPanel>
         </section>
@@ -1623,7 +1623,7 @@ function AdminPrivateTripScheduleDetail({ trip, registrations, jobs, setRegistra
         <section className="stat-grid dashboard-stats">
           <Metric label="Booking masuk" value={tripRegistrations.length} />
           <Metric label="Booking pending" value={pendingRegistrations.length} />
-          <Metric label="Pekerja terisi" value={`${assignedJobs.length}/${relatedJobs.length}`} />
+          <Metric label="Tim terisi" value={`${assignedJobs.length}/${relatedJobs.length}`} />
         </section>
 
         <section className="schedule-detail-grid">
@@ -1752,7 +1752,7 @@ function AdminScheduleDetail({ trip, scheduleId, registrations, jobs, setRegistr
             </div>
           </DataPanel>
 
-          <DataPanel title="Pekerja Trip">
+          <DataPanel title="Tim Trip">
             <AdminJobResultsPanel jobs={tripJobs} emptyText="Belum ada job add-on untuk trip ini." />
           </DataPanel>
         </section>
@@ -1928,7 +1928,7 @@ function RegistrationDetailModal({ item, trip, jobs = [], setRegistrationStatus,
           </section>
 
           <section>
-            <h3>Hasil Pekerjaan Worker</h3>
+            <h3>Hasil Pekerjaan Tim</h3>
             <AdminJobResultsPanel jobs={resultJobs} />
           </section>
         </div>
@@ -1942,67 +1942,108 @@ function RegistrationDetailModal({ item, trip, jobs = [], setRegistrationStatus,
 }
 
 export function AdminWorkers(props) {
-  const { workerAccounts, createWorkerAccount, jobs, trips } = props
+  const { workerAccounts, createWorkerAccount, updateWorkerAccount, deleteWorkerAccount, jobs, trips } = props
   const [form, setForm] = useState({ name: '', email: '', password: '' })
   const [error, setError] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [editingWorker, setEditingWorker] = useState(null)
+  const [workerToDelete, setWorkerToDelete] = useState(null)
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false)
   const workers = workerAccounts
+  const isEditing = Boolean(editingWorker)
+
+  const openCreateModal = () => {
+    setEditingWorker(null)
+    setForm({ name: '', email: '', password: '' })
+    setError('')
+    setIsPasswordVisible(false)
+    setIsModalOpen(true)
+  }
+
+  const openEditModal = (worker) => {
+    setEditingWorker(worker)
+    setForm({ id: worker.id, name: worker.name, email: worker.email, password: '' })
+    setError('')
+    setIsPasswordVisible(false)
+    setIsModalOpen(true)
+  }
 
   const onSubmit = async (event) => {
     event.preventDefault()
-    if (!form.name || !form.email || !form.password) {
-      setError('Lengkapi nama, email, dan password pekerja.')
+    if (!form.name || !form.email || (!isEditing && !form.password)) {
+      setError(isEditing ? 'Lengkapi nama dan email akun tim.' : 'Lengkapi nama, email, dan password akun tim.')
       return
     }
-    if (form.password.length < 6) {
+    if (form.password && form.password.length < 6) {
       setError('Password minimal 6 karakter.')
       return
     }
 
-    const isCreated = await createWorkerAccount(form)
-    if (!isCreated) {
-      setError('Email pekerja sudah terdaftar.')
+    const isSaved = isEditing ? await updateWorkerAccount(form) : await createWorkerAccount(form)
+    if (!isSaved) {
+      setError('Email tim sudah terdaftar.')
       return
     }
 
     setForm({ name: '', email: '', password: '' })
     setError('')
+    setEditingWorker(null)
     setIsModalOpen(false)
   }
 
   const closeModal = () => {
     setIsModalOpen(false)
     setError('')
+    setEditingWorker(null)
+    setIsPasswordVisible(false)
     setForm({ name: '', email: '', password: '' })
   }
 
+  const confirmDeleteWorker = async () => {
+    if (!workerToDelete) return
+    await deleteWorkerAccount(workerToDelete.id)
+    setWorkerToDelete(null)
+  }
+
   return (
-    <AdminShell title="Akun Pekerja" {...props}>
+    <AdminShell title="Akun Tim" {...props}>
       <section className="admin-page-stack">
         <div className="admin-page-head">
           <div>
-            <p className="eyebrow">Tim pekerja</p>
-            <h2>Buat dan pantau akun pekerja operasional.</h2>
-            <p className="muted">Akun ini dipakai pekerja untuk mengambil job dan mengubah status tugas.</p>
+            <p className="eyebrow">Tim operasional</p>
+            <h2>Buat dan pantau akun tim operasional.</h2>
+            <p className="muted">Akun ini dipakai tim untuk mengambil job dan mengubah status tugas.</p>
           </div>
-          <button className="primary-btn" type="button" onClick={() => setIsModalOpen(true)}>Buat akun pekerja</button>
+          <button className="primary-btn" type="button" onClick={openCreateModal}>Buat akun tim</button>
         </div>
 
         <section className="admin-workers-layout">
-          <DataPanel title="Daftar Akun Pekerja">
+          <DataPanel title="Daftar Akun Tim">
             <div className="worker-accordion-list">
               {workers.map((worker) => {
                 const workerJobs = jobs
                   .filter((job) => job.worker === worker.name)
                   .sort((a, b) => Number(b.id) - Number(a.id))
                 return (
-                  <details className="worker-accordion-item" key={worker.email}>
+                  <details className="worker-accordion-item" key={worker.id || worker.email}>
                     <summary>
                       <span>
                         <strong>{worker.name}</strong>
                         <small>{worker.email}</small>
                       </span>
-                      <span className="worker-job-count">{workerJobs.length} job</span>
+                      <span className="worker-summary-actions">
+                        <span className="worker-job-count">{workerJobs.length} job</span>
+                        <button className="outline-btn compact-btn" type="button" onClick={(event) => {
+                          event.preventDefault()
+                          event.stopPropagation()
+                          openEditModal(worker)
+                        }}>Edit</button>
+                        <button className="danger-btn compact-btn" type="button" onClick={(event) => {
+                          event.preventDefault()
+                          event.stopPropagation()
+                          setWorkerToDelete(worker)
+                        }}>Hapus</button>
+                      </span>
                     </summary>
                     <div className="worker-job-list">
                       {workerJobs.length ? workerJobs.map((job) => {
@@ -2017,11 +2058,12 @@ export function AdminWorkers(props) {
                             <Badge status={job.status} />
                           </article>
                         )
-                      }) : <p className="empty-column">Pekerja ini belum mengambil job.</p>}
+                      }) : <p className="empty-column">Tim ini belum mengambil job.</p>}
                     </div>
                   </details>
                 )
               })}
+              {!workers.length && <p className="empty-column">Belum ada akun tim.</p>}
             </div>
           </DataPanel>
         </section>
@@ -2031,21 +2073,45 @@ export function AdminWorkers(props) {
             <section className="modal-panel worker-modal" role="dialog" aria-modal="true" aria-labelledby="worker-modal-title" onClick={(event) => event.stopPropagation()}>
               <div className="modal-head">
                 <div>
-                  <p className="eyebrow">Akun pekerja baru</p>
-                  <h2 id="worker-modal-title">Buat Akun Pekerja</h2>
+                  <p className="eyebrow">{isEditing ? 'Edit akun tim' : 'Akun tim baru'}</p>
+                  <h2 id="worker-modal-title">{isEditing ? 'Edit Akun Tim' : 'Buat Akun Tim'}</h2>
                 </div>
                 <button className="outline-btn" type="button" onClick={closeModal}>Tutup</button>
               </div>
               <form className="data-form compact" onSubmit={onSubmit}>
                 {error && <p className="form-error">{error}</p>}
-                <label>Nama pekerja<input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
+                <label>Nama tim<input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
                 <label>Email<input required type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></label>
-                <label>Password<input required type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></label>
-                <button className="primary-btn" type="submit">Buat akun pekerja</button>
+                <label>{isEditing ? 'Password baru' : 'Password'}
+                  <span className="password-edit-row">
+                    <input
+                      required={!isEditing}
+                      type={isPasswordVisible ? 'text' : 'password'}
+                      placeholder={isEditing ? 'Kosongkan jika tidak diubah' : ''}
+                      value={form.password}
+                      onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    />
+                    <button className="outline-btn" type="button" onClick={() => setIsPasswordVisible((value) => !value)}>
+                      {isPasswordVisible ? 'Sembunyikan' : 'Lihat'}
+                    </button>
+                  </span>
+                </label>
+                {isEditing && <p className="muted small-note">Password lama tersimpan aman sebagai hash, jadi admin dapat mereset password baru dari form ini.</p>}
+                <button className="primary-btn" type="submit">{isEditing ? 'Simpan akun tim' : 'Buat akun tim'}</button>
               </form>
             </section>
           </div>
         )}
+        <AppModal
+          isOpen={Boolean(workerToDelete)}
+          title="Hapus akun tim?"
+          description={`Akun ${workerToDelete?.name || 'tim ini'} akan dihapus. Job yang pernah diambil tetap tersimpan, tetapi tidak lagi terhubung ke akun ini.`}
+          confirmText="Ya, Hapus"
+          cancelText="Batal"
+          variant="danger"
+          onConfirm={confirmDeleteWorker}
+          onCancel={() => setWorkerToDelete(null)}
+        />
       </section>
     </AdminShell>
   )
@@ -2056,7 +2122,7 @@ export function JobTable({ jobs, trips, compact }) {
   return (
     <div className="table-wrap">
       <table>
-        <thead><tr><th>Paket</th><th>Destinasi</th><th>Tanggal</th><th>Kebutuhan</th><th>Tugas</th><th>Status job</th><th>Pekerja</th></tr></thead>
+        <thead><tr><th>Paket</th><th>Destinasi</th><th>Tanggal</th><th>Kebutuhan</th><th>Tugas</th><th>Status job</th><th>Tim</th></tr></thead>
         <tbody>{rows.map((job) => {
           const trip = trips.find((item) => item.id === job.tripId)
           return <tr key={job.id}><td>{trip?.name}</td><td>{adminText(trip?.destination)}</td><td>{formatDate(job.requestedDate || trip?.date)}</td><td>{job.addonLabel || 'Job trip'}</td><td>{job.task}</td><td><Badge status={job.status} /></td><td>{job.worker || '-'}</td></tr>

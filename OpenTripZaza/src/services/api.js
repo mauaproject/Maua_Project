@@ -83,6 +83,8 @@ export const uploadPaymentProof = (file, bookingId, payment = {}) => {
 
 export const getUsers = (role = '') => request(`users/index.php${role ? `?role=${encodeURIComponent(role)}` : ''}`)
 export const createUser = (data) => jsonPost('users/create.php', data)
+export const updateUser = (data) => jsonPost('users/update.php', data)
+export const deleteUser = (id) => jsonPost('users/delete.php', { id })
 export const loginUser = (email, password, role) => jsonPost('users/login.php', { email, password, role })
 export const registerCustomer = (data) => jsonPost('auth/register.php', data)
 export const resendEmailVerification = (email) => jsonPost('auth/resend-verification.php', { email })

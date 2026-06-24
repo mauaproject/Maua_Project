@@ -29,7 +29,7 @@ const getCompletionType = (job) => {
 function WorkerShell({ title, children, navigate, logout, path }) {
   return (
     <main className="app-shell">
-      <Sidebar title="Pekerja" links={[
+      <Sidebar title="Tim" links={[
         ['/pekerja/dashboard', 'Dashboard'],
         ['/pekerja/job', 'Job tersedia'],
         ['/pekerja/job-saya', 'Job saya'],
@@ -46,7 +46,7 @@ export function WorkerDashboard(props) {
   const ownJobs = props.jobs.filter((job) => job.worker === props.session?.name)
   const takenScopes = new Set(ownJobs.map(getJobScope))
   return (
-    <WorkerShell title="Dashboard Pekerja" {...props}>
+    <WorkerShell title="Dashboard Tim" {...props}>
       <section className="stat-grid">
         <Metric label="Job tersedia" value={props.jobs.filter((job) => job.status === 'Tersedia' && !takenScopes.has(getJobScope(job))).length} />
         <Metric label="Job saya" value={ownJobs.length} />
@@ -95,7 +95,7 @@ export function WorkerJobDetail({ jobId, jobs, trips, takeJob, updateJobStatus, 
           <Metric label="Customer" value={registration?.name || job.customerName || '-'} />
           <Metric label="Peserta" value={registration?.participants || (trip ? trip.quota - trip.slots : 0)} />
           <Metric label="Status job" value={job.status} />
-          <Metric label="Pekerja" value={job.worker || '-'} />
+          <Metric label="Tim" value={job.worker || '-'} />
         </div>
         <InfoBlock title="Detail tugas" text={job.task} />
         {job.status === 'Tersedia' ? <button className="primary-btn" disabled={alreadyTookScope} onClick={() => takeJob(job.id)}>{alreadyTookScope ? 'Sudah ambil booking ini' : 'Ambil job'}</button> : (
@@ -114,7 +114,7 @@ function JobCard({ job, trips, registrations, navigate, takeJob, mine, updateJob
     <article className="job-card">
       <div><h3>{job.addonLabel || 'Job trip'}</h3><p>{trip?.name} - {workerText(trip?.destination)}</p></div>
       <Badge status={job.status} />
-      <p className="job-slot-label">{job.addonLabel ? `Kebutuhan ${job.addonLabel}` : `Slot pekerja ${job.slot || 1} dari ${job.totalWorkers || trip?.workerCount || 1}`}</p>
+      <p className="job-slot-label">{job.addonLabel ? `Kebutuhan ${job.addonLabel}` : `Slot tim ${job.slot || 1} dari ${job.totalWorkers || trip?.workerCount || 1}`}</p>
       <p>{formatDate(job.requestedDate || getRegistrationDate(registration) || trip?.date)} - {registration?.name || job.customerName || 'Customer'} ({registration?.participants || (trip ? trip.quota - trip.slots : 0)} peserta)</p>
       <p className="muted">{job.task}</p>
       {job.status === 'Tersedia' && !mine && <button className="primary-btn" onClick={() => takeJob(job.id)}>Ambil job</button>}

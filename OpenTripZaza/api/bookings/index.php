@@ -15,7 +15,7 @@ runEndpoint(function (PDO $pdo): void {
     $where = match ($view) {
         'active' => "{$endExpression} > NOW()",
         'history' => "{$endExpression} <= NOW()",
-        'archived' => "archived_at IS NOT NULL OR DATE_ADD({$endExpression}, INTERVAL 7 DAY) < NOW()",
+        'archived' => "archived_at IS NOT NULL OR DATE_ADD({$endExpression}, INTERVAL 1 DAY) < NOW()",
         default => '1=1',
     };
     $rows = $pdo->query("SELECT * FROM bookings WHERE {$where} ORDER BY id DESC")->fetchAll();

@@ -172,7 +172,7 @@ Gunakan URL HTTPS dan token acak yang panjang. Script akan:
   `{jam_trip}`, `{jumlah_peserta}`, `{sisa_hari}`, `{nama_admin}`, dan `{nama_brand}`;
 - hanya memproses booking berstatus `Disetujui` atau `Selesai`;
 - mencatat hasil ke tabel `reminder_logs` agar email sukses tidak terkirim ulang;
-- mengarsipkan booking dan jadwal dari daftar aktif setelah `visible_until`;
+- mengarsipkan booking dan jadwal dari daftar aktif setelah H+1 (`visible_until`);
 - mempertahankan seluruh record database (tidak melakukan hard delete).
 
 Booking arsip dapat diambil melalui:

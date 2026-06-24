@@ -39,7 +39,7 @@ runEndpoint(function (PDO $pdo): void {
         $taskId,
     ]);
     if ($statement->rowCount() === 0) {
-        jsonError('Tugas worker tidak ditemukan.', 404);
+        jsonError('Tugas tim tidak ditemukan.', 404);
     }
     jsonSuccess(['id' => $taskId, 'status' => $status, 'proofPhotoUrl' => $proofPath]);
 });

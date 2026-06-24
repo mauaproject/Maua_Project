@@ -4577,6 +4577,32 @@ button:disabled {
   font-size: 13px;
   font-weight: 700;
 }
+.worker-summary-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.compact-btn {
+  min-height: 0;
+  padding: 8px 12px;
+  font-size: 13px;
+  line-height: 1.1;
+}
+.password-edit-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+.password-edit-row input {
+  min-width: 0;
+}
+.small-note {
+  margin: -4px 0 2px;
+  font-size: 13px;
+}
 .worker-job-list {
   display: grid;
   gap: 10px;
@@ -5622,6 +5648,12 @@ td {
   }
   .worker-job-count {
     width: max-content;
+  }
+  .worker-summary-actions {
+    justify-content: flex-start;
+  }
+  .password-edit-row {
+    grid-template-columns: 1fr;
   }
   .registration-submit .primary-btn {
     width: 100%;

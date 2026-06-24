@@ -12,11 +12,11 @@ export function LoginPage({ role, login, navigate }) {
   }
 
   const isAdmin = role === 'admin'
-  const title = isAdmin ? 'Dashboard Admin' : 'Dashboard Pekerja'
-  const eyebrow = isAdmin ? 'Login admin' : 'Login pekerja'
+  const title = isAdmin ? 'Dashboard Admin' : 'Dashboard Tim'
+  const eyebrow = isAdmin ? 'Login admin' : 'Login tim'
   const panelTitle = isAdmin ? 'Kelola operasional open trip goa dari satu tempat.' : 'Pantau dan ambil job trip goa dengan lebih rapi.'
   const panelCopy = isAdmin
-    ? 'Masuk untuk mengatur paket goa, approval pendaftaran, jadwal, dan akun pekerja.'
+    ? 'Masuk untuk mengatur paket goa, approval pendaftaran, jadwal, dan akun tim.'
     : 'Masuk untuk melihat job cave trip, mengambil tugas, dan memperbarui status pekerjaan.'
 
   return (
@@ -27,7 +27,7 @@ export function LoginPage({ role, login, navigate }) {
             <img src={horizontalLogo} alt="Open Cave Trip" width="600" height="180" decoding="async" />
           </button>
           <div>
-            <p className="eyebrow">{isAdmin ? 'Admin area' : 'Pekerja area'}</p>
+            <p className="eyebrow">{isAdmin ? 'Admin area' : 'Tim area'}</p>
             <h2>{panelTitle}</h2>
             <p>{panelCopy}</p>
           </div>

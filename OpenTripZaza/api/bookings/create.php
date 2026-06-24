@@ -215,7 +215,7 @@ runEndpoint(function (PDO $pdo): void {
              trip_type, experience_type, selected_date, visible_until, start_time, end_time, participants, price_per_person,
              total_price, payment_type, payment_status, required_payment_amount, paid_amount, bca_account_number,
              status, notes, transport_from)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,DATE_ADD(?, INTERVAL 7 DAY),?,?,?,?,?,?,?,?,?,?,?,?,?)'
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,DATE_ADD(?, INTERVAL 1 DAY),?,?,?,?,?,?,?,?,?,?,?,?,?)'
         );
         $statement->execute([
             $userId, (int) $data['tripId'], $scheduleId, $sessionId,

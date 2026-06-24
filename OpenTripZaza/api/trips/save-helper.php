@@ -101,12 +101,12 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
     $scheduleInsert = $pdo->prepare(
         'INSERT INTO trip_schedules
          (trip_id, schedule_code, session_name, schedule_date, start_time, end_time, visible_until, archived_at, quota, booked_count, status)
-         VALUES (?,?,?,?,?,?,DATE_ADD(?, INTERVAL 7 DAY),NULL,?,?,?)'
+         VALUES (?,?,?,?,?,?,DATE_ADD(?, INTERVAL 1 DAY),NULL,?,?,?)'
     );
     $scheduleUpdate = $pdo->prepare(
         'UPDATE trip_schedules
          SET schedule_code=?, session_name=?, schedule_date=?, start_time=?, end_time=?,
-             visible_until=DATE_ADD(?, INTERVAL 7 DAY), archived_at=NULL,
+             visible_until=DATE_ADD(?, INTERVAL 1 DAY), archived_at=NULL,
              quota=?, booked_count=?, status=?
          WHERE id=? AND trip_id=?'
     );

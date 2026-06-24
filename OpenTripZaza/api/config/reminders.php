@@ -366,7 +366,7 @@ function runDailyReminders(PDO $pdo): array
          SET archived_at=COALESCE(archived_at, NOW())
          WHERE DATE_ADD(
              TIMESTAMP(selected_date, COALESCE(end_time, '23:59:59')),
-             INTERVAL 7 DAY
+             INTERVAL 1 DAY
          ) < NOW()"
     );
     $pdo->exec(
@@ -375,7 +375,7 @@ function runDailyReminders(PDO $pdo): array
              status=CASE WHEN status='inactive' THEN status ELSE 'inactive' END
          WHERE DATE_ADD(
              TIMESTAMP(schedule_date, COALESCE(end_time, '23:59:59')),
-             INTERVAL 7 DAY
+             INTERVAL 1 DAY
          ) < NOW()"
     );
 

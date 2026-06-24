@@ -78,7 +78,7 @@ function scheduleLifecycleStatus(array $schedule, ?DateTimeImmutable $now = null
         (string) ($schedule['schedule_date'] ?? $schedule['date'] ?? ''),
         $schedule['end_time'] ?? $schedule['endTime'] ?? null
     );
-    if (!empty($schedule['archived_at']) || $endAt->modify('+7 days') < $now) {
+    if (!empty($schedule['archived_at']) || $endAt->modify('+1 day') < $now) {
         return 'archived';
     }
     return $endAt <= $now ? 'completed' : 'upcoming';
@@ -211,7 +211,7 @@ function tripLifecycleStatus(array $trip, array $schedules, array $sessions = []
     if ($latestEndAt === null) {
         return 'active';
     }
-    if ($latestEndAt->modify('+7 days') < $now) {
+    if ($latestEndAt->modify('+1 day') < $now) {
         return 'archived';
     }
     return $latestEndAt <= $now ? 'completed' : 'active';
@@ -544,7 +544,7 @@ function mapTrip(PDO $pdo, array $trip, bool $customerView = false): array
         : $allMappedSessions;
     $lifecycleStatus = tripLifecycleStatus($trip, $schedules, $sessions, $now);
     $lastEndAt = tripLastEndAt($trip, $schedules, $sessions);
-    $archiveEligibleAt = $lastEndAt?->modify('+7 days');
+    $archiveEligibleAt = $lastEndAt?->modify('+1 day');
     $permanentDeleteEligibleAt = $lastEndAt?->modify('+37 days');
     $hasBookableSchedule = ($trip['trip_type'] ?? 'open') === 'private'
         ? privateTripHasBookableSlot($trip, $sessions, $now)
@@ -701,7 +701,7 @@ function mapTripSummaries(PDO $pdo, array $trips, bool $customerView = false): a
         $isPrivate = ($trip['trip_type'] ?? 'open') === 'private';
         $lifecycleStatus = tripLifecycleStatus($trip, $allTripSchedules, $tripSessions, $now);
         $lastEndAt = tripLastEndAt($trip, $allTripSchedules, $tripSessions);
-        $archiveEligibleAt = $lastEndAt?->modify('+7 days');
+        $archiveEligibleAt = $lastEndAt?->modify('+1 day');
         $permanentDeleteEligibleAt = $lastEndAt?->modify('+37 days');
         $hasBookableSchedule = $isPrivate
             ? privateTripHasBookableSlot($trip, $tripSessions, $now)
@@ -875,7 +875,7 @@ function mapBookingRecord(
     $endAt = scheduledEndAt($bookingDate, $booking['end_time'] ?? null);
     $now = appNow();
     $isCompleted = $endAt <= $now;
-    $isArchived = !empty($booking['archived_at']) || $endAt->modify('+7 days') < $now;
+    $isArchived = !empty($booking['archived_at']) || $endAt->modify('+1 day') < $now;
     return [
         'id' => $id,
         'userId' => (int) $booking['user_id'],

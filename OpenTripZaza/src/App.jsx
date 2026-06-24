@@ -273,8 +273,30 @@ function App() {
       role: 'pekerja',
     })
     setWorkerAccounts((current) => [...current, nextWorker])
-    showToast('Akun pekerja berhasil dibuat.')
+    showToast('Akun tim berhasil dibuat.')
     return true
+  }
+
+  const updateWorkerAccount = async (form) => {
+    const normalizedEmail = form.email.trim().toLowerCase()
+    const exists = workerAccounts.some((item) => item.id !== form.id && item.email === normalizedEmail)
+    if (exists) return false
+
+    await api.updateUser({
+      id: form.id,
+      name: form.name.trim(),
+      email: normalizedEmail,
+      password: form.password || '',
+    })
+    await refreshData()
+    showToast('Akun tim berhasil diperbarui.')
+    return true
+  }
+
+  const deleteWorkerAccount = async (id) => {
+    await api.deleteUser(id)
+    await refreshData()
+    showToast('Akun tim berhasil dihapus.')
   }
 
   const logout = () => {
@@ -571,6 +593,8 @@ function App() {
     refreshEmailVerification,
     verifyEmailOtp,
     createWorkerAccount,
+    updateWorkerAccount,
+    deleteWorkerAccount,
     logout,
     checkoutDraft,
     preparePayment,
