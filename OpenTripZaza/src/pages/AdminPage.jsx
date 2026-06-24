@@ -51,6 +51,7 @@ const newSchedule = (index, source = {}) => ({
   date: source.date || '',
   startTime: source.startTime || '',
   endTime: source.endTime || '',
+  driveLinkUrl: source.driveLinkUrl || '',
   quota: Number(source.quota || 10),
   bookedCount: Number(source.bookedCount || 0),
   status: source.status || 'active',
@@ -60,6 +61,7 @@ const newSession = (index, source = {}) => ({
   name: source.name || `Sesi ${index + 1}`,
   startTime: source.startTime || '',
   endTime: source.endTime || '',
+  driveLinkUrl: source.driveLinkUrl || '',
   status: source.status || 'active',
 })
 const resizeScheduleList = (items, count) => Array.from({ length: Math.max(1, Number(count) || 1) }, (_, index) => newSchedule(index, items[index]))
@@ -68,6 +70,7 @@ const newTripAddon = (source = {}) => ({
   id: source.id || null,
   name: source.name || source.label || '',
   price: Number(source.price || 0),
+  maxParticipantsPerUnit: source.maxParticipantsPerUnit || '',
   workerAction: source.workerAction === 'drive_link' ? 'drive_link' : 'none',
 })
 
@@ -112,6 +115,7 @@ const normalizeTripForm = (trip) => {
     imageUrls: [],
     status: 'Tersedia',
     ...trip,
+    includeDriveLink: Boolean(trip?.includeDriveLink),
     maxCustomPax,
     pricePerPersonTiers,
     aboveMaxPaxRule: ABOVE_MAX_PAX_RULE,
@@ -841,8 +845,8 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
         return
       }
     }
-    if ((form.addons || []).some((addon) => !addon.name.trim() || Number(addon.price) < 0)) {
-      setFormError('Setiap add-on wajib memiliki nama dan harga tidak boleh negatif.')
+    if ((form.addons || []).some((addon) => !addon.name.trim() || Number(addon.price) < 0 || (addon.maxParticipantsPerUnit !== '' && Number(addon.maxParticipantsPerUnit) <= 0))) {
+      setFormError('Setiap add-on wajib memiliki nama, harga tidak boleh negatif, dan maksimal peserta harus lebih dari 0 jika diisi.')
       return
     }
     const imageUrls = Array.isArray(form.imageUrls) ? form.imageUrls.filter(Boolean) : []
@@ -930,6 +934,7 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
           ...addon,
           name: addon.name.trim(),
           price: Number(addon.price || 0),
+          maxParticipantsPerUnit: addon.maxParticipantsPerUnit === '' ? null : Number(addon.maxParticipantsPerUnit),
         })),
       })
       if (saved === false) {
@@ -966,6 +971,10 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
               <label>Destinasi Indonesia<input required value={form.destinationId} onChange={(e) => setForm({ ...form, destinationId: e.target.value })} /></label>
               <label>Destinasi English<input value={form.destinationEn} onChange={(e) => setForm({ ...form, destinationEn: e.target.value })} /></label>
               <label>Status<select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>{tripStatuses.map((status) => <option key={status}>{status}</option>)}</select></label>
+              <label>Dokumentasi bawaan<select value={form.includeDriveLink ? 'include' : 'none'} onChange={(e) => setForm({ ...form, includeDriveLink: e.target.value === 'include' })}>
+                <option value="include">Include link drive</option>
+                <option value="none">Tidak include link drive</option>
+              </select><small>Jika aktif, admin dapat mengisi link dokumentasi bawaan per jadwal/sesi.</small></label>
             </div>
           </section>
 
@@ -988,6 +997,7 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
                       <label>Jam selesai<input required type="time" value={schedule.endTime} onChange={(e) => updateSchedule(index, 'endTime', e.target.value)} /></label>
                       <label>Kuota sesi<input required type="number" min="1" value={schedule.quota} onChange={(e) => updateSchedule(index, 'quota', e.target.value)} /></label>
                       <label>Status sesi<select value={schedule.status} onChange={(e) => updateSchedule(index, 'status', e.target.value)}><option value="active">Active</option><option value="full">Full</option><option value="inactive">Inactive</option></select></label>
+                      {form.includeDriveLink && <label className="full">Link drive dokumentasi trip<input type="url" placeholder="https://drive.google.com/..." value={schedule.driveLinkUrl || ''} onChange={(e) => updateSchedule(index, 'driveLinkUrl', e.target.value)} /></label>}
                       {Number(schedule.bookedCount) > 0 && <small>Sudah ada {schedule.bookedCount} peserta disetujui pada sesi ini.</small>}
                     </div>
                   ))}
@@ -1072,6 +1082,7 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
                           <label>Jam mulai<input required type="time" value={session.startTime} onChange={(e) => updateSession(index, 'startTime', e.target.value)} /></label>
                           <label>Jam selesai<input required type="time" value={session.endTime} onChange={(e) => updateSession(index, 'endTime', e.target.value)} /></label>
                           <label>Status sesi<select value={session.status} onChange={(e) => updateSession(index, 'status', e.target.value)}><option value="active">Active</option><option value="inactive">Inactive</option></select></label>
+                          {form.includeDriveLink && <label className="full">Link drive dokumentasi trip<input type="url" placeholder="https://drive.google.com/..." value={session.driveLinkUrl || ''} onChange={(e) => updateSession(index, 'driveLinkUrl', e.target.value)} /></label>}
                         </div>
                       ))}
                     </div>
@@ -1092,6 +1103,7 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
                   <h4>Add-on {index + 1}</h4>
                   <label>Nama add-on<input required value={addon.name} onChange={(event) => updateTripAddon(index, 'name', event.target.value)} /></label>
                   <label>Harga add-on<input required type="number" min="0" value={addon.price} onChange={(event) => updateTripAddon(index, 'price', event.target.value)} /></label>
+                  <label>Maksimal peserta per add-on<input type="number" min="1" placeholder="Kosong = 1 kali" value={addon.maxParticipantsPerUnit} onChange={(event) => updateTripAddon(index, 'maxParticipantsPerUnit', event.target.value)} /><small>Contoh mobil 5 orang: peserta 6-10 otomatis dihitung 2 unit.</small></label>
                   <label>Aksi tim<select value={addon.workerAction} onChange={(event) => updateTripAddon(index, 'workerAction', event.target.value)}>
                     <option value="drive_link">Tim upload link Google Drive</option>
                     <option value="none">Tim tidak perlu upload apa pun</option>
@@ -1499,10 +1511,11 @@ export function AdminSchedule(props) {
   )
 }
 
-function AdminPrivateScheduleDetail({ registration, trips, jobs, setRegistrationStatus, navigate, ...props }) {
+function AdminPrivateScheduleDetail({ registration, trips, jobs, setRegistrationStatus, navigate, updateTripDriveLink, ...props }) {
   const trip = trips.find((item) => item.id === registration.tripId)
   const tripJobs = jobs.filter((job) => Number(job.registrationId) === Number(registration.id))
   const assignedJobs = tripJobs.filter((job) => job.worker)
+  const [driveLinkDraft, setDriveLinkDraft] = useState(registration.tripDriveLinkUrl || '')
   const participantDetails = Array.isArray(registration.participantDetails) && registration.participantDetails.length
     ? registration.participantDetails
     : [{ name: registration.name, email: registration.email, whatsapp: registration.whatsapp, address: registration.address, age: registration.age, gender: registration.gender, healthNotes: registration.healthNotes, bloodType: registration.bloodType, heightCm: registration.heightCm, weightKg: registration.weightKg, shoeSize: registration.shoeSize }]
@@ -1567,6 +1580,24 @@ function AdminPrivateScheduleDetail({ registration, trips, jobs, setRegistration
           <DataPanel title="Hasil Pekerjaan Tim">
             <AdminJobResultsPanel jobs={tripJobs} />
           </DataPanel>
+
+          {trip?.includeDriveLink && (
+            <DataPanel title="Dokumentasi Bawaan Trip">
+              <form className="drive-link-form" onSubmit={async (event) => {
+                event.preventDefault()
+                await updateTripDriveLink({
+                  tripId: trip.id,
+                  sessionId: registration.sessionDatabaseId,
+                  selectedDate: registrationDate,
+                  driveLinkUrl: driveLinkDraft,
+                })
+              }}>
+                <label>Link Google Drive jadwal<input type="url" placeholder="https://drive.google.com/..." value={driveLinkDraft} onChange={(event) => setDriveLinkDraft(event.target.value)} /></label>
+                <button className="primary-btn" type="submit">Simpan link drive</button>
+                {driveLinkDraft && <a className="outline-btn" href={driveLinkDraft} target="_blank" rel="noreferrer">Buka link</a>}
+              </form>
+            </DataPanel>
+          )}
         </section>
 
       </section>
@@ -1650,7 +1681,7 @@ function AdminPrivateTripScheduleDetail({ trip, registrations, jobs, setRegistra
   )
 }
 
-function AdminScheduleDetail({ trip, scheduleId, registrations, jobs, setRegistrationStatus, navigate, archivedView = false, ...props }) {
+function AdminScheduleDetail({ trip, scheduleId, registrations, jobs, setRegistrationStatus, navigate, updateTripDriveLink, archivedView = false, ...props }) {
   const selectedSchedule = scheduleId ? getTripSchedules(trip).find((schedule) => schedule.id === scheduleId) : null
   const tripRegistrations = registrations
     .filter((item) => item.tripId === trip.id)
@@ -1672,6 +1703,9 @@ function AdminScheduleDetail({ trip, scheduleId, registrations, jobs, setRegistr
     )
     return { ...schedule, approvedCount, reservedCount, remaining: Math.max(Number(schedule.quota || 0) - reservedCount, 0) }
   })
+  const [driveLinkDrafts, setDriveLinkDrafts] = useState(() => Object.fromEntries(
+    tripSchedules.map((schedule) => [schedule.id, schedule.driveLinkUrl || '']),
+  ))
   const [activeStatus, setActiveStatus] = useState('Menunggu Approval')
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
@@ -1745,6 +1779,20 @@ function AdminScheduleDetail({ trip, scheduleId, registrations, jobs, setRegistr
                       <div><dt>Sisa kuota</dt><dd>{schedule.remaining}</dd></div>
                       <div><dt>Status</dt><dd><Badge status={lifecycleLabel(schedule.lifecycleStatus)} label={lifecycleLabel(schedule.lifecycleStatus)} /></dd></div>
                     </dl>
+                    {trip.includeDriveLink && (
+                      <form className="drive-link-form compact-drive-link-form" onSubmit={async (event) => {
+                        event.preventDefault()
+                        await updateTripDriveLink({
+                          tripId: trip.id,
+                          scheduleId: schedule.databaseId,
+                          driveLinkUrl: driveLinkDrafts[schedule.id] ?? schedule.driveLinkUrl ?? '',
+                        })
+                      }}>
+                        <label>Link drive dokumentasi trip<input type="url" placeholder="https://drive.google.com/..." value={driveLinkDrafts[schedule.id] ?? schedule.driveLinkUrl ?? ''} onChange={(event) => setDriveLinkDrafts({ ...driveLinkDrafts, [schedule.id]: event.target.value })} /></label>
+                        <button className="outline-btn" type="submit">Simpan link</button>
+                        {(driveLinkDrafts[schedule.id] ?? schedule.driveLinkUrl) && <a className="outline-btn" href={driveLinkDrafts[schedule.id] ?? schedule.driveLinkUrl} target="_blank" rel="noreferrer">Buka</a>}
+                      </form>
+                    )}
                   </div>
                 </article>
               ))}

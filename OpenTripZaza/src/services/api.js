@@ -35,6 +35,7 @@ export const getTripSummaries = (includeAll = false) => request(`trips/index.php
 export const getTripDetail = (id, includeAll = false) => request(`trips/detail.php?id=${encodeURIComponent(id)}${includeAll ? '&all=1' : ''}`)
 export const createTrip = (data) => jsonPost('trips/create.php', data)
 export const updateTrip = (data) => jsonPost('trips/update.php', data)
+export const updateTripDriveLink = (data) => jsonPost('trips/update-drive-link.php', data)
 export const deleteTrip = (id) => jsonPost('trips/delete.php', { id })
 export const permanentlyDeleteTrip = (id, confirmation, adminEmail) => jsonPost('trips/permanent-delete.php', { id, confirmation, adminEmail })
 

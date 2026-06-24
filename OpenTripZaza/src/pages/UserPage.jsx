@@ -11,6 +11,7 @@ import { getPackagePricePerPerson, getPackagePriceRange, getPrivatePackages } fr
 import { getPrivatePricePerPerson, getPrivatePriceRange, getTripStartingPrice } from '../utils/pricing'
 import { getJakartaToday, getOpenTripScheduleOptions, getPrivateDateRange, getPrivateSessionOptions, getRegistrationDate, getTripSchedules, isDateWithinPrivateRange } from '../utils/schedules'
 import { bloodTypeOptions, isCustomerTripProfileComplete, validateCustomerTripProfile } from '../utils/customerProfile'
+import { getAddonLineTotal, getAddonUnitCount, hydrateAddonForParticipants } from '../utils/addons'
 import { AppModal, Badge, InfoBlock, NotFound } from './shared'
 
 const useCustomerLanguage = () => {
@@ -1150,7 +1151,7 @@ export function RegistrationPage({
   const availableAddons = Array.isArray(selectedTrip?.addons) ? selectedTrip.addons : []
   const selectedAddonTotal = availableAddons
     .filter((addon) => form.addons.includes(addon.id))
-    .reduce((total, addon) => total + Number(addon.price || 0), 0)
+    .reduce((total, addon) => total + getAddonLineTotal(addon, participants), 0)
   const tripSubtotal = participants * pricePerPerson
   const estimatedTotal = tripSubtotal + selectedAddonTotal
   const isTripProfileComplete = isCustomerTripProfileComplete(customerProfile)
@@ -1254,7 +1255,9 @@ export function RegistrationPage({
       userId: session.id,
       tripName: selectedTrip.name,
       tripDestination: getTripDestination(selectedTrip, lang),
-      selectedAddonDetails: availableAddons.filter((addon) => form.addons.includes(addon.id)),
+      selectedAddonDetails: availableAddons
+        .filter((addon) => form.addons.includes(addon.id))
+        .map((addon) => hydrateAddonForParticipants(addon, participants)),
       selectedPackageId: selectedPackage?.id || '',
       selectedPackageName: selectedPackage?.name || '',
       selectedPackagePrice: selectedPackage ? pricePerPerson : 0,
@@ -1475,15 +1478,23 @@ export function RegistrationPage({
               </div>
             </div>
             {availableAddons.length ? <section className="addon-option-grid">
-              {availableAddons.map((option) => (
+              {availableAddons.map((option) => {
+                const addonUnits = getAddonUnitCount(option, participants)
+                const addonTotal = getAddonLineTotal(option, participants)
+                return (
                 <label className="addon-option-card" key={option.id}>
                   <input type="checkbox" checked={form.addons.includes(option.id)} onChange={() => toggleAddon(option.id)} />
                   <span>
                     <strong>{option.name || option.label}</strong>
-                    <small>{formatCurrency(option.price)}</small>
+                    <small>
+                      {formatCurrency(addonTotal)}
+                      {addonUnits > 1 ? ` (${addonUnits} unit x ${formatCurrency(option.price)})` : ''}
+                      {option.maxParticipantsPerUnit ? ` - maks ${option.maxParticipantsPerUnit} peserta/unit` : ''}
+                    </small>
                   </span>
                 </label>
-              ))}
+                )
+              })}
             </section> : <p className="muted">Trip ini tidak memiliki add-on.</p>}
 
             <div className="form-section-head">
@@ -1717,7 +1728,7 @@ export function PaymentConfirmationPage({
                 <div><dt>Jumlah peserta</dt><dd>{checkoutDraft.participants || 1} orang</dd></div>
                 <div><dt>Harga per orang</dt><dd>{formatCurrency(checkoutDraft.hargaPerOrang || checkoutDraft.pricePerPerson || 0)}</dd></div>
                 <div><dt>Subtotal trip</dt><dd>{formatCurrency((checkoutDraft.participants || 1) * (checkoutDraft.hargaPerOrang || checkoutDraft.pricePerPerson || 0))}</dd></div>
-                <div><dt>Add-on</dt><dd>{selectedAddons.length ? selectedAddons.map((addon) => addon.name || addon.label).join(', ') : '-'}</dd></div>
+                <div><dt>Add-on</dt><dd>{selectedAddons.length ? selectedAddons.map((addon) => `${addon.name || addon.label}${Number(addon.quantity || 1) > 1 ? ` x${addon.quantity}` : ''}`).join(', ') : '-'}</dd></div>
                 <div><dt>Total harga</dt><dd>{formatCurrency(totalPrice)}</dd></div>
                 <div><dt>Pilihan pembayaran</dt><dd>{getPaymentTypeLabel(checkoutDraft.paymentType)}</dd></div>
                 <div className="payment-total-row"><dt>Nominal yang harus dibayar</dt><dd>{formatCurrency(requiredPaymentAmount)}</dd></div>
@@ -2183,8 +2194,13 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], userRevie
             {selectedAddons.length > 0 && (
               <div className="selected-addon-list account-addon-list">
                 {selectedAddons.map((addon) => (
-                  <span key={addon.id}>{t(`addons.${addon.id}.label`, { defaultValue: addon.label })}{addon.detail ? t('account.addonFrom', { detail: addon.detail }) : ''}</span>
+                  <span key={addon.id}>{t(`addons.${addon.id}.label`, { defaultValue: addon.label })}{Number(addon.quantity || 1) > 1 ? ` x${addon.quantity}` : ''}{addon.detail ? t('account.addonFrom', { detail: addon.detail }) : ''}</span>
                 ))}
+              </div>
+            )}
+            {selectedOrder.tripDriveLinkUrl && (
+              <div className="account-documentation-actions">
+                <a className="primary-btn" href={selectedOrder.tripDriveLinkUrl} target="_blank" rel="noreferrer">Buka Dokumentasi Trip</a>
               </div>
             )}
             <CustomerWorkResults jobs={selectedWorkResults} t={t} dateLocale={dateLocale} />

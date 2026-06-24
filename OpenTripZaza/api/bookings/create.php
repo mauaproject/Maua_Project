@@ -143,7 +143,7 @@ runEndpoint(function (PDO $pdo): void {
         if ($requestedAddonIds) {
             $placeholders = implode(',', array_fill(0, count($requestedAddonIds), '?'));
             $addonLookup = $pdo->prepare(
-                "SELECT id, name, price, worker_action FROM trip_addons
+                "SELECT id, name, price, max_participants_per_unit, worker_action FROM trip_addons
                  WHERE trip_id = ? AND status = 'active' AND id IN ($placeholders)"
             );
             $addonLookup->execute([(int) $trip['id'], ...$requestedAddonIds]);
@@ -152,7 +152,13 @@ runEndpoint(function (PDO $pdo): void {
                 throw new InvalidArgumentException('Salah satu add-on tidak tersedia untuk trip ini.');
             }
         }
-        $addonTotal = array_sum(array_map(static fn(array $addon): float => (float) $addon['price'], $selectedAddons));
+        $addonTotal = array_sum(array_map(static function (array $addon) use ($participants): float {
+            $maxParticipantsPerUnit = nullableInt($addon['max_participants_per_unit'] ?? null);
+            $quantity = $maxParticipantsPerUnit && $maxParticipantsPerUnit > 0
+                ? (int) ceil($participants / $maxParticipantsPerUnit)
+                : 1;
+            return (float) $addon['price'] * max(1, $quantity);
+        }, $selectedAddons));
         $tripSubtotal = $participants * $pricePerPerson;
         $packagePrice = $selectedPackage ? $pricePerPerson : 0;
         $totalPrice = $tripSubtotal + $addonTotal;
@@ -284,10 +290,14 @@ runEndpoint(function (PDO $pdo): void {
         }
 
         $addonStatement = $pdo->prepare(
-            'INSERT INTO booking_addons (booking_id, addon_id, trip_addon_id, quantity, price) VALUES (?,NULL,?,1,?)'
+            'INSERT INTO booking_addons (booking_id, addon_id, trip_addon_id, quantity, price) VALUES (?,NULL,?,?,?)'
         );
         foreach ($selectedAddons as $addon) {
-            $addonStatement->execute([$bookingId, (int) $addon['id'], (float) $addon['price']]);
+            $maxParticipantsPerUnit = nullableInt($addon['max_participants_per_unit'] ?? null);
+            $quantity = $maxParticipantsPerUnit && $maxParticipantsPerUnit > 0
+                ? (int) ceil($participants / $maxParticipantsPerUnit)
+                : 1;
+            $addonStatement->execute([$bookingId, (int) $addon['id'], max(1, $quantity), (float) $addon['price']]);
         }
 
         if ($hasPayment) {

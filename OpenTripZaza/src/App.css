@@ -3107,6 +3107,11 @@ button:disabled {
 .admin-schedule-action-list {
   display: grid;
   gap: 10px;
+  max-height: min(48vh, 520px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 6px;
+  scrollbar-width: thin;
 }
 .admin-schedule-action-row {
   display: grid;
@@ -3154,6 +3159,35 @@ button:disabled {
   color: #241a08;
   font-size: 12px;
   font-weight: 900;
+}
+.drive-link-form {
+  display: grid;
+  gap: 12px;
+}
+.drive-link-form label {
+  display: grid;
+  gap: 8px;
+  color: #241a08;
+  font-weight: 800;
+}
+.drive-link-form input {
+  width: 100%;
+  border: 1px solid #e6cfa8;
+  border-radius: 12px;
+  background: #fffdf8;
+  padding: 12px 14px;
+  font: inherit;
+}
+.compact-drive-link-form {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: end;
+  margin-top: 14px;
+}
+.account-documentation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 14px 0;
 }
 .admin-schedule-mini-list {
   margin: 12px 0 0;
@@ -5400,6 +5434,11 @@ td {
 .admin-trip-page .admin-schedule-mini-list {
   gap: 0;
   margin: 0;
+  max-height: 128px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+  scrollbar-width: thin;
 }
 .admin-trip-page .admin-schedule-mini-list span {
   display: flex;
@@ -5480,6 +5519,15 @@ td {
     grid-template-columns: 1fr;
   }
 }
+@media (max-width: 760px) {
+  .compact-drive-link-form {
+    grid-template-columns: 1fr;
+  }
+  .account-documentation-actions .primary-btn {
+    width: 100%;
+  }
+}
+
 @media (max-width: 760px) {
   .public-menu-backdrop {
     display: block;

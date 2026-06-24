@@ -27,6 +27,7 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
     $privateBookingMode = $type === 'private' && ($data['privateBookingMode'] ?? '') === 'shared'
         ? 'shared'
         : 'exclusive';
+    $includeDriveLink = boolValue($data['includeDriveLink'] ?? false);
     $quota = $type === 'open'
         ? array_sum(array_map(static fn(array $item): int => (int) ($item['quota'] ?? 0), $schedules))
         : (int) ($data['quota'] ?? $data['maxParticipants'] ?? 1);
@@ -58,6 +59,7 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
         $type === 'private' ? ($data['privateNotes'] ?? '') : '',
         $type === 'private' ? 1 : boolValue($data['flexibleSchedule'] ?? false),
         $privateBookingMode,
+        $includeDriveLink ? 1 : 0,
         $h7ReminderSubject !== '' ? $h7ReminderSubject : null,
         $h7ReminderBody !== '' ? $h7ReminderBody : null,
     ];
@@ -68,8 +70,8 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
             (name, trip_type, experience_type, status, destination_id, destination_en, description_id, description_en,
              activities_id, activities_en, facilities_id, facilities_en, price, quota, slots, min_participants,
              max_participants, max_custom_pax, available_start_date, available_end_date, private_notes, flexible_schedule,
-             private_booking_mode, h7_reminder_subject, h7_reminder_body)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
+             private_booking_mode, include_drive_link, h7_reminder_subject, h7_reminder_body)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)'
         );
         $statement->execute($values);
         $tripId = (int) $pdo->lastInsertId();
@@ -79,7 +81,7 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
              description_id=?, description_en=?, activities_id=?, activities_en=?, facilities_id=?, facilities_en=?,
              price=?, quota=?, slots=?, min_participants=?, max_participants=?, max_custom_pax=?,
              available_start_date=?, available_end_date=?, private_notes=?, flexible_schedule=?,
-             private_booking_mode=?, h7_reminder_subject=?, h7_reminder_body=?, updated_at=CURRENT_TIMESTAMP
+             private_booking_mode=?, include_drive_link=?, h7_reminder_subject=?, h7_reminder_body=?, updated_at=CURRENT_TIMESTAMP
              WHERE id=?'
         );
         $statement->execute([...$values, $tripId]);
@@ -100,12 +102,13 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
     }
     $scheduleInsert = $pdo->prepare(
         'INSERT INTO trip_schedules
-         (trip_id, schedule_code, session_name, schedule_date, start_time, end_time, visible_until, archived_at, quota, booked_count, status)
-         VALUES (?,?,?,?,?,?,DATE_ADD(?, INTERVAL 1 DAY),NULL,?,?,?)'
+         (trip_id, schedule_code, session_name, schedule_date, start_time, end_time, drive_link_url, visible_until, archived_at, quota, booked_count, status)
+         VALUES (?,?,?,?,?,?,?,DATE_ADD(?, INTERVAL 1 DAY),NULL,?,?,?)'
     );
     $scheduleUpdate = $pdo->prepare(
         'UPDATE trip_schedules
          SET schedule_code=?, session_name=?, schedule_date=?, start_time=?, end_time=?,
+             drive_link_url=?,
              visible_until=DATE_ADD(?, INTERVAL 1 DAY), archived_at=NULL,
              quota=?, booked_count=?, status=?
          WHERE id=? AND trip_id=?'
@@ -141,6 +144,7 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
             $scheduleDate,
             $scheduleStartTime,
             $scheduleEndTime,
+            nullableUrl($schedule['driveLinkUrl'] ?? null, 'Link drive jadwal harus berupa URL yang valid.'),
             $scheduleDate,
             (int) ($schedule['quota'] ?? 0),
             (int) ($schedule['bookedCount'] ?? 0),
@@ -173,10 +177,10 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
         $existingSessions[$item['session_code']] = (int) $item['id'];
     }
     $sessionInsert = $pdo->prepare(
-        'INSERT INTO trip_sessions (trip_id, session_code, name, start_time, end_time, status) VALUES (?,?,?,?,?,?)'
+        'INSERT INTO trip_sessions (trip_id, session_code, name, start_time, end_time, drive_link_url, status) VALUES (?,?,?,?,?,?,?)'
     );
     $sessionUpdate = $pdo->prepare(
-        'UPDATE trip_sessions SET session_code=?, name=?, start_time=?, end_time=?, status=? WHERE id=? AND trip_id=?'
+        'UPDATE trip_sessions SET session_code=?, name=?, start_time=?, end_time=?, drive_link_url=?, status=? WHERE id=? AND trip_id=?'
     );
     $retainedSessionCodes = [];
     foreach ($sessions as $index => $session) {
@@ -184,7 +188,9 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
         $retainedSessionCodes[] = $code;
         $values = [
             $code, $session['name'] ?? 'Sesi ' . ($index + 1), $session['startTime'] ?? null,
-            $session['endTime'] ?? null, ($session['status'] ?? 'active') === 'inactive' ? 'inactive' : 'active',
+            $session['endTime'] ?? null,
+            nullableUrl($session['driveLinkUrl'] ?? null, 'Link drive sesi harus berupa URL yang valid.'),
+            ($session['status'] ?? 'active') === 'inactive' ? 'inactive' : 'active',
         ];
         if (isset($existingSessions[$code])) {
             $sessionUpdate->execute([...$values, $existingSessions[$code], $tripId]);
@@ -313,11 +319,11 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
 
     $incomingAddonIds = [];
     $addonInsert = $pdo->prepare(
-        "INSERT INTO trip_addons (trip_id, name, price, worker_action, status, sort_order)
-         VALUES (?,?,?,?, 'active', ?)"
+        "INSERT INTO trip_addons (trip_id, name, price, max_participants_per_unit, worker_action, status, sort_order)
+         VALUES (?,?,?,?,?, 'active', ?)"
     );
     $addonUpdate = $pdo->prepare(
-        "UPDATE trip_addons SET name=?, price=?, worker_action=?, status='active', sort_order=?
+        "UPDATE trip_addons SET name=?, price=?, max_participants_per_unit=?, worker_action=?, status='active', sort_order=?
          WHERE id=? AND trip_id=?"
     );
     foreach ((array) ($data['addons'] ?? []) as $index => $addon) {
@@ -326,10 +332,14 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
             throw new InvalidArgumentException('Nama add-on wajib diisi.');
         }
         $price = max(0, (float) ($addon['price'] ?? 0));
+        $maxParticipantsPerUnit = nullableInt($addon['maxParticipantsPerUnit'] ?? null);
+        if ($maxParticipantsPerUnit !== null && $maxParticipantsPerUnit <= 0) {
+            throw new InvalidArgumentException('Maksimal peserta per add-on harus lebih dari 0.');
+        }
         $workerAction = ($addon['workerAction'] ?? 'none') === 'drive_link' ? 'drive_link' : 'none';
         $addonId = nullableInt($addon['id'] ?? null);
         if ($addonId) {
-            $addonUpdate->execute([$name, $price, $workerAction, $index, $addonId, $tripId]);
+            $addonUpdate->execute([$name, $price, $maxParticipantsPerUnit, $workerAction, $index, $addonId, $tripId]);
             if ($addonUpdate->rowCount() === 0) {
                 $exists = $pdo->prepare('SELECT id FROM trip_addons WHERE id=? AND trip_id=?');
                 $exists->execute([$addonId, $tripId]);
@@ -339,7 +349,7 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
             }
             $incomingAddonIds[] = $addonId;
         } else {
-            $addonInsert->execute([$tripId, $name, $price, $workerAction, $index]);
+            $addonInsert->execute([$tripId, $name, $price, $maxParticipantsPerUnit, $workerAction, $index]);
             $incomingAddonIds[] = (int) $pdo->lastInsertId();
         }
     }

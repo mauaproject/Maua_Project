@@ -50,6 +50,18 @@ function nullableInt(mixed $value): ?int
     return $value === null || $value === '' ? null : (int) $value;
 }
 
+function nullableUrl(mixed $value, string $message = 'URL tidak valid.'): ?string
+{
+    $url = trim((string) ($value ?? ''));
+    if ($url === '') {
+        return null;
+    }
+    if (!filter_var($url, FILTER_VALIDATE_URL)) {
+        throw new InvalidArgumentException($message);
+    }
+    return $url;
+}
+
 function nullableFloat(mixed $value): ?float
 {
     return $value === null || $value === '' ? null : (float) $value;
@@ -561,8 +573,8 @@ function mapTrip(PDO $pdo, array $trip, bool $customerView = false): array
         return $statement->fetchAll();
     };
     $images = $query('SELECT id, image_url, thumbnail_url, sort_order FROM trip_images WHERE trip_id = ? ORDER BY sort_order, id');
-    $schedules = $query('SELECT id, schedule_code, session_name, schedule_date, start_time, end_time, visible_until, archived_at, quota, booked_count, status FROM trip_schedules WHERE trip_id = ? ORDER BY schedule_date, start_time, id');
-    $sessions = $query('SELECT id, session_code, name, start_time, end_time, status FROM trip_sessions WHERE trip_id = ? ORDER BY start_time, id');
+    $schedules = $query('SELECT id, schedule_code, session_name, schedule_date, start_time, end_time, drive_link_url, visible_until, archived_at, quota, booked_count, status FROM trip_schedules WHERE trip_id = ? ORDER BY schedule_date, start_time, id');
+    $sessions = $query('SELECT id, session_code, name, start_time, end_time, drive_link_url, status FROM trip_sessions WHERE trip_id = ? ORDER BY start_time, id');
     $packages = $query('SELECT id, package_code, name, price, max_custom_pax, destinations_json, description, status, sort_order FROM private_trip_packages WHERE trip_id = ? ORDER BY sort_order, id');
     $packageTiers = $query(
         'SELECT ppt.package_id, ppt.pax_count, ppt.price_per_person
@@ -571,7 +583,7 @@ function mapTrip(PDO $pdo, array $trip, bool $customerView = false): array
          WHERE ptp.trip_id = ? ORDER BY ppt.package_id, ppt.pax_count'
     );
     $tiers = $query('SELECT pax_count, price_per_person FROM private_price_tiers WHERE trip_id = ? ORDER BY pax_count');
-    $addons = $query("SELECT id, name, price, worker_action, status, sort_order FROM trip_addons WHERE trip_id = ? AND status = 'active' ORDER BY sort_order, id");
+    $addons = $query("SELECT id, name, price, max_participants_per_unit, worker_action, status, sort_order FROM trip_addons WHERE trip_id = ? AND status = 'active' ORDER BY sort_order, id");
     $tierMap = [];
     foreach ($tiers as $tier) {
         $tierMap[(string) $tier['pax_count']] = (float) $tier['price_per_person'];
@@ -586,6 +598,7 @@ function mapTrip(PDO $pdo, array $trip, bool $customerView = false): array
             'date' => $item['schedule_date'],
             'startTime' => $item['start_time'] ? substr((string) $item['start_time'], 0, 5) : '',
             'endTime' => $item['end_time'] ? substr((string) $item['end_time'], 0, 5) : '',
+            'driveLinkUrl' => $item['drive_link_url'] ?? '',
             'visibleUntil' => $item['visible_until'] ?? null,
             'isArchived' => $lifecycleStatus === 'archived',
             'lifecycleStatus' => $lifecycleStatus,
@@ -607,6 +620,7 @@ function mapTrip(PDO $pdo, array $trip, bool $customerView = false): array
         'name' => $item['name'],
         'startTime' => substr((string) $item['start_time'], 0, 5),
         'endTime' => substr((string) $item['end_time'], 0, 5),
+        'driveLinkUrl' => $item['drive_link_url'] ?? '',
         'status' => $item['status'],
     ], $sessions);
     $mappedSessions = $customerView
@@ -657,6 +671,7 @@ function mapTrip(PDO $pdo, array $trip, bool $customerView = false): array
         'privateNotes' => $trip['private_notes'] ?? '',
         'flexibleSchedule' => (bool) $trip['flexible_schedule'],
         'privateBookingMode' => ($trip['private_booking_mode'] ?? 'exclusive') === 'shared' ? 'shared' : 'exclusive',
+        'includeDriveLink' => !empty($trip['include_drive_link']),
         'h7ReminderSubject' => $trip['h7_reminder_subject'] ?? '',
         'h7ReminderBody' => $trip['h7_reminder_body'] ?? '',
         'date' => $mappedSchedules[0]['date'] ?? '',
@@ -695,6 +710,7 @@ function mapTrip(PDO $pdo, array $trip, bool $customerView = false): array
             'name' => $item['name'],
             'label' => $item['name'],
             'price' => (float) $item['price'],
+            'maxParticipantsPerUnit' => nullableInt($item['max_participants_per_unit'] ?? null),
             'workerAction' => $item['worker_action'],
             'status' => $item['status'],
             'sortOrder' => (int) $item['sort_order'],
@@ -722,7 +738,7 @@ function mapTripSummaries(PDO $pdo, array $trips, bool $customerView = false): a
         }
     }
     $scheduleStatement = $pdo->prepare(
-        "SELECT trip_id, schedule_code, session_name, schedule_date, start_time, end_time, visible_until,
+        "SELECT trip_id, schedule_code, session_name, schedule_date, start_time, end_time, drive_link_url, visible_until,
                 archived_at, quota, booked_count, status
          FROM trip_schedules WHERE trip_id IN ($placeholders)
          ORDER BY trip_id, schedule_date, start_time, id"
@@ -739,6 +755,7 @@ function mapTripSummaries(PDO $pdo, array $trips, bool $customerView = false): a
             'date' => $schedule['schedule_date'],
             'startTime' => $schedule['start_time'] ? substr((string) $schedule['start_time'], 0, 5) : '',
             'endTime' => $schedule['end_time'] ? substr((string) $schedule['end_time'], 0, 5) : '',
+            'driveLinkUrl' => $schedule['drive_link_url'] ?? '',
             'visibleUntil' => $schedule['visible_until'] ?? null,
             'isArchived' => $lifecycleStatus === 'archived',
             'lifecycleStatus' => $lifecycleStatus,
@@ -749,7 +766,7 @@ function mapTripSummaries(PDO $pdo, array $trips, bool $customerView = false): a
         ];
     }
     $sessionStatement = $pdo->prepare(
-        "SELECT trip_id, start_time, end_time, status
+        "SELECT trip_id, start_time, end_time, drive_link_url, status
          FROM trip_sessions WHERE trip_id IN ($placeholders)
          ORDER BY trip_id, start_time, id"
     );
@@ -807,6 +824,7 @@ function mapTripSummaries(PDO $pdo, array $trips, bool $customerView = false): a
             'availableStartDate' => $trip['available_start_date'],
             'availableEndDate' => $trip['available_end_date'],
             'privateBookingMode' => ($trip['private_booking_mode'] ?? 'exclusive') === 'shared' ? 'shared' : 'exclusive',
+            'includeDriveLink' => !empty($trip['include_drive_link']),
             'date' => $tripSchedules[0]['date'] ?? '',
             'imageUrl' => $images[$tripId] ?? '',
             'schedules' => $tripSchedules,
@@ -829,7 +847,7 @@ function mapBookings(PDO $pdo, array $bookings): array
     $tripIds = array_values(array_unique(array_map(static fn(array $booking): int => (int) $booking['trip_id'], $bookings)));
     $tripPlaceholders = implode(',', array_fill(0, count($tripIds), '?'));
     $tripStatement = $pdo->prepare(
-        "SELECT id, name, destination_id, destination_en FROM trips WHERE id IN ($tripPlaceholders)"
+        "SELECT id, name, destination_id, destination_en, include_drive_link FROM trips WHERE id IN ($tripPlaceholders)"
     );
     $tripStatement->execute($tripIds);
     $bookingTrips = [];
@@ -876,8 +894,9 @@ function mapBookings(PDO $pdo, array $bookings): array
     }
     $addons = [];
     $addonStatement = $pdo->prepare(
-        "SELECT ba.booking_id, ba.addon_id, ba.trip_addon_id, ba.price,
+        "SELECT ba.booking_id, ba.addon_id, ba.trip_addon_id, ba.quantity, ba.price,
                 COALESCE(ta.name, a.label, ba.addon_id) addon_name,
+                ta.max_participants_per_unit,
                 COALESCE(ta.worker_action, 'none') worker_action
          FROM booking_addons ba
          LEFT JOIN trip_addons ta ON ta.id = ba.trip_addon_id
@@ -895,7 +914,7 @@ function mapBookings(PDO $pdo, array $bookings): array
     $schedules = [];
     if ($scheduleIds) {
         $schedulePlaceholders = implode(',', array_fill(0, count($scheduleIds), '?'));
-        $statement = $pdo->prepare("SELECT id, schedule_code, session_name FROM trip_schedules WHERE id IN ($schedulePlaceholders)");
+        $statement = $pdo->prepare("SELECT id, schedule_code, session_name, drive_link_url FROM trip_schedules WHERE id IN ($schedulePlaceholders)");
         $statement->execute($scheduleIds);
         foreach ($statement->fetchAll() as $schedule) {
             $schedules[(int) $schedule['id']] = $schedule;
@@ -909,7 +928,7 @@ function mapBookings(PDO $pdo, array $bookings): array
     if ($sessionIds) {
         $sessionPlaceholders = implode(',', array_fill(0, count($sessionIds), '?'));
         $statement = $pdo->prepare(
-            "SELECT id, session_code, name, start_time, end_time
+            "SELECT id, session_code, name, start_time, end_time, drive_link_url
              FROM trip_sessions WHERE id IN ($sessionPlaceholders)"
         );
         $statement->execute($sessionIds);
@@ -917,7 +936,20 @@ function mapBookings(PDO $pdo, array $bookings): array
             $sessions[(int) $session['id']] = $session;
         }
     }
-    return array_map(static function (array $booking) use ($payments, $participants, $addons, $schedules, $sessions, $userProfiles, $bookingTrips): array {
+    $documentationLinks = [];
+    $documentationStatement = $pdo->prepare(
+        "SELECT trip_id, schedule_id, session_id, schedule_date, drive_link_url
+         FROM trip_documentation_links WHERE trip_id IN ($tripPlaceholders)"
+    );
+    $documentationStatement->execute($tripIds);
+    foreach ($documentationStatement->fetchAll() as $link) {
+        if (!empty($link['schedule_id'])) {
+            $documentationLinks['schedule:' . (int) $link['schedule_id']] = (string) $link['drive_link_url'];
+        } elseif (!empty($link['session_id']) && !empty($link['schedule_date'])) {
+            $documentationLinks['private:' . (int) $link['trip_id'] . ':' . (int) $link['session_id'] . ':' . $link['schedule_date']] = (string) $link['drive_link_url'];
+        }
+    }
+    return array_map(static function (array $booking) use ($payments, $participants, $addons, $schedules, $sessions, $userProfiles, $bookingTrips, $documentationLinks): array {
         $id = (int) $booking['id'];
         $payment = $payments[$id] ?? [];
         $bookingParticipants = $participants[$id] ?? [];
@@ -926,7 +958,10 @@ function mapBookings(PDO $pdo, array $bookings): array
         $session = $sessions[(int) ($booking['session_id'] ?? 0)] ?? [];
         $userProfile = $userProfiles[(int) ($booking['user_id'] ?? 0)] ?? [];
         $trip = $bookingTrips[(int) $booking['trip_id']] ?? [];
-        return mapBookingRecord($booking, $payment, $bookingParticipants, $bookingAddons, $schedule, $session, $userProfile, $trip);
+        $documentationLink = $booking['trip_type'] === 'open'
+            ? ($documentationLinks['schedule:' . (int) ($booking['schedule_id'] ?? 0)] ?? '')
+            : ($documentationLinks['private:' . (int) $booking['trip_id'] . ':' . (int) ($booking['session_id'] ?? 0) . ':' . ($booking['selected_date'] ?? '')] ?? '');
+        return mapBookingRecord($booking, $payment, $bookingParticipants, $bookingAddons, $schedule, $session, $userProfile, $trip, $documentationLink);
     }, $bookings);
 }
 
@@ -938,7 +973,8 @@ function mapBookingRecord(
     array $schedule,
     array $session,
     array $userProfile = [],
-    array $trip = []
+    array $trip = [],
+    string $documentationLink = ''
 ): array {
     $id = (int) $booking['id'];
     $primary = $participants[0] ?? [];
@@ -947,6 +983,12 @@ function mapBookingRecord(
     $now = appNow();
     $isCompleted = $endAt <= $now;
     $isArchived = !empty($booking['archived_at']) || $endAt->modify('+1 day') < $now;
+    $tripDriveLinkUrl = '';
+    if (!empty($trip['include_drive_link'])) {
+        $tripDriveLinkUrl = $booking['trip_type'] === 'open'
+            ? (string) ($documentationLink ?: ($schedule['drive_link_url'] ?? ''))
+            : (string) $documentationLink;
+    }
     return [
         'id' => $id,
         'userId' => (int) $booking['user_id'],
@@ -956,6 +998,8 @@ function mapBookingRecord(
             'id' => $trip['destination_id'] ?? '',
             'en' => $trip['destination_en'] ?? '',
         ],
+        'tripDriveLinkUrl' => $tripDriveLinkUrl,
+        'driveLinkUrl' => $tripDriveLinkUrl,
         'scheduleDatabaseId' => nullableInt($booking['schedule_id']),
         'sessionDatabaseId' => nullableInt($booking['session_id']),
         'scheduleId' => $schedule['schedule_code'] ?? '',
@@ -1028,6 +1072,10 @@ function mapBookingRecord(
             'name' => $item['addon_name'],
             'label' => $item['addon_name'],
             'price' => (float) $item['price'],
+            'unitPrice' => (float) $item['price'],
+            'quantity' => (int) ($item['quantity'] ?? 1),
+            'totalPrice' => (float) $item['price'] * (int) ($item['quantity'] ?? 1),
+            'maxParticipantsPerUnit' => nullableInt($item['max_participants_per_unit'] ?? null),
             'workerAction' => $item['worker_action'],
         ], $bookingAddons),
     ];

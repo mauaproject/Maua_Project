@@ -8,6 +8,7 @@ import { ABOVE_MAX_PAX_RULE, getPrivatePricePerPerson, normalizePricePerPersonTi
 import { getRequiredPaymentAmount } from './utils/payments'
 import { getPackagePricePerPerson, getPrivatePackages } from './utils/privatePackages'
 import { validateCustomerTripProfile } from './utils/customerProfile'
+import { getAddonLineTotal, hydrateAddonForParticipants } from './utils/addons'
 import {
   getOpenTripScheduleOptions,
   getPrivateSessionOptions,
@@ -402,7 +403,7 @@ function App() {
       : []
     const selectedAddonTotal = tripAddons
       .filter((option) => selectedAddonIds.includes(Number(option.id)))
-      .reduce((total, option) => total + Number(option.price || 0), 0)
+      .reduce((total, option) => total + getAddonLineTotal(option, participantCount), 0)
     const privatePackages = isPrivateTour ? getPrivatePackages(trip, true) : []
     const selectedPackage = isPrivateTour
       ? privatePackages.find((item) => String(item.id) === String(form.selectedPackageId))
@@ -448,6 +449,9 @@ function App() {
       healthNotes: primaryParticipant.healthNotes || '',
       participantDetails,
       addons: selectedAddonIds,
+      selectedAddonDetails: tripAddons
+        .filter((option) => selectedAddonIds.includes(Number(option.id)))
+        .map((option) => hydrateAddonForParticipants(option, participantCount)),
       transportFrom: '',
       hargaPerOrang,
       totalHarga,
@@ -485,6 +489,12 @@ function App() {
   const setRegistrationStatus = async (id, status) => {
     await api.updateBookingStatus(id, status)
     await refreshData()
+  }
+
+  const updateTripDriveLink = async (payload) => {
+    await api.updateTripDriveLink(payload)
+    await refreshData()
+    showToast('Link dokumentasi trip berhasil diperbarui.')
   }
 
   const submitReview = async (form) => {
@@ -525,6 +535,7 @@ function App() {
         endTime: schedule.endTime || '',
         quota: Number(schedule.quota || 0),
         bookedCount: Number(schedule.bookedCount || 0),
+        driveLinkUrl: schedule.driveLinkUrl || '',
         status: schedule.status || 'active',
       }))
       : []
@@ -534,6 +545,7 @@ function App() {
         name: sessionItem.name || `Sesi ${index + 1}`,
         startTime: sessionItem.startTime || '',
         endTime: sessionItem.endTime || '',
+        driveLinkUrl: sessionItem.driveLinkUrl || '',
         status: sessionItem.status || 'active',
       }))
       : []
@@ -563,6 +575,7 @@ function App() {
       aboveMaxPaxRule: isPrivateTrip ? ABOVE_MAX_PAX_RULE : '',
       minParticipants: Number(trip.minParticipants || 1),
       maxParticipants,
+      includeDriveLink: Boolean(trip.includeDriveLink),
     }
     let savedTrip
     if (trip.id) {
@@ -645,6 +658,7 @@ function App() {
     clearCheckoutDraft,
     submitRegistration,
     setRegistrationStatus,
+    updateTripDriveLink,
     submitReview,
     setReviewStatus,
     saveTrip,
