@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import horizontalLogo from '../assets/desainHorizontal.webp'
 import verticalLogo from '../assets/desainvertikal.webp'
+import whatsappIcon from '../assets/whatsapp.svg'
 import { addonOptions } from '../config/constants'
 import { formatCurrency, formatDate, tripName } from '../utils/formatters'
 import { getCustomerJobStatusLabel, getJobAddonLabel, getJobCompletedAt, getJobResultLink, getJobWorkerName, getNormalizedJobStatus, getRegistrationResultJobs } from '../utils/jobResults'
@@ -334,6 +335,15 @@ export function PublicNav({ navigate, session, logout }) {
           )}
         </nav>
       </header>
+      <a
+        className="floating-whatsapp-btn"
+        href="https://api.whatsapp.com/send/?phone=62882005881248&text&type=phone_number&app_absent=0"
+        target="_blank"
+        rel="noreferrer"
+        aria-label="Hubungi MAUA via WhatsApp"
+      >
+        <img src={whatsappIcon} alt="" width="32" height="32" aria-hidden="true" />
+      </a>
       <AppModal
         isOpen={isLogoutModalOpen}
         title={t('nav.logoutTitle')}

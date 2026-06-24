@@ -87,6 +87,33 @@ button:disabled {
     var(--color-cream);
   color: var(--color-ink);
 }
+.floating-whatsapp-btn {
+  position: fixed;
+  right: max(18px, env(safe-area-inset-right));
+  bottom: max(18px, env(safe-area-inset-bottom));
+  z-index: 90;
+  display: grid;
+  width: 58px;
+  height: 58px;
+  place-items: center;
+  border: 1px solid rgba(17, 124, 70, 0.28);
+  border-radius: 999px;
+  background: #25d366;
+  box-shadow: 0 16px 34px rgba(10, 86, 47, 0.24);
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+.floating-whatsapp-btn:hover,
+.floating-whatsapp-btn:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 42px rgba(10, 86, 47, 0.3);
+}
+.floating-whatsapp-btn img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
 /* Navbar / brand */
 .public-nav {
   position: fixed;
@@ -5520,6 +5547,16 @@ td {
   }
 }
 @media (max-width: 760px) {
+  .floating-whatsapp-btn {
+    width: 52px;
+    height: 52px;
+    right: max(14px, env(safe-area-inset-right));
+    bottom: max(14px, env(safe-area-inset-bottom));
+  }
+  .floating-whatsapp-btn img {
+    width: 29px;
+    height: 29px;
+  }
   .compact-drive-link-form {
     grid-template-columns: 1fr;
   }
