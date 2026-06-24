@@ -60,6 +60,76 @@ function appNow(): DateTimeImmutable
     return new DateTimeImmutable('now');
 }
 
+function userPayload(array $user): array
+{
+    $role = $user['role'] === 'worker' ? 'pekerja' : $user['role'];
+    return [
+        'id' => (int) $user['id'],
+        'name' => $user['name'],
+        'email' => $user['email'],
+        'emailVerified' => (bool) ($user['email_verified'] ?? false),
+        'emailVerifiedAt' => $user['email_verified_at'] ?? null,
+        'whatsapp' => $user['whatsapp'] ?? '',
+        'role' => $role,
+        'address' => $user['address'] ?? '',
+        'age' => $user['age'] ?? '',
+        'gender' => $user['gender'] ?? '',
+        'healthNotes' => $user['health_notes'] ?? '',
+        'bloodType' => $user['blood_type'] ?? '',
+        'heightCm' => $user['height_cm'] ?? '',
+        'weightKg' => $user['weight_kg'] ?? '',
+        'shoeSize' => $user['shoe_size'] ?? '',
+    ];
+}
+
+function createUserSession(PDO $pdo, int $userId): array
+{
+    $token = bin2hex(random_bytes(32));
+    $expiresAt = appNow()->modify('+30 days')->format('Y-m-d H:i:s');
+    $statement = $pdo->prepare(
+        'INSERT INTO user_sessions (user_id, token_hash, expires_at, last_used_at)
+         VALUES (?, SHA2(?, 256), ?, NOW())'
+    );
+    $statement->execute([$userId, $token, $expiresAt]);
+    return ['token' => $token, 'expiresAt' => $expiresAt];
+}
+
+function bearerToken(): string
+{
+    $header = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
+    if ($header === '' && function_exists('getallheaders')) {
+        $headers = getallheaders();
+        $header = $headers['Authorization'] ?? $headers['authorization'] ?? '';
+    }
+    if (preg_match('/Bearer\s+(.+)/i', (string) $header, $matches)) {
+        return trim($matches[1]);
+    }
+    return '';
+}
+
+function userFromSessionToken(PDO $pdo, string $token): ?array
+{
+    if ($token === '') {
+        return null;
+    }
+    $statement = $pdo->prepare(
+        "SELECT u.*
+         FROM user_sessions s
+         INNER JOIN users u ON u.id = s.user_id
+         WHERE s.token_hash = SHA2(?, 256)
+           AND s.expires_at > NOW()
+         LIMIT 1"
+    );
+    $statement->execute([$token]);
+    $user = $statement->fetch();
+    if (!$user) {
+        return null;
+    }
+    $pdo->prepare('UPDATE user_sessions SET last_used_at = NOW() WHERE token_hash = SHA2(?, 256)')
+        ->execute([$token]);
+    return $user;
+}
+
 function scheduledEndAt(string $date, mixed $endTime = null): DateTimeImmutable
 {
     $time = trim((string) $endTime);
@@ -796,7 +866,8 @@ function mapBookings(PDO $pdo, array $bookings): array
     }
     $participants = [];
     $participantStatement = $pdo->prepare(
-        "SELECT booking_id, name, address, age, gender, health_notes
+        "SELECT booking_id, name, email, whatsapp, address, age, gender, health_notes,
+                blood_type, height_cm, weight_kg, shoe_size
          FROM booking_participants WHERE booking_id IN ($placeholders) ORDER BY booking_id, id"
     );
     $participantStatement->execute($bookingIds);
@@ -932,18 +1003,24 @@ function mapBookingRecord(
         'age' => $primary['age'] ?? '',
         'gender' => $primary['gender'] ?? '',
         'healthNotes' => $primary['health_notes'] ?? '',
-        'bloodType' => $userProfile['blood_type'] ?? '',
-        'heightCm' => $userProfile['height_cm'] ?? '',
-        'weightKg' => $userProfile['weight_kg'] ?? '',
-        'shoeSize' => $userProfile['shoe_size'] ?? '',
+        'bloodType' => $primary['blood_type'] ?? $userProfile['blood_type'] ?? '',
+        'heightCm' => $primary['height_cm'] ?? $userProfile['height_cm'] ?? '',
+        'weightKg' => $primary['weight_kg'] ?? $userProfile['weight_kg'] ?? '',
+        'shoeSize' => $primary['shoe_size'] ?? $userProfile['shoe_size'] ?? '',
         'isPrivateTour' => $booking['trip_type'] === 'private',
         'isPrivateTrip' => $booking['trip_type'] === 'private',
         'participantDetails' => array_map(static fn(array $item): array => [
             'name' => $item['name'],
+            'email' => $item['email'] ?? '',
+            'whatsapp' => $item['whatsapp'] ?? '',
             'address' => $item['address'] ?? '',
             'age' => $item['age'] ?? '',
             'gender' => $item['gender'] ?? '',
             'healthNotes' => $item['health_notes'] ?? '',
+            'bloodType' => $item['blood_type'] ?? '',
+            'heightCm' => $item['height_cm'] ?? '',
+            'weightKg' => $item['weight_kg'] ?? '',
+            'shoeSize' => $item['shoe_size'] ?? '',
         ], $participants),
         'addons' => array_map(static fn(array $item): int|string => $item['trip_addon_id'] ? (int) $item['trip_addon_id'] : $item['addon_id'], $bookingAddons),
         'addonDetails' => array_map(static fn(array $item): array => [

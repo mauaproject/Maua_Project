@@ -37,7 +37,7 @@ const adminListText = (value) => localizedList(value, 'id').join(', ')
 const getExperienceType = (trip) => trip?.experienceType === 'custom' ? 'custom' : 'cave'
 const getExperienceLabel = (trip) => getExperienceType(trip) === 'custom' ? 'Wisata / Kegiatan' : 'Wisata Goa'
 const getAdminTripTypeLabel = (trip) => {
-  if (getExperienceType(trip) === 'custom') return trip?.isPrivateTrip ? 'Private' : 'Open'
+  if (getExperienceType(trip) === 'custom') return trip?.isPrivateTrip ? 'Private Trip' : 'Open Trip'
   return trip?.isPrivateTrip ? 'Private Trip' : 'Open Trip'
 }
 const lifecycleLabel = (status) => {
@@ -135,8 +135,8 @@ const normalizeTripForm = (trip) => {
 
 const registrationTripType = (item) => {
   const isPrivate = item.isPrivateTrip || item.isPrivateTour || item.tripType === 'private'
-  if (item.experienceType === 'custom') return isPrivate ? 'Private' : 'Open'
-  return isPrivate ? 'Private cave tour' : 'Open trip goa'
+  if (item.experienceType === 'custom') return isPrivate ? 'Private Trip' : 'Open Trip'
+  return isPrivate ? 'Private Trip' : 'Open Trip'
 }
 
 const getSelectedAddons = (registration) => {
@@ -168,7 +168,7 @@ function AdminShell({ title, children, navigate, logout, path, registrations = [
         ['/admin/arsip-trip', 'Arsip Trip'],
         ['/admin/jadwal', 'Jadwal', pendingParticipants],
         ['/admin/reviews', t('reviews.admin.menu')],
-        ['/admin/pekerja', 'Akun Tim'],
+        ['/admin/tim', 'Akun Tim'],
       ]} navigate={navigate} logout={logout} path={path} />
       <section className="workspace">
         {title && <h1>{title}</h1>}
@@ -513,7 +513,7 @@ export function AdminTripArchive(props) {
                 <p className="icon-line"><span className="asset-icon icon-geo" aria-hidden="true" />{adminText(trip.destination)}</p>
                 <dl className="admin-trip-meta">
                   <div><dt>Jenis</dt><dd>{getAdminTripTypeLabel(trip)}</dd></div>
-                  <div><dt>Jadwal</dt><dd>{trip.isPrivateTrip ? 'Private trip' : `${schedules.length} jadwal tersimpan`}</dd></div>
+                  <div><dt>Jadwal</dt><dd>{trip.isPrivateTrip ? 'Private Trip' : `${schedules.length} jadwal tersimpan`}</dd></div>
                   <div><dt>Status</dt><dd>Arsip</dd></div>
                   <div><dt>Hapus permanen</dt><dd>{trip.canPermanentlyDelete
                     ? 'Sudah tersedia'
@@ -1505,7 +1505,7 @@ function AdminPrivateScheduleDetail({ registration, trips, jobs, setRegistration
   const assignedJobs = tripJobs.filter((job) => job.worker)
   const participantDetails = Array.isArray(registration.participantDetails) && registration.participantDetails.length
     ? registration.participantDetails
-    : [{ name: registration.name, address: registration.address, age: registration.age, gender: registration.gender, healthNotes: registration.healthNotes }]
+    : [{ name: registration.name, email: registration.email, whatsapp: registration.whatsapp, address: registration.address, age: registration.age, gender: registration.gender, healthNotes: registration.healthNotes, bloodType: registration.bloodType, heightCm: registration.heightCm, weightKg: registration.weightKg, shoeSize: registration.shoeSize }]
   const registrationDate = getRegistrationDate(registration) || trip?.date
 
   return (
@@ -1534,30 +1534,7 @@ function AdminPrivateScheduleDetail({ registration, trips, jobs, setRegistration
         <section className="schedule-detail-grid">
           <DataPanel title="Data Peserta">
             <div className="registration-status-list">
-              <article className="registration-status-card">
-                <div className="registration-card-main">
-                  <h4>Data keselamatan & equipment pemesan</h4>
-                  <dl>
-                    <div><dt>Golongan darah</dt><dd>{registration.bloodType || '-'}</dd></div>
-                    <div><dt>Tinggi badan</dt><dd>{registration.heightCm ? `${registration.heightCm} cm` : '-'}</dd></div>
-                    <div><dt>Berat badan</dt><dd>{registration.weightKg ? `${registration.weightKg} kg` : '-'}</dd></div>
-                    <div><dt>Ukuran sepatu</dt><dd>{registration.shoeSize || '-'}</dd></div>
-                  </dl>
-                </div>
-              </article>
-              {participantDetails.map((participant, index) => (
-                <article className="registration-status-card" key={`${registration.id}-${index}`}>
-                  <div className="registration-card-main">
-                    <h4>{participant.name || `Peserta ${index + 1}`}</h4>
-                    <dl>
-                      <div><dt>Domisili</dt><dd>{participant.address || '-'}</dd></div>
-                      <div><dt>Usia</dt><dd>{participant.age ? `${participant.age} tahun` : '-'}</dd></div>
-                      <div><dt>Jenis kelamin</dt><dd>{participant.gender || '-'}</dd></div>
-                      <div><dt>Kondisi kesehatan</dt><dd>{participant.healthNotes || '-'}</dd></div>
-                    </dl>
-                  </div>
-                </article>
-              ))}
+              {participantDetails.map((participant, index) => <ParticipantDataCard participant={participant} index={index} key={`${registration.id}-${index}`} />)}
             </div>
           </DataPanel>
 
@@ -1594,6 +1571,28 @@ function AdminPrivateScheduleDetail({ registration, trips, jobs, setRegistration
 
       </section>
     </AdminShell>
+  )
+}
+
+function ParticipantDataCard({ participant, index }) {
+  return (
+    <article className="registration-status-card">
+      <div className="registration-card-main">
+        <h4>Peserta {index + 1}: {participant.name || '-'}</h4>
+        <dl>
+          <div><dt>Email</dt><dd>{participant.email || '-'}</dd></div>
+          <div><dt>WhatsApp</dt><dd>{participant.whatsapp || '-'}</dd></div>
+          <div><dt>Usia</dt><dd>{participant.age ? `${participant.age} tahun` : '-'}</dd></div>
+          <div><dt>Jenis kelamin</dt><dd>{participant.gender || '-'}</dd></div>
+          <div><dt>Domisili</dt><dd>{participant.address || '-'}</dd></div>
+          <div><dt>Golongan darah</dt><dd>{participant.bloodType || '-'}</dd></div>
+          <div><dt>Tinggi badan</dt><dd>{participant.heightCm ? `${participant.heightCm} cm` : '-'}</dd></div>
+          <div><dt>Berat badan</dt><dd>{participant.weightKg ? `${participant.weightKg} kg` : '-'}</dd></div>
+          <div><dt>Ukuran sepatu</dt><dd>{participant.shoeSize || '-'}</dd></div>
+          <div className="full"><dt>Kondisi kesehatan</dt><dd>{participant.healthNotes || '-'}</dd></div>
+        </dl>
+      </div>
+    </article>
   )
 }
 
@@ -1776,8 +1775,8 @@ function AdminScheduleDetail({ trip, scheduleId, registrations, jobs, setRegistr
                 <span>Jenis trip</span>
                 <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
                   <option value="all">Semua jenis</option>
-                  <option value="open">Open trip goa</option>
-                  <option value="private">Private cave tour</option>
+                  <option value="open">Open Trip</option>
+                  <option value="private">Private Trip</option>
                 </select>
               </label>
             </div>
@@ -1845,7 +1844,7 @@ function RegistrationApprovalCard({ item, setRegistrationStatus, onDetail }) {
 function RegistrationDetailModal({ item, trip, jobs = [], setRegistrationStatus, onClose }) {
   const participantDetails = Array.isArray(item.participantDetails) && item.participantDetails.length
     ? item.participantDetails
-    : [{ name: item.name, address: item.address, age: item.age, gender: item.gender, healthNotes: item.healthNotes }]
+    : [{ name: item.name, email: item.email, whatsapp: item.whatsapp, address: item.address, age: item.age, gender: item.gender, healthNotes: item.healthNotes, bloodType: item.bloodType, heightCm: item.heightCm, weightKg: item.weightKg, shoeSize: item.shoeSize }]
   const registrationDate = getRegistrationDate(item) || trip.date
   const resultJobs = getRegistrationResultJobs(jobs, item)
 
@@ -1887,24 +1886,9 @@ function RegistrationDetailModal({ item, trip, jobs = [], setRegistrationStatus,
 
           <section>
             <h3>Informasi Peserta</h3>
-            <div className="participant-detail-list">
-              {participantDetails.map((participant, index) => (
-                <div key={`${item.id}-${index}`}>
-                  <strong>{participant.name || `Peserta ${index + 1}`}</strong>
-                  <span>{participant.gender || '-'} - {participant.age || '-'} tahun - {participant.address || '-'}</span>
-                </div>
-              ))}
+            <div className="registration-status-list">
+              {participantDetails.map((participant, index) => <ParticipantDataCard participant={participant} index={index} key={`${item.id}-${index}`} />)}
             </div>
-          </section>
-
-          <section>
-            <h3>Keselamatan & Equipment</h3>
-            <dl>
-              <div><dt>Golongan darah</dt><dd>{item.bloodType || '-'}</dd></div>
-              <div><dt>Tinggi badan</dt><dd>{item.heightCm ? `${item.heightCm} cm` : '-'}</dd></div>
-              <div><dt>Berat badan</dt><dd>{item.weightKg ? `${item.weightKg} kg` : '-'}</dd></div>
-              <div><dt>Ukuran sepatu</dt><dd>{item.shoeSize || '-'}</dd></div>
-            </dl>
           </section>
 
           <section>
@@ -1922,7 +1906,6 @@ function RegistrationDetailModal({ item, trip, jobs = [], setRegistrationStatus,
           <section>
             <h3>Catatan & Kesehatan</h3>
             <dl>
-              <div><dt>Kondisi kesehatan</dt><dd>{item.healthNotes || '-'}</dd></div>
               <div><dt>Catatan</dt><dd>{item.notes || '-'}</dd></div>
             </dl>
           </section>

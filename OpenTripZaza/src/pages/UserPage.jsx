@@ -240,7 +240,7 @@ export function PublicNav({ navigate, session, logout }) {
       return
     }
     if (session?.role === 'pekerja') {
-      goToPage('/pekerja/dashboard')
+      goToPage('/tim/dashboard')
       return
     }
     goToPage('/akun')
@@ -842,9 +842,15 @@ function ActivityBlock({ trip }) {
 
 const emptyParticipant = {
   name: '',
+  email: '',
+  whatsapp: '',
   address: '',
   age: '',
   gender: '',
+  bloodType: '',
+  heightCm: '',
+  weightKg: '',
+  shoeSize: '',
   healthNotes: '',
 }
 
@@ -877,9 +883,15 @@ function CustomerTripProfileFields({ form, setForm, t }) {
 
 const buildParticipant = (source = {}) => ({
   name: source.name || '',
+  email: source.email || '',
+  whatsapp: source.whatsapp || '',
   address: source.address || '',
   age: source.age || '',
   gender: source.gender || '',
+  bloodType: source.bloodType || '',
+  heightCm: source.heightCm || '',
+  weightKg: source.weightKg || '',
+  shoeSize: source.shoeSize || '',
   healthNotes: source.healthNotes || '',
 })
 
@@ -1171,8 +1183,22 @@ export function RegistrationPage({
       setError(t('profile.checkoutRequired'))
       return
     }
-    const participantDetails = resizeParticipants(form.participantDetails, participants, { name: form.name })
-    const hasIncompleteParticipant = participantDetails.some((item) => !item.name || !item.address || !item.age || !item.gender)
+    const participantDetails = resizeParticipants(form.participantDetails, participants, {
+      ...customerProfile,
+      name: form.name,
+      email: form.email,
+      whatsapp: form.whatsapp,
+    })
+    const hasIncompleteParticipant = participantDetails.some((item) => (
+      !item.name
+      || !item.email
+      || !item.whatsapp
+      || !item.address
+      || !item.age
+      || !item.gender
+      || !item.healthNotes
+      || Boolean(validateCustomerTripProfile(item, { required: true }))
+    ))
     if (!form.name || !form.whatsapp || !form.email || hasIncompleteParticipant) {
       setError(t('error.checkoutRequired'))
       return
@@ -1236,7 +1262,7 @@ export function RegistrationPage({
       selectedPackageSubtotal: selectedPackage ? tripSubtotal : 0,
       selectedPackageDestinations: selectedPackage?.destinations || [],
       participantDetails,
-      participants: isPrivateBooking ? participants : 1,
+      participants,
       isPrivateTour: isPrivateBooking,
       tripType: isPrivateBooking ? 'private' : 'open',
       selectedDate: isPrivateBooking ? form.requestedDate : selectedSchedule.date,
@@ -1287,7 +1313,12 @@ export function RegistrationPage({
   }
 
   const updateParticipant = (index, field, value) => {
-    const nextParticipants = resizeParticipants(form.participantDetails, participants, { name: form.name })
+    const nextParticipants = resizeParticipants(form.participantDetails, participants, {
+      ...customerProfile,
+      name: form.name,
+      email: form.email,
+      whatsapp: form.whatsapp,
+    })
     nextParticipants[index] = { ...nextParticipants[index], [field]: value }
     const nextForm = { ...form, participantDetails: nextParticipants }
     if (index === 0 && field === 'name') nextForm.name = value
@@ -1295,8 +1326,21 @@ export function RegistrationPage({
   }
 
   const updateParticipantCount = (value) => {
-    const nextCount = Math.max(1, Number(value) || 1)
-    setForm({ ...form, participants: nextCount, participantDetails: resizeParticipants(form.participantDetails, nextCount, { name: form.name }) })
+    const minCount = isPrivateBooking ? Number(selectedTrip.minParticipants || 1) : 1
+    const maxCount = isPrivateBooking
+      ? Number(selectedTrip.maxParticipants || selectedTrip.quota || 99)
+      : Number(selectedSchedule?.remaining || selectedTrip?.quota || 99)
+    const nextCount = Math.min(Math.max(minCount, Number(value) || minCount), maxCount || 99)
+    setForm({
+      ...form,
+      participants: nextCount,
+      participantDetails: resizeParticipants(form.participantDetails, nextCount, {
+        ...customerProfile,
+        name: form.name,
+        email: form.email,
+        whatsapp: form.whatsapp,
+      }),
+    })
   }
 
   const toggleAddon = (addonId) => {
@@ -1389,6 +1433,9 @@ export function RegistrationPage({
                   />
                 </div>
               )}
+              {!isPrivateBooking && (
+                <label>{t('checkout.participantTotal')}<input type="number" min="1" max={selectedSchedule?.remaining || selectedTrip.quota || undefined} value={form.participants} onChange={(e) => updateParticipantCount(e.target.value)} />{selectedSchedule && <small>Sisa slot: {selectedSchedule.remaining} orang</small>}</label>
+              )}
               {isPrivateBooking && (
                 <>
                   <label>{t('checkout.participantTotal')}<input type="number" min={selectedTrip.minParticipants || 1} max={selectedTrip.maxParticipants || selectedTrip.quota || undefined} value={form.participants} onChange={(e) => updateParticipantCount(e.target.value)} /></label>
@@ -1458,20 +1505,26 @@ export function RegistrationPage({
             </section>
 
             <div className="participant-form-list">
-              {resizeParticipants(form.participantDetails, participants, { name: form.name }).map((participant, index) => (
+              {resizeParticipants(form.participantDetails, participants, { ...customerProfile, name: form.name, email: form.email, whatsapp: form.whatsapp }).map((participant, index) => (
                 <section className="participant-form-card" key={index}>
                   <div className="form-section-head compact-form-section-head">
                     <span>{index + 1}</span>
                     <div>
-                      <h2>{isPrivateBooking ? t('checkout.participant', { number: index + 1 }) : t('checkout.participantData')}</h2>
+                      <h2>{t('checkout.participant', { number: index + 1 })}</h2>
                       <p>{t('checkout.participantHelp')}</p>
                     </div>
                   </div>
                   <div className="registration-fields">
                     <label>{t('checkout.participantName')}<input value={participant.name} onChange={(e) => updateParticipant(index, 'name', e.target.value)} /></label>
+                    <label>Email peserta<input type="email" value={participant.email} onChange={(e) => updateParticipant(index, 'email', e.target.value)} /></label>
+                    <label>WhatsApp peserta<input value={participant.whatsapp} onChange={(e) => updateParticipant(index, 'whatsapp', e.target.value)} /></label>
                     <label>{t('checkout.age')}<input type="number" min="1" value={participant.age} onChange={(e) => updateParticipant(index, 'age', e.target.value)} /></label>
                     <label>{t('checkout.gender')}<select value={participant.gender} onChange={(e) => updateParticipant(index, 'gender', e.target.value)}><option value="">{t('checkout.selectGender')}</option><option value="Laki-laki">{t('checkout.male')}</option><option value="Perempuan">{t('checkout.female')}</option></select></label>
                     <label>{t('checkout.address')}<input value={participant.address} onChange={(e) => updateParticipant(index, 'address', e.target.value)} /></label>
+                    <label>{t('profile.bloodType')}<select value={participant.bloodType} onChange={(e) => updateParticipant(index, 'bloodType', e.target.value)}><option value="">{t('profile.selectBloodType')}</option>{bloodTypeOptions.map((option) => <option value={option} key={option}>{option === 'Tidak tahu' ? t('profile.unknown') : option}</option>)}</select></label>
+                    <label>{t('profile.heightCm')}<input type="number" min="50" max="250" step="1" value={participant.heightCm} onChange={(e) => updateParticipant(index, 'heightCm', e.target.value)} /></label>
+                    <label>{t('profile.weightKg')}<input type="number" min="20" max="300" step="0.1" value={participant.weightKg} onChange={(e) => updateParticipant(index, 'weightKg', e.target.value)} /></label>
+                    <label>{t('profile.shoeSize')}<input type="number" min="20" max="55" step="0.5" value={participant.shoeSize} onChange={(e) => updateParticipant(index, 'shoeSize', e.target.value)} /></label>
                     <label className="full">{t('checkout.healthNotes')}<textarea placeholder={t('checkout.healthPlaceholder')} value={participant.healthNotes} onChange={(e) => updateParticipant(index, 'healthNotes', e.target.value)} /></label>
                   </div>
                 </section>
@@ -2141,7 +2194,9 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], userRevie
                 {(Array.isArray(selectedOrder.participantDetails) && selectedOrder.participantDetails.length ? selectedOrder.participantDetails : [selectedOrder]).map((participant, index) => (
                   <div key={`${selectedOrder.id}-${index}`}>
                     <strong>{selectedOrder.participants > 1 ? t('account.participant', { number: index + 1 }) : ''}{participant.name || '-'}</strong>
+                    <span>Email: {participant.email || '-'} · WhatsApp: {participant.whatsapp || '-'}</span>
                     <span>{participant.gender || '-'} - {participant.age || '-'} {t('account.yearsOld')} - {participant.address || '-'}</span>
+                    <span>Golongan darah: {participant.bloodType || '-'} · Tinggi: {participant.heightCm || '-'} cm · Berat: {participant.weightKg || '-'} kg · Sepatu: {participant.shoeSize || '-'}</span>
                     <span>{t('account.healthCondition')}: {participant.healthNotes || '-'}</span>
                   </div>
                 ))}

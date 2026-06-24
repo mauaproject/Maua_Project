@@ -69,6 +69,27 @@ runEndpoint(function (PDO $pdo): void {
         $tripType = $trip['trip_type'] === 'private' ? 'private' : 'open';
 
         $participants = max(1, (int) $data['participants']);
+        $participantDetails = array_values((array) ($data['participantDetails'] ?? []));
+        if (count($participantDetails) !== $participants) {
+            throw new InvalidArgumentException('Lengkapi data untuk setiap peserta.');
+        }
+        foreach ($participantDetails as $participant) {
+            if (
+                trim((string) ($participant['name'] ?? '')) === ''
+                || trim((string) ($participant['email'] ?? '')) === ''
+                || trim((string) ($participant['whatsapp'] ?? '')) === ''
+                || trim((string) ($participant['address'] ?? '')) === ''
+                || trim((string) ($participant['age'] ?? '')) === ''
+                || trim((string) ($participant['gender'] ?? '')) === ''
+                || trim((string) ($participant['healthNotes'] ?? '')) === ''
+            ) {
+                throw new InvalidArgumentException('Lengkapi data untuk setiap peserta.');
+            }
+            if (!filter_var((string) $participant['email'], FILTER_VALIDATE_EMAIL)) {
+                throw new InvalidArgumentException('Email peserta tidak valid.');
+            }
+            customerTripProfileValues($participant, true);
+        }
         $pricePerPerson = (float) $trip['price'];
         $selectedPackage = null;
         if ($tripType === 'private') {
@@ -241,12 +262,24 @@ runEndpoint(function (PDO $pdo): void {
         }
 
         $participantStatement = $pdo->prepare(
-            'INSERT INTO booking_participants (booking_id, name, address, age, gender, health_notes) VALUES (?,?,?,?,?,?)'
+            'INSERT INTO booking_participants
+             (booking_id, name, email, whatsapp, address, age, gender, health_notes, blood_type, height_cm, weight_kg, shoe_size)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?)'
         );
-        foreach (($data['participantDetails'] ?? []) as $participant) {
+        foreach ($participantDetails as $participant) {
             $participantStatement->execute([
-                $bookingId, $participant['name'] ?? $data['name'], $participant['address'] ?? null,
-                nullableInt($participant['age'] ?? null), $participant['gender'] ?? null, $participant['healthNotes'] ?? null,
+                $bookingId,
+                trim((string) ($participant['name'] ?? $data['name'])),
+                strtolower(trim((string) ($participant['email'] ?? ''))),
+                trim((string) ($participant['whatsapp'] ?? '')),
+                $participant['address'] ?? null,
+                nullableInt($participant['age'] ?? null),
+                $participant['gender'] ?? null,
+                $participant['healthNotes'] ?? null,
+                $participant['bloodType'] ?? null,
+                nullableFloat($participant['heightCm'] ?? null),
+                nullableFloat($participant['weightKg'] ?? null),
+                nullableFloat($participant['shoeSize'] ?? null),
             ]);
         }
 

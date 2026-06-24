@@ -1,7 +1,17 @@
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '')
+const SESSION_TOKEN_KEY = 'mauaSessionToken'
+
+export const getSessionToken = () => window.localStorage.getItem(SESSION_TOKEN_KEY) || ''
+export const clearSessionToken = () => window.localStorage.removeItem(SESSION_TOKEN_KEY)
+const saveSessionToken = (token) => {
+  if (token) window.localStorage.setItem(SESSION_TOKEN_KEY, token)
+}
 
 const request = async (path, options = {}) => {
-  const response = await fetch(`${API_BASE_URL}/${path.replace(/^\//, '')}`, options)
+  const token = getSessionToken()
+  const headers = new Headers(options.headers || {})
+  if (token && !headers.has('Authorization')) headers.set('Authorization', `Bearer ${token}`)
+  const response = await fetch(`${API_BASE_URL}/${path.replace(/^\//, '')}`, { ...options, headers })
   let payload
   try {
     payload = await response.json()
@@ -85,7 +95,12 @@ export const getUsers = (role = '') => request(`users/index.php${role ? `?role=$
 export const createUser = (data) => jsonPost('users/create.php', data)
 export const updateUser = (data) => jsonPost('users/update.php', data)
 export const deleteUser = (id) => jsonPost('users/delete.php', { id })
-export const loginUser = (email, password, role) => jsonPost('users/login.php', { email, password, role })
+export const loginUser = async (email, password, role) => {
+  const account = await jsonPost('users/login.php', { email, password, role })
+  saveSessionToken(account.token)
+  return account
+}
+export const getSessionUser = () => request('users/session.php')
 export const registerCustomer = (data) => jsonPost('auth/register.php', data)
 export const resendEmailVerification = (email) => jsonPost('auth/resend-verification.php', { email })
 export const verifyEmail = (email, otp) => jsonPost('auth/verify-email.php', { email, otp })

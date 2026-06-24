@@ -17,21 +17,8 @@ runEndpoint(function (PDO $pdo): void {
     if ($requestedRole && $requestedRole !== $actualRole) {
         jsonError('Akun tidak memiliki akses untuk peran ini.', 403);
     }
-    jsonSuccess([
-        'id' => (int) $user['id'],
-        'name' => $user['name'],
-        'email' => $user['email'],
-        'emailVerified' => (bool) ($user['email_verified'] ?? false),
-        'emailVerifiedAt' => $user['email_verified_at'] ?? null,
-        'whatsapp' => $user['whatsapp'] ?? '',
-        'role' => $actualRole,
-        'address' => $user['address'] ?? '',
-        'age' => $user['age'] ?? '',
-        'gender' => $user['gender'] ?? '',
-        'healthNotes' => $user['health_notes'] ?? '',
-        'bloodType' => $user['blood_type'] ?? '',
-        'heightCm' => $user['height_cm'] ?? '',
-        'weightKg' => $user['weight_kg'] ?? '',
-        'shoeSize' => $user['shoe_size'] ?? '',
-    ]);
+    jsonSuccess(array_merge(
+        userPayload($user),
+        createUserSession($pdo, (int) $user['id'])
+    ));
 });

@@ -30,9 +30,9 @@ function WorkerShell({ title, children, navigate, logout, path }) {
   return (
     <main className="app-shell">
       <Sidebar title="Tim" links={[
-        ['/pekerja/dashboard', 'Dashboard'],
-        ['/pekerja/job', 'Job tersedia'],
-        ['/pekerja/job-saya', 'Job saya'],
+        ['/tim/dashboard', 'Dashboard'],
+        ['/tim/job', 'Job tersedia'],
+        ['/tim/job-saya', 'Job saya'],
       ]} navigate={navigate} logout={logout} path={path} />
       <section className="workspace">
         <h1>{title}</h1>
@@ -120,7 +120,7 @@ function JobCard({ job, trips, registrations, navigate, takeJob, mine, updateJob
       {job.status === 'Tersedia' && !mine && <button className="primary-btn" onClick={() => takeJob(job.id)}>Ambil job</button>}
       {mine && <select className="status-select" value={job.status === 'Selesai' ? 'Selesai' : job.status} disabled={job.status === 'Selesai'} onChange={(e) => updateJobStatus(job.id, e.target.value)}>{job.status === 'Selesai' && <option>Selesai</option>}{completionStatusOptions.map((status) => <option key={status}>{status}</option>)}</select>}
       {mine && <JobCompletionChecklist key={`${job.id}-${job.status}-${getJobResultLink(job)}-${job.proofPhotoName || ''}`} job={job} updateJobStatus={updateJobStatus} session={session} compact />}
-      <button className="outline-btn" onClick={() => navigate(`/pekerja/job/${job.id}`)}>Detail</button>
+      <button className="outline-btn" onClick={() => navigate(`/tim/job/${job.id}`)}>Detail</button>
     </article>
   )
 }

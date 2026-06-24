@@ -33,6 +33,22 @@ const WorkerDashboard = lazyNamed(loadWorkerPage, 'WorkerDashboard')
 const WorkerJobDetail = lazyNamed(loadWorkerPage, 'WorkerJobDetail')
 const WorkerJobs = lazyNamed(loadWorkerPage, 'WorkerJobs')
 
+const canonicalPath = (target) => {
+  if (target === '/pekerja') return '/tim'
+  if (target.startsWith('/pekerja/')) return target.replace(/^\/pekerja/, '/tim')
+  if (target === '/admin/pekerja') return '/admin/tim'
+  return target
+}
+
+const readCurrentPath = () => {
+  const currentPath = window.location.pathname
+  const nextPath = canonicalPath(currentPath)
+  if (nextPath !== currentPath) {
+    window.history.replaceState({}, '', nextPath)
+  }
+  return nextPath
+}
+
 const readCheckoutDraft = () => {
   try {
     return JSON.parse(window.sessionStorage.getItem(CHECKOUT_DRAFT_KEY) || 'null')
@@ -42,7 +58,7 @@ const readCheckoutDraft = () => {
 }
 
 function App() {
-  const [path, setPath] = useState(window.location.pathname)
+  const [path, setPath] = useState(readCurrentPath)
   const [session, setSession] = useState(null)
   const [trips, setTrips] = useState([])
   const [registrations, setRegistrations] = useState([])
@@ -54,11 +70,13 @@ function App() {
   const [adminReviews, setAdminReviews] = useState([])
   const [checkoutDraft, setCheckoutDraft] = useState(readCheckoutDraft)
   const [toast, setToast] = useState('')
+  const [isSessionRestoring, setIsSessionRestoring] = useState(() => Boolean(api.getSessionToken()))
   const detailRequestsRef = useRef(new Set())
 
   const navigate = (target) => {
-    window.history.pushState({}, '', target)
-    setPath(target)
+    const nextPath = canonicalPath(target)
+    window.history.pushState({}, '', nextPath)
+    setPath(nextPath)
     window.scrollTo(0, 0)
   }
 
@@ -68,7 +86,7 @@ function App() {
   }
 
   useEffect(() => {
-    const handlePopState = () => setPath(window.location.pathname)
+    const handlePopState = () => setPath(readCurrentPath())
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
@@ -127,7 +145,28 @@ function App() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      refreshData().catch((error) => showToast(error.message))
+      const restore = async () => {
+        if (api.getSessionToken()) {
+          try {
+            const account = await api.getSessionUser()
+            setSession(account)
+            await refreshData(account)
+            if (account.role === 'admin') setAdminReviews(await api.getReviews(true, account.email))
+            return
+          } catch {
+            api.clearSessionToken()
+            setSession(null)
+          } finally {
+            setIsSessionRestoring(false)
+          }
+        }
+        setIsSessionRestoring(false)
+        await refreshData(null)
+      }
+      restore().catch((error) => {
+        setIsSessionRestoring(false)
+        showToast(error.message)
+      })
     }, 0)
     return () => window.clearTimeout(timer)
     // Initial public bootstrap only; later refreshes are driven by mutations and authentication.
@@ -159,7 +198,7 @@ function App() {
       setSession(account)
       await refreshData(account)
       if (role === 'admin') setAdminReviews(await api.getReviews(true, account.email))
-      navigate(role === 'admin' ? '/admin/dashboard' : '/pekerja/dashboard')
+      navigate(role === 'admin' ? '/admin/dashboard' : '/tim/dashboard')
       return true
     } catch {
       return false
@@ -300,6 +339,7 @@ function App() {
   }
 
   const logout = () => {
+    api.clearSessionToken()
     setSession(null)
     setUserReviews([])
     setAdminReviews([])
@@ -354,7 +394,7 @@ function App() {
     }
     const participantDetails = Array.isArray(form.participantDetails) && form.participantDetails.length
       ? form.participantDetails
-      : [{ name: form.name, address: form.address || '', age: form.age || '', gender: form.gender || '', healthNotes: form.healthNotes || '' }]
+      : [{ name: form.name, email: form.email, whatsapp: form.whatsapp, address: form.address || '', age: form.age || '', gender: form.gender || '', healthNotes: form.healthNotes || '', bloodType: form.bloodType || '', heightCm: form.heightCm || '', weightKg: form.weightKg || '', shoeSize: form.shoeSize || '' }]
     const primaryParticipant = participantDetails[0] || {}
     const tripAddons = Array.isArray(trip.addons) ? trip.addons : []
     const selectedAddonIds = Array.isArray(form.addons)
@@ -381,8 +421,8 @@ function App() {
       whatsapp: form.whatsapp,
       email: form.email,
       userId: Number(session.id),
-      participants: isPrivateTour ? participantCount : 1,
-      participantCount: isPrivateTour ? participantCount : 1,
+      participants: participantCount,
+      participantCount,
       tripId: Number(form.tripId),
       tripType: isPrivateTour ? 'private' : 'open',
       experienceType: trip.experienceType === 'custom' ? 'custom' : 'cave',
@@ -431,6 +471,10 @@ function App() {
       age: primaryParticipant.age || '',
       gender: primaryParticipant.gender || '',
       healthNotes: primaryParticipant.healthNotes || '',
+      bloodType: primaryParticipant.bloodType || current.bloodType || '',
+      heightCm: primaryParticipant.heightCm || current.heightCm || '',
+      weightKg: primaryParticipant.weightKg || current.weightKg || '',
+      shoeSize: primaryParticipant.shoeSize || current.shoeSize || '',
     } : current)
     clearCheckoutDraft()
     showToast(i18n.t('toast.registrationSuccess'))
@@ -609,6 +653,7 @@ function App() {
     takeJob,
     updateJobStatus,
     showToast,
+    isSessionRestoring,
   }
 
   return (
@@ -622,14 +667,18 @@ function App() {
 }
 
 function RouteRenderer(props) {
-  const { path, session, navigate, trips } = props
+  const { path, session, navigate, trips, isSessionRestoring } = props
   const parts = path.split('/').filter(Boolean)
   const id = Number(parts[1] || parts[2] || 0)
+
+  if (isSessionRestoring && (path.startsWith('/admin') || path.startsWith('/tim') || path === '/akun' || path === '/payment-confirmation' || parts[0] === 'daftar')) {
+    return <div className="route-loading" role="status">Memulihkan session...</div>
+  }
 
   if (path.startsWith('/admin') && path !== '/admin/login' && session?.role !== 'admin') {
     return <LoginPage role="admin" {...props} />
   }
-  if (path.startsWith('/pekerja') && path !== '/pekerja/login' && session?.role !== 'pekerja') {
+  if (path.startsWith('/tim') && path !== '/tim/login' && session?.role !== 'pekerja') {
     return <LoginPage role="pekerja" {...props} />
   }
 
@@ -670,12 +719,12 @@ function RouteRenderer(props) {
   if (parts[0] === 'admin' && parts[1] === 'jadwal' && Number(parts[2])) return <AdminSchedule scheduleTripId={Number(parts[2])} scheduleId={parts[3] || ''} {...props} />
   if (parts[0] === 'admin' && parts[1] === 'arsip-trip' && parts[2] === 'private-trip' && Number(parts[3])) return <AdminSchedule privateTripId={Number(parts[3])} archivedView {...props} />
   if (parts[0] === 'admin' && parts[1] === 'arsip-trip' && Number(parts[2])) return <AdminSchedule scheduleTripId={Number(parts[2])} archivedView {...props} />
-  if (path === '/admin/pekerja') return <AdminWorkers {...props} />
-  if (path === '/pekerja/login') return <LoginPage role="pekerja" {...props} />
-  if (path === '/pekerja/dashboard') return <WorkerDashboard {...props} />
-  if (path === '/pekerja/job') return <WorkerJobs {...props} />
-  if (parts[0] === 'pekerja' && parts[1] === 'job' && Number(parts[2])) return <WorkerJobDetail jobId={Number(parts[2])} {...props} />
-  if (path === '/pekerja/job-saya') return <MyJobs {...props} />
+  if (path === '/admin/tim') return <AdminWorkers {...props} />
+  if (path === '/tim/login') return <LoginPage role="pekerja" {...props} />
+  if (path === '/tim' || path === '/tim/dashboard') return <WorkerDashboard {...props} />
+  if (path === '/tim/job') return <WorkerJobs {...props} />
+  if (parts[0] === 'tim' && parts[1] === 'job' && Number(parts[2])) return <WorkerJobDetail jobId={Number(parts[2])} {...props} />
+  if (path === '/tim/job-saya') return <MyJobs {...props} />
 
   return <NotFound navigate={navigate} />
 }
