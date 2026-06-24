@@ -9,12 +9,13 @@ runEndpoint(function (PDO $pdo): void {
     $tripId = (int) $data['tripId'];
     $scheduleId = nullableInt($data['scheduleId'] ?? null);
     $sessionId = nullableInt($data['sessionId'] ?? null);
+    $scheduleCode = trim((string) ($data['scheduleCode'] ?? ''));
+    $sessionCode = trim((string) ($data['sessionCode'] ?? ''));
+    $scheduleDate = trim((string) ($data['scheduleDate'] ?? ''));
+    $startTime = trim((string) ($data['startTime'] ?? ''));
+    $endTime = trim((string) ($data['endTime'] ?? ''));
     $selectedDate = trim((string) ($data['selectedDate'] ?? ''));
     $driveLinkUrl = nullableUrl($data['driveLinkUrl'] ?? null, 'Link drive harus berupa URL yang valid.');
-
-    if (!$scheduleId && !$sessionId) {
-        throw new InvalidArgumentException('Pilih jadwal atau sesi yang akan diberi link drive.');
-    }
 
     $tripStatement = $pdo->prepare('SELECT id, include_drive_link FROM trips WHERE id = ? LIMIT 1');
     $tripStatement->execute([$tripId]);
@@ -24,6 +25,31 @@ runEndpoint(function (PDO $pdo): void {
     }
     if (empty($trip['include_drive_link'])) {
         throw new InvalidArgumentException('Paket trip ini belum mengaktifkan fasilitas link drive bawaan.');
+    }
+
+    if (!$scheduleId && $scheduleCode !== '') {
+        $statement = $pdo->prepare('SELECT id FROM trip_schedules WHERE trip_id = ? AND schedule_code = ? LIMIT 1');
+        $statement->execute([$tripId, $scheduleCode]);
+        $scheduleId = nullableInt($statement->fetchColumn());
+    }
+
+    if (!$scheduleId && $scheduleDate !== '' && $startTime !== '' && $endTime !== '') {
+        $statement = $pdo->prepare(
+            'SELECT id FROM trip_schedules
+             WHERE trip_id = ? AND schedule_date = ? AND start_time = ? AND end_time = ? LIMIT 1'
+        );
+        $statement->execute([$tripId, $scheduleDate, $startTime, $endTime]);
+        $scheduleId = nullableInt($statement->fetchColumn());
+    }
+
+    if (!$sessionId && $sessionCode !== '') {
+        $statement = $pdo->prepare('SELECT id FROM trip_sessions WHERE trip_id = ? AND session_code = ? LIMIT 1');
+        $statement->execute([$tripId, $sessionCode]);
+        $sessionId = nullableInt($statement->fetchColumn());
+    }
+
+    if (!$scheduleId && !$sessionId) {
+        throw new InvalidArgumentException('Pilih jadwal atau sesi yang akan diberi link drive.');
     }
 
     if ($scheduleId) {
