@@ -720,12 +720,17 @@ function RouteRenderer(props) {
     return <RegistrationPage tripId={id} {...props} />
   }
   if (path === '/admin/login') return <LoginPage role="admin" {...props} />
+  if (path === '/admin') return <AdminDashboard {...props} />
   if (path === '/admin/dashboard') return <AdminDashboard {...props} />
   if (path === '/admin/reviews') return <AdminReviews {...props} />
   if (path === '/admin/open-trip') return <AdminTrips {...props} />
   if (path === '/admin/arsip-trip') return <AdminTripArchive {...props} />
   if (path === '/admin/open-trip/tambah') return <TripForm {...props} />
-  if (parts[0] === 'admin' && parts[1] === 'open-trip' && parts[2] === 'edit') return <TripForm tripId={Number(parts[3])} {...props} />
+  if (parts[0] === 'admin' && parts[1] === 'open-trip' && parts[2] === 'edit') {
+    const editTripId = Number(parts[3])
+    const editTrip = trips.find((trip) => Number(trip.id) === editTripId)
+    return <TripForm key={`${editTripId}-${editTrip ? 'ready' : 'loading'}-${editTrip?.updatedAt || editTrip?.addons?.length || 0}`} tripId={editTripId} {...props} />
+  }
   if (path === '/admin/pendaftaran') return <AdminSchedule {...props} />
   if (path === '/admin/jadwal') return <AdminSchedule {...props} />
   if (parts[0] === 'admin' && parts[1] === 'jadwal' && parts[2] === 'private-trip' && Number(parts[3])) return <AdminSchedule privateTripId={Number(parts[3])} {...props} />

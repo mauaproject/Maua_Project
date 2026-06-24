@@ -937,17 +937,21 @@ function mapBookings(PDO $pdo, array $bookings): array
         }
     }
     $documentationLinks = [];
-    $documentationStatement = $pdo->prepare(
-        "SELECT trip_id, schedule_id, session_id, schedule_date, drive_link_url
-         FROM trip_documentation_links WHERE trip_id IN ($tripPlaceholders)"
-    );
-    $documentationStatement->execute($tripIds);
-    foreach ($documentationStatement->fetchAll() as $link) {
-        if (!empty($link['schedule_id'])) {
-            $documentationLinks['schedule:' . (int) $link['schedule_id']] = (string) $link['drive_link_url'];
-        } elseif (!empty($link['session_id']) && !empty($link['schedule_date'])) {
-            $documentationLinks['private:' . (int) $link['trip_id'] . ':' . (int) $link['session_id'] . ':' . $link['schedule_date']] = (string) $link['drive_link_url'];
+    try {
+        $documentationStatement = $pdo->prepare(
+            "SELECT trip_id, schedule_id, session_id, schedule_date, drive_link_url
+             FROM trip_documentation_links WHERE trip_id IN ($tripPlaceholders)"
+        );
+        $documentationStatement->execute($tripIds);
+        foreach ($documentationStatement->fetchAll() as $link) {
+            if (!empty($link['schedule_id'])) {
+                $documentationLinks['schedule:' . (int) $link['schedule_id']] = (string) $link['drive_link_url'];
+            } elseif (!empty($link['session_id']) && !empty($link['schedule_date'])) {
+                $documentationLinks['private:' . (int) $link['trip_id'] . ':' . (int) $link['session_id'] . ':' . $link['schedule_date']] = (string) $link['drive_link_url'];
+            }
         }
+    } catch (PDOException $exception) {
+        $documentationLinks = [];
     }
     return array_map(static function (array $booking) use ($payments, $participants, $addons, $schedules, $sessions, $userProfiles, $bookingTrips, $documentationLinks): array {
         $id = (int) $booking['id'];

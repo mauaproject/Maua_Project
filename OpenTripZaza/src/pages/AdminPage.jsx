@@ -948,6 +948,11 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
 
   return (
     <AdminShell title={selected ? 'Edit Paket Trip' : 'Tambah Paket Trip'} navigate={navigate} {...props}>
+      {tripId && !selected ? (
+        <section className="admin-page-stack">
+          <p className="empty-state">Memuat detail paket trip...</p>
+        </section>
+      ) : (
       <section className="admin-page-stack trip-form-page">
         <div className="admin-page-head">
           <div>
@@ -1228,6 +1233,7 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
           </div>
         </form>
       </section>
+      )}
     </AdminShell>
   )
 }

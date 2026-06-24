@@ -11,10 +11,10 @@ ALTER TABLE trip_sessions
     ADD COLUMN drive_link_url TEXT NULL AFTER end_time;
 
 CREATE TABLE IF NOT EXISTS trip_documentation_links (
-    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    trip_id INT UNSIGNED NOT NULL,
-    schedule_id INT UNSIGNED NULL,
-    session_id INT UNSIGNED NULL,
+    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    trip_id BIGINT UNSIGNED NOT NULL,
+    schedule_id BIGINT UNSIGNED NULL,
+    session_id BIGINT UNSIGNED NULL,
     schedule_date DATE NULL,
     drive_link_url TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
