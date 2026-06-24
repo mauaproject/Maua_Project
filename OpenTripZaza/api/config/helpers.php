@@ -526,7 +526,10 @@ function mapTrip(PDO $pdo, array $trip, bool $customerView = false): array
         ];
     }, $schedules);
     $mappedSchedules = $customerView
-        ? array_values(array_filter($allMappedSchedules, static fn(array $item): bool => $item['isBookable']))
+        ? array_values(array_filter(
+            $allMappedSchedules,
+            static fn(array $item): bool => $item['lifecycleStatus'] === 'upcoming' && $item['status'] !== 'inactive'
+        ))
         : $allMappedSchedules;
     $allMappedSessions = array_map(static fn(array $item): array => [
         'id' => $item['session_code'] ?: (string) $item['id'],
@@ -689,7 +692,10 @@ function mapTripSummaries(PDO $pdo, array $trips, bool $customerView = false): a
         $tripId = (int) $trip['id'];
         $allTripSchedules = $schedules[$tripId] ?? [];
         $tripSchedules = $customerView
-            ? array_values(array_filter($allTripSchedules, static fn(array $schedule): bool => $schedule['isBookable']))
+            ? array_values(array_filter(
+                $allTripSchedules,
+                static fn(array $schedule): bool => $schedule['lifecycleStatus'] === 'upcoming' && $schedule['status'] !== 'inactive'
+            ))
             : $allTripSchedules;
         $tripSessions = $sessions[$tripId] ?? [];
         $isPrivate = ($trip['trip_type'] ?? 'open') === 'private';

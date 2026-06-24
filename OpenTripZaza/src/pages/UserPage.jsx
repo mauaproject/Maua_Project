@@ -60,19 +60,52 @@ const getScheduleMonthLabel = (monthKey, dateLocale) => {
   if (Number.isNaN(date.getTime())) return monthKey
   return new Intl.DateTimeFormat(dateLocale, { month: 'long', year: 'numeric' }).format(date)
 }
+const getCompactDateLabel = (dateValue, dateLocale) => {
+  const date = new Date(`${dateValue}T00:00:00`)
+  if (Number.isNaN(date.getTime())) return dateValue
+  return new Intl.DateTimeFormat(dateLocale, { day: '2-digit', month: 'short' }).format(date)
+}
+const getWeekdayLabel = (dateValue, dateLocale) => {
+  const date = new Date(`${dateValue}T00:00:00`)
+  if (Number.isNaN(date.getTime())) return ''
+  return new Intl.DateTimeFormat(dateLocale, { weekday: 'short' }).format(date)
+}
 
 function ScheduleChoiceList({ schedules, selectedId, onSelect, dateLocale, t }) {
   const [activeMonth, setActiveMonth] = useState('all')
-  const [showAll, setShowAll] = useState(false)
+  const [activeDate, setActiveDate] = useState('')
+  const selectedSchedule = schedules.find((schedule) => schedule.id === selectedId)
+  const selectedDate = selectedSchedule?.date || activeDate
   const monthKeys = Array.from(new Set(schedules.map(getScheduleMonthKey).filter(Boolean)))
   const filteredSchedules = activeMonth === 'all'
     ? schedules
     : schedules.filter((schedule) => getScheduleMonthKey(schedule) === activeMonth)
-  const visibleSchedules = showAll ? filteredSchedules : filteredSchedules.slice(0, 8)
-  const hiddenCount = Math.max(filteredSchedules.length - visibleSchedules.length, 0)
+  const dateGroups = filteredSchedules.reduce((groups, schedule) => {
+    if (!groups.has(schedule.date)) groups.set(schedule.date, [])
+    groups.get(schedule.date).push(schedule)
+    return groups
+  }, new Map())
+  const dateOptions = Array.from(dateGroups, ([date, dateSchedules]) => {
+    const selectableSchedules = dateSchedules.filter((schedule) => schedule.isSelectable)
+    return {
+      date,
+      schedules: dateSchedules,
+      isSelectable: selectableSchedules.length > 0,
+      remaining: dateSchedules.reduce((total, schedule) => total + Number(schedule.remaining || 0), 0),
+      firstSelectable: selectableSchedules[0] || null,
+    }
+  })
+  const schedulesForSelectedDate = selectedDate ? (dateGroups.get(selectedDate) || []) : []
+  const selectedDateHasMultipleSessions = schedulesForSelectedDate.length > 1
   const changeMonth = (monthKey) => {
     setActiveMonth(monthKey)
-    setShowAll(false)
+    setActiveDate('')
+    onSelect('')
+  }
+  const chooseDate = (dateOption) => {
+    if (!dateOption.isSelectable) return
+    setActiveDate(dateOption.date)
+    onSelect(dateOption.firstSelectable?.id || '')
   }
 
   return (
@@ -87,37 +120,54 @@ function ScheduleChoiceList({ schedules, selectedId, onSelect, dateLocale, t }) 
           ))}
         </div>
       )}
-      <div className="schedule-choice-list" role="listbox" aria-label={t('schedule.departureSchedule')}>
-        {visibleSchedules.map((schedule) => {
-          const timeText = schedule.startTime && schedule.endTime ? `${schedule.startTime} - ${schedule.endTime} WIB` : t('schedule.flexibleSession')
-          const isSelected = selectedId === schedule.id
+      <div className="schedule-date-grid" role="listbox" aria-label={t('schedule.departureSchedule')}>
+        {dateOptions.map((dateOption) => {
+          const isSelected = selectedDate === dateOption.date
           return (
             <button
-              className={`schedule-choice-card ${isSelected ? 'is-selected' : ''} ${!schedule.isSelectable ? 'is-disabled' : ''}`}
-              disabled={!schedule.isSelectable}
-              key={schedule.id}
+              className={`schedule-date-card ${isSelected ? 'is-selected' : ''} ${!dateOption.isSelectable ? 'is-disabled' : ''}`}
+              disabled={!dateOption.isSelectable}
+              key={dateOption.date}
               type="button"
               role="option"
               aria-selected={isSelected}
-              onClick={() => onSelect(schedule.id)}
+              onClick={() => chooseDate(dateOption)}
             >
-              <span className="schedule-choice-date">{formatDate(schedule.date, dateLocale)}</span>
-              <span className="schedule-choice-session">{schedule.name || t('schedule.session')}</span>
-              <span className="schedule-choice-time">{timeText}</span>
-              <span className="schedule-choice-slots">{schedule.isSelectable ? t('schedule.remaining', { count: schedule.remaining }) : t('schedule.full')}</span>
+              <strong>{getCompactDateLabel(dateOption.date, dateLocale)}</strong>
+              <small>{getWeekdayLabel(dateOption.date, dateLocale)}</small>
             </button>
           )
         })}
       </div>
-      {hiddenCount > 0 && (
-        <button className="schedule-show-more" type="button" onClick={() => setShowAll(true)}>
-          {t('schedule.showMore', { count: hiddenCount })}
-        </button>
+      {selectedSchedule && (
+        <div className="schedule-selected-summary">
+          <dl>
+            <div><dt>{t('common.date')}</dt><dd>{formatDate(selectedSchedule.date, dateLocale)}</dd></div>
+            <div><dt>Jam</dt><dd>{selectedSchedule.startTime && selectedSchedule.endTime ? `${selectedSchedule.startTime} - ${selectedSchedule.endTime} WIB` : t('schedule.flexibleSession')}</dd></div>
+            <div><dt>{t('common.availableSlots')}</dt><dd>{t('common.participantCount', { count: selectedSchedule.remaining })}</dd></div>
+          </dl>
+        </div>
       )}
-      {showAll && filteredSchedules.length > 8 && (
-        <button className="schedule-show-more" type="button" onClick={() => setShowAll(false)}>
-          {t('schedule.showLess')}
-        </button>
+      {selectedDateHasMultipleSessions && (
+        <div className="schedule-session-list" aria-label={t('schedule.chooseSession')}>
+          {schedulesForSelectedDate.map((schedule) => {
+            const isSelected = selectedId === schedule.id
+            const timeText = schedule.startTime && schedule.endTime ? `${schedule.startTime} - ${schedule.endTime} WIB` : t('schedule.flexibleSession')
+            return (
+              <button
+                className={`schedule-session-card ${isSelected ? 'is-selected' : ''} ${!schedule.isSelectable ? 'is-disabled' : ''}`}
+                disabled={!schedule.isSelectable}
+                key={schedule.id}
+                type="button"
+                onClick={() => onSelect(schedule.id)}
+              >
+                <span>{schedule.name || t('schedule.session')}</span>
+                <strong>{timeText}</strong>
+                <small>{schedule.isSelectable ? t('schedule.remaining', { count: schedule.remaining }) : t('schedule.full')}</small>
+              </button>
+            )
+          })}
+        </div>
       )}
     </section>
   )

@@ -158,7 +158,7 @@ export function getScheduleAvailability(trip, registrations, schedule) {
 
 export function getOpenTripScheduleOptions(trip, registrations = []) {
   return getTripSchedules(trip)
-    .filter((schedule) => schedule.lifecycleStatus === 'upcoming' && schedule.isBookable !== false)
+    .filter((schedule) => schedule.lifecycleStatus === 'upcoming')
     .map((schedule) => getScheduleAvailability(trip, registrations, schedule))
 }
 

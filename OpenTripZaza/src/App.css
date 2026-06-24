@@ -2081,81 +2081,119 @@ button:disabled {
   background: var(--color-gold-soft);
   color: var(--color-ink);
 }
-.schedule-choice-list {
+.schedule-date-grid {
   display: grid;
-  max-height: 390px;
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  max-height: 230px;
+  gap: 9px;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 2px 5px 2px 0;
   scrollbar-width: thin;
 }
-.schedule-choice-card {
+.schedule-date-card {
   display: grid;
-  grid-template-columns: minmax(142px, 0.75fr) minmax(92px, 0.45fr) minmax(130px, 0.7fr) minmax(104px, auto);
-  gap: 10px;
-  align-items: center;
-  width: 100%;
+  min-height: 62px;
+  align-content: center;
+  gap: 3px;
   border: 1px solid rgba(184, 132, 43, 0.24);
-  border-radius: 16px;
+  border-radius: 14px;
   background: #fffaf0;
   color: var(--color-ink);
-  padding: 13px 14px;
-  text-align: left;
+  padding: 10px;
+  text-align: center;
   transition: border-color 140ms ease, background 140ms ease, transform 140ms ease;
 }
-.schedule-choice-card:hover,
-.schedule-choice-card:focus-visible,
-.schedule-choice-card.is-selected {
+.schedule-date-card:hover,
+.schedule-date-card:focus-visible,
+.schedule-date-card.is-selected {
   border-color: var(--color-gold);
   background: var(--color-gold-soft);
   transform: translateY(-1px);
 }
-.schedule-choice-card.is-selected {
+.schedule-date-card.is-selected {
   box-shadow: 0 10px 24px rgba(184, 132, 43, 0.14);
 }
-.schedule-choice-card.is-disabled {
+.schedule-date-card.is-disabled {
   cursor: not-allowed;
-  opacity: 0.58;
-  text-decoration: none;
+  opacity: 0.46;
+  text-decoration: line-through;
 }
-.schedule-choice-date,
-.schedule-choice-session,
-.schedule-choice-time,
-.schedule-choice-slots {
+.schedule-date-card strong {
+  font-size: 16px;
+  line-height: 1.1;
+}
+.schedule-date-card small {
+  color: #7b6845;
+  font-size: 12px;
+  font-weight: 700;
+}
+.schedule-selected-summary {
+  border: 1px solid rgba(184, 132, 43, 0.24);
+  border-radius: 16px;
+  background: #ffffff;
+  padding: 14px;
+}
+.schedule-selected-summary dl {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+.schedule-selected-summary div {
+  display: grid;
+  grid-template-columns: minmax(112px, 0.42fr) minmax(0, 1fr);
+  gap: 12px;
+}
+.schedule-selected-summary dt {
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.schedule-selected-summary dd {
+  margin: 0;
+  color: var(--color-ink);
+  font-weight: 700;
+}
+.schedule-session-list {
+  display: grid;
+  gap: 9px;
+}
+.schedule-session-card {
+  display: grid;
+  grid-template-columns: minmax(92px, 0.45fr) minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid rgba(184, 132, 43, 0.24);
+  border-radius: 14px;
+  background: #fffaf0;
+  color: var(--color-ink);
+  padding: 11px 12px;
+  text-align: left;
+}
+.schedule-session-card.is-selected {
+  border-color: var(--color-gold);
+  background: var(--color-gold-soft);
+}
+.schedule-session-card.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+.schedule-session-card span,
+.schedule-session-card strong,
+.schedule-session-card small {
   min-width: 0;
   overflow-wrap: anywhere;
 }
-.schedule-choice-date {
-  font-weight: 800;
-}
-.schedule-choice-session,
-.schedule-choice-time {
-  color: #5f5037;
-  font-size: 14px;
-  font-weight: 600;
-}
-.schedule-choice-slots {
+.schedule-session-card small {
   justify-self: end;
   border-radius: 999px;
   background: #ffffff;
   color: #6d480f;
-  padding: 6px 9px;
+  padding: 5px 8px;
   font-size: 12px;
   font-weight: 800;
   white-space: nowrap;
-}
-.schedule-choice-card.is-disabled .schedule-choice-slots {
-  background: #f2e7d6;
-  color: #8a6940;
-}
-.schedule-show-more {
-  justify-self: start;
-  border: 0;
-  background: transparent;
-  color: var(--color-gold-dark);
-  padding: 2px 0;
-  font-weight: 800;
 }
 .addon-option-grid {
   display: grid;
@@ -3134,11 +3172,16 @@ button:disabled {
   margin-top: 14px;
 }
 .detail-schedule-scroll {
-  max-height: min(42vh, 430px);
+  max-height: min(26vh, 240px);
   overflow-y: auto;
   overscroll-behavior: contain;
   padding-right: 5px;
   scrollbar-width: thin;
+}
+.detail-schedule-scroll span {
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.35;
 }
 .schedule-option-list span.is-disabled {
   background: #f7f1e8;
@@ -5647,16 +5690,18 @@ td {
     padding-top: 104px;
   }
   .detail-schedule-scroll {
-    max-height: 300px;
+    max-height: 220px;
   }
-  .schedule-choice-list {
-    max-height: 340px;
+  .schedule-date-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    max-height: 230px;
   }
-  .schedule-choice-card {
+  .schedule-session-card,
+  .schedule-selected-summary div {
     grid-template-columns: 1fr;
     gap: 5px;
   }
-  .schedule-choice-slots {
+  .schedule-session-card small {
     justify-self: start;
   }
   .toast {
