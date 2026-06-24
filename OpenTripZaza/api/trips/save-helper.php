@@ -196,6 +196,10 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
         if (!in_array($code, $retainedSessionCodes, true)) {
             $delete = $pdo->prepare('DELETE FROM trip_sessions WHERE id=? AND NOT EXISTS (SELECT 1 FROM bookings WHERE session_id=?)');
             $delete->execute([$databaseId, $databaseId]);
+            if ($delete->rowCount() === 0) {
+                $pdo->prepare("UPDATE trip_sessions SET status='inactive' WHERE id=? AND trip_id=?")
+                    ->execute([$databaseId, $tripId]);
+            }
         }
     }
 

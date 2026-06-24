@@ -294,10 +294,10 @@ export function AdminTrips(props) {
   const [search, setSearch] = useState('')
   const [tripToDelete, setTripToDelete] = useState(null)
   const searchTerm = search.trim().toLowerCase()
-  const activeTrips = props.trips.filter((trip) => !trip.isArchived)
+  const activeTrips = props.trips.filter((trip) => !trip.isArchived && trip.status !== 'Ditutup')
   const filteredTrips = props.trips
     .filter((trip) => {
-      if (activeStatus === 'all') return !trip.isArchived
+      if (activeStatus === 'all') return !trip.isArchived && trip.status !== 'Ditutup'
       return !trip.isArchived && trip.status === activeStatus
     })
     .filter((trip) => {
@@ -432,7 +432,7 @@ export function AdminTrips(props) {
         <AppModal
           isOpen={Boolean(tripToDelete)}
           title="Hapus paket trip?"
-          description="Paket trip yang dihapus tidak akan tampil lagi untuk customer. Pastikan paket ini memang sudah tidak diperlukan."
+          description="Paket trip akan ditutup dan tidak tampil lagi di katalog customer maupun daftar paket aktif admin. Data booking lama tetap tersimpan."
           confirmText="Ya, Hapus"
           cancelText="Batal"
           variant="danger"
