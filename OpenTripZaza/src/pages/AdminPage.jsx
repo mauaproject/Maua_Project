@@ -1788,6 +1788,10 @@ function AdminScheduleDetail({ trip, scheduleId, registrations, jobs, setRegistr
                     {trip.includeDriveLink && (
                       <form className="drive-link-form compact-drive-link-form" onSubmit={async (event) => {
                         event.preventDefault()
+                        if (!schedule.databaseId) {
+                          props.showToast?.('Data jadwal belum siap. Muat ulang halaman lalu coba simpan lagi.')
+                          return
+                        }
                         await updateTripDriveLink({
                           tripId: trip.id,
                           scheduleId: schedule.databaseId,

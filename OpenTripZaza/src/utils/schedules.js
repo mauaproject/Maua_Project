@@ -72,10 +72,12 @@ export function getTripSchedules(trip) {
   if (Array.isArray(trip?.schedules) && trip.schedules.length) {
     return trip.schedules.map((schedule, index) => ({
       id: schedule.id || `schedule_${index + 1}`,
+      databaseId: schedule.databaseId || null,
       name: schedule.name || schedule.sessionName || `Sesi ${index + 1}`,
       date: schedule.date || '',
       startTime: schedule.startTime || '',
       endTime: schedule.endTime || '',
+      driveLinkUrl: schedule.driveLinkUrl || '',
       visibleUntil: schedule.visibleUntil || '',
       isArchived: Boolean(schedule.isArchived),
       lifecycleStatus: schedule.lifecycleStatus || (isScheduleUpcoming(schedule.date, schedule.endTime) ? 'upcoming' : 'completed'),
@@ -90,10 +92,12 @@ export function getTripSchedules(trip) {
   const status = trip?.status === 'Penuh' ? 'full' : trip?.status === 'Ditutup' || trip?.status === 'Selesai' ? 'inactive' : 'active'
   return [{
     id: 'legacy_date',
+    databaseId: null,
     name: 'Sesi 1',
     date: trip?.date || '',
     startTime: '',
     endTime: '',
+    driveLinkUrl: '',
     quota: Number(trip?.quota || trip?.slots || 0),
     bookedCount: 0,
     status,
@@ -104,18 +108,22 @@ export function getTripSessions(trip) {
   if (Array.isArray(trip?.sessions) && trip.sessions.length) {
     return trip.sessions.map((session, index) => ({
       id: session.id || `session_${index + 1}`,
+      databaseId: session.databaseId || null,
       name: session.name || `Sesi ${index + 1}`,
       startTime: session.startTime || '',
       endTime: session.endTime || '',
+      driveLinkUrl: session.driveLinkUrl || '',
       status: normalizeScheduleStatus(session.status),
     }))
   }
 
   return [{
     id: 'legacy_session',
+    databaseId: null,
     name: 'Sesi fleksibel',
     startTime: '',
     endTime: '',
+    driveLinkUrl: '',
     status: 'active',
     isLegacy: true,
   }]
