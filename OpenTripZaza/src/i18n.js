@@ -65,6 +65,10 @@ const resources = {
         booked: 'Sudah dipesan',
         flexibleSession: 'Jadwal fleksibel',
         flexibleBooking: 'Booking sesuai tanggal pilihan',
+        monthFilter: 'Filter bulan jadwal',
+        allMonths: 'Semua bulan',
+        showMore: 'Lihat {{count}} jadwal lainnya',
+        showLess: 'Tampilkan lebih sedikit',
       },
       tripType: {
         open: 'Open trip goa',
@@ -382,9 +386,13 @@ const resources = {
         'Menunggu Approval': 'Menunggu Approval',
         Disetujui: 'Disetujui',
         Ditolak: 'Ditolak',
+        Dibatalkan: 'Dibatalkan',
+        Expired: 'Expired',
         pending: 'Menunggu Approval',
         approved: 'Disetujui',
         rejected: 'Ditolak',
+        cancelled: 'Dibatalkan',
+        expired: 'Expired',
       },
       addons: {
         drone: {
@@ -474,6 +482,10 @@ const resources = {
         booked: 'Already booked',
         flexibleSession: 'Flexible schedule',
         flexibleBooking: 'Book your preferred date',
+        monthFilter: 'Schedule month filter',
+        allMonths: 'All months',
+        showMore: 'Show {{count}} more schedules',
+        showLess: 'Show fewer schedules',
       },
       tripType: {
         open: 'Open cave trip',
@@ -791,9 +803,13 @@ const resources = {
         'Menunggu Approval': 'Waiting Approval',
         Disetujui: 'Approved',
         Ditolak: 'Rejected',
+        Dibatalkan: 'Cancelled',
+        Expired: 'Expired',
         pending: 'Waiting Approval',
         approved: 'Approved',
         rejected: 'Rejected',
+        cancelled: 'Cancelled',
+        expired: 'Expired',
       },
       addons: {
         drone: {

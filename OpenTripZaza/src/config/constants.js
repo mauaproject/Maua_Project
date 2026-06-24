@@ -1,5 +1,5 @@
 export const tripStatuses = ['Tersedia', 'Penuh', 'Ditutup', 'Selesai']
-export const registrationStatuses = ['Menunggu Approval', 'Disetujui', 'Ditolak', 'Selesai']
+export const registrationStatuses = ['Menunggu Approval', 'Disetujui', 'Ditolak', 'Dibatalkan', 'Expired', 'Selesai']
 export const jobStatuses = ['Tersedia', 'Diambil', 'Sedang Berjalan', 'Selesai']
 
 export const addonOptions = [

@@ -161,7 +161,11 @@ runEndpoint(function (PDO $pdo): void {
             if ($schedule['status'] !== 'active' || !empty($schedule['archived_at'])) {
                 throw new InvalidArgumentException('Jadwal trip tidak tersedia.');
             }
-            if (((int) $schedule['quota'] - (int) $schedule['booked_count']) < (int) $data['participants']) {
+            $reservedParticipants = max(
+                (int) $schedule['booked_count'],
+                getOpenTripReservedParticipants($pdo, (int) $schedule['id'])
+            );
+            if (((int) $schedule['quota'] - $reservedParticipants) < $participants) {
                 throw new InvalidArgumentException('Slot jadwal tidak mencukupi.');
             }
             $scheduleId = (int) $schedule['id'];
@@ -231,6 +235,10 @@ runEndpoint(function (PDO $pdo): void {
             $data['notes'] ?? null, $data['transportFrom'] ?? null,
         ]);
         $bookingId = (int) $pdo->lastInsertId();
+
+        if ($scheduleId !== null) {
+            syncOpenTripAvailability($pdo, $scheduleId, (int) $trip['id']);
+        }
 
         $participantStatement = $pdo->prepare(
             'INSERT INTO booking_participants (booking_id, name, address, age, gender, health_notes) VALUES (?,?,?,?,?,?)'

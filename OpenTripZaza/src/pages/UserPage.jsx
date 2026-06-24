@@ -53,6 +53,75 @@ const getSessionLabel = (session, t) => {
   if (session.status === 'inactive') return `${session.name} (${timeText}) - ${t('schedule.inactive')}`
   return `${session.name} (${timeText})`
 }
+const getScheduleMonthKey = (schedule) => String(schedule?.date || '').slice(0, 7)
+const getScheduleMonthLabel = (monthKey, dateLocale) => {
+  if (!monthKey) return ''
+  const date = new Date(`${monthKey}-01T00:00:00`)
+  if (Number.isNaN(date.getTime())) return monthKey
+  return new Intl.DateTimeFormat(dateLocale, { month: 'long', year: 'numeric' }).format(date)
+}
+
+function ScheduleChoiceList({ schedules, selectedId, onSelect, dateLocale, t }) {
+  const [activeMonth, setActiveMonth] = useState('all')
+  const [showAll, setShowAll] = useState(false)
+  const monthKeys = Array.from(new Set(schedules.map(getScheduleMonthKey).filter(Boolean)))
+  const filteredSchedules = activeMonth === 'all'
+    ? schedules
+    : schedules.filter((schedule) => getScheduleMonthKey(schedule) === activeMonth)
+  const visibleSchedules = showAll ? filteredSchedules : filteredSchedules.slice(0, 8)
+  const hiddenCount = Math.max(filteredSchedules.length - visibleSchedules.length, 0)
+  const changeMonth = (monthKey) => {
+    setActiveMonth(monthKey)
+    setShowAll(false)
+  }
+
+  return (
+    <section className="schedule-picker">
+      {monthKeys.length > 1 && (
+        <div className="schedule-month-filter" aria-label={t('schedule.monthFilter')}>
+          <button className={activeMonth === 'all' ? 'is-active' : ''} type="button" onClick={() => changeMonth('all')}>{t('schedule.allMonths')}</button>
+          {monthKeys.map((monthKey) => (
+            <button className={activeMonth === monthKey ? 'is-active' : ''} key={monthKey} type="button" onClick={() => changeMonth(monthKey)}>
+              {getScheduleMonthLabel(monthKey, dateLocale)}
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="schedule-choice-list" role="listbox" aria-label={t('schedule.departureSchedule')}>
+        {visibleSchedules.map((schedule) => {
+          const timeText = schedule.startTime && schedule.endTime ? `${schedule.startTime} - ${schedule.endTime} WIB` : t('schedule.flexibleSession')
+          const isSelected = selectedId === schedule.id
+          return (
+            <button
+              className={`schedule-choice-card ${isSelected ? 'is-selected' : ''} ${!schedule.isSelectable ? 'is-disabled' : ''}`}
+              disabled={!schedule.isSelectable}
+              key={schedule.id}
+              type="button"
+              role="option"
+              aria-selected={isSelected}
+              onClick={() => onSelect(schedule.id)}
+            >
+              <span className="schedule-choice-date">{formatDate(schedule.date, dateLocale)}</span>
+              <span className="schedule-choice-session">{schedule.name || t('schedule.session')}</span>
+              <span className="schedule-choice-time">{timeText}</span>
+              <span className="schedule-choice-slots">{schedule.isSelectable ? t('schedule.remaining', { count: schedule.remaining }) : t('schedule.full')}</span>
+            </button>
+          )
+        })}
+      </div>
+      {hiddenCount > 0 && (
+        <button className="schedule-show-more" type="button" onClick={() => setShowAll(true)}>
+          {t('schedule.showMore', { count: hiddenCount })}
+        </button>
+      )}
+      {showAll && filteredSchedules.length > 8 && (
+        <button className="schedule-show-more" type="button" onClick={() => setShowAll(false)}>
+          {t('schedule.showLess')}
+        </button>
+      )}
+    </section>
+  )
+}
 
 export function PublicNav({ navigate, session, logout }) {
   const { t, i18n, lang } = useCustomerLanguage()
@@ -902,7 +971,7 @@ export function TripDetail({ tripId, trips, registrations, navigate, session, lo
                 {!trip.isPrivateTrip && <div><dt>{t('common.availableSlots')}</dt><dd>{t('common.participantCount', { count: scheduleOptions.reduce((total, schedule) => total + schedule.remaining, 0) })}</dd></div>}
               </dl>
               {!trip.isPrivateTrip && scheduleOptions.length > 0 && (
-                <div className="schedule-option-list">
+                <div className="schedule-option-list detail-schedule-scroll" aria-label={t('schedule.departureSchedule')}>
                   {scheduleOptions.map((schedule) => (
                     <span className={!schedule.isSelectable ? 'is-disabled' : ''} key={schedule.id}>{getScheduleLabel(schedule, dateLocale, t)}</span>
                   ))}
@@ -1259,12 +1328,16 @@ export function RegistrationPage({
             </div>
             <div className="registration-fields">
               {!isPrivateBooking && (
-                <label className="full">{t('schedule.departureSchedule')}<select required value={form.scheduleId} onChange={(e) => setForm({ ...form, scheduleId: e.target.value })}>
-                  <option value="">{t('schedule.chooseSchedule')}</option>
-                  {scheduleOptions.map((schedule) => (
-                    <option disabled={!schedule.isSelectable} key={schedule.id} value={schedule.id}>{getScheduleLabel(schedule, dateLocale, t)}</option>
-                  ))}
-                </select></label>
+                <div className="full schedule-checkout-section">
+                  <div className="field-like-label">{t('schedule.departureSchedule')}</div>
+                  <ScheduleChoiceList
+                    schedules={scheduleOptions}
+                    selectedId={form.scheduleId}
+                    dateLocale={dateLocale}
+                    t={t}
+                    onSelect={(scheduleId) => setForm({ ...form, scheduleId })}
+                  />
+                </div>
               )}
               {isPrivateBooking && (
                 <>

@@ -1678,7 +1678,9 @@ button:disabled {
   color: #6d480f;
 }
 .badge-penuh,
-.badge-ditolak {
+.badge-ditolak,
+.badge-dibatalkan,
+.badge-expired {
   background: #fee2e2;
   color: #991b1b;
 }
@@ -2046,6 +2048,114 @@ button:disabled {
 }
 .registration-fields .full {
   grid-column: 1 / -1;
+}
+.field-like-label {
+  color: var(--color-ink);
+  font-size: 14px;
+  font-weight: 700;
+}
+.schedule-checkout-section,
+.schedule-picker {
+  display: grid;
+  gap: 12px;
+}
+.schedule-month-filter {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 3px;
+  scrollbar-width: thin;
+}
+.schedule-month-filter button {
+  flex: 0 0 auto;
+  border: 1px solid rgba(184, 132, 43, 0.28);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #5d4522;
+  padding: 9px 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.schedule-month-filter button.is-active {
+  border-color: var(--color-gold);
+  background: var(--color-gold-soft);
+  color: var(--color-ink);
+}
+.schedule-choice-list {
+  display: grid;
+  max-height: 390px;
+  gap: 10px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px 5px 2px 0;
+  scrollbar-width: thin;
+}
+.schedule-choice-card {
+  display: grid;
+  grid-template-columns: minmax(142px, 0.75fr) minmax(92px, 0.45fr) minmax(130px, 0.7fr) minmax(104px, auto);
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  border: 1px solid rgba(184, 132, 43, 0.24);
+  border-radius: 16px;
+  background: #fffaf0;
+  color: var(--color-ink);
+  padding: 13px 14px;
+  text-align: left;
+  transition: border-color 140ms ease, background 140ms ease, transform 140ms ease;
+}
+.schedule-choice-card:hover,
+.schedule-choice-card:focus-visible,
+.schedule-choice-card.is-selected {
+  border-color: var(--color-gold);
+  background: var(--color-gold-soft);
+  transform: translateY(-1px);
+}
+.schedule-choice-card.is-selected {
+  box-shadow: 0 10px 24px rgba(184, 132, 43, 0.14);
+}
+.schedule-choice-card.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+  text-decoration: none;
+}
+.schedule-choice-date,
+.schedule-choice-session,
+.schedule-choice-time,
+.schedule-choice-slots {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.schedule-choice-date {
+  font-weight: 800;
+}
+.schedule-choice-session,
+.schedule-choice-time {
+  color: #5f5037;
+  font-size: 14px;
+  font-weight: 600;
+}
+.schedule-choice-slots {
+  justify-self: end;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #6d480f;
+  padding: 6px 9px;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.schedule-choice-card.is-disabled .schedule-choice-slots {
+  background: #f2e7d6;
+  color: #8a6940;
+}
+.schedule-show-more {
+  justify-self: start;
+  border: 0;
+  background: transparent;
+  color: var(--color-gold-dark);
+  padding: 2px 0;
+  font-weight: 800;
 }
 .addon-option-grid {
   display: grid;
@@ -3022,6 +3132,13 @@ button:disabled {
 }
 .schedule-option-list {
   margin-top: 14px;
+}
+.detail-schedule-scroll {
+  max-height: min(42vh, 430px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 5px;
+  scrollbar-width: thin;
 }
 .schedule-option-list span.is-disabled {
   background: #f7f1e8;
@@ -5528,6 +5645,19 @@ td {
   .trip-detail-layout {
     padding: 0 20px;
     padding-top: 104px;
+  }
+  .detail-schedule-scroll {
+    max-height: 300px;
+  }
+  .schedule-choice-list {
+    max-height: 340px;
+  }
+  .schedule-choice-card {
+    grid-template-columns: 1fr;
+    gap: 5px;
+  }
+  .schedule-choice-slots {
+    justify-self: start;
   }
   .toast {
     top: 98px;

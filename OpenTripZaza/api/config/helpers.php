@@ -91,6 +91,66 @@ function scheduleIsBookable(array $schedule, ?DateTimeImmutable $now = null): bo
         && (int) ($schedule['quota'] ?? 0) > (int) ($schedule['booked_count'] ?? $schedule['bookedCount'] ?? 0);
 }
 
+function bookingHoldsOpenTripSlot(mixed $status): bool
+{
+    return in_array((string) $status, ['Menunggu Approval', 'Disetujui', 'Selesai'], true);
+}
+
+function getOpenTripReservedParticipants(PDO $pdo, int $scheduleId): int
+{
+    $countStatement = $pdo->prepare(
+        "SELECT COALESCE(SUM(participants), 0) FROM bookings
+         WHERE schedule_id = ? AND status IN ('Menunggu Approval','Disetujui','Selesai')"
+    );
+    $countStatement->execute([$scheduleId]);
+    return (int) $countStatement->fetchColumn();
+}
+
+function syncOpenTripAvailability(PDO $pdo, int $scheduleId, int $tripId): void
+{
+    $lockStatement = $pdo->prepare('SELECT id FROM trip_schedules WHERE id = ? FOR UPDATE');
+    $lockStatement->execute([$scheduleId]);
+    if (!$lockStatement->fetch()) {
+        throw new InvalidArgumentException('Jadwal trip tidak tersedia.');
+    }
+
+    $bookedCount = getOpenTripReservedParticipants($pdo, $scheduleId);
+
+    $scheduleStatement = $pdo->prepare(
+        "UPDATE trip_schedules
+         SET booked_count = ?,
+             status = CASE
+                WHEN status = 'inactive' THEN 'inactive'
+                WHEN quota <= ? THEN 'full'
+                ELSE 'active'
+             END
+         WHERE id = ?"
+    );
+    $scheduleStatement->execute([$bookedCount, $bookedCount, $scheduleId]);
+
+    $totalsStatement = $pdo->prepare(
+        'SELECT COALESCE(SUM(quota),0) quota,
+                COALESCE(SUM(GREATEST(quota-booked_count,0)),0) slots
+         FROM trip_schedules WHERE trip_id = ?'
+    );
+    $totalsStatement->execute([$tripId]);
+    $totals = $totalsStatement->fetch() ?: ['quota' => 0, 'slots' => 0];
+    $slots = max(0, (int) $totals['slots']);
+
+    $tripStatement = $pdo->prepare(
+        "UPDATE trips
+         SET quota = ?,
+             slots = ?,
+             status = CASE
+                WHEN status IN ('Ditutup','Selesai') THEN status
+                WHEN ? <= 0 THEN 'Penuh'
+                ELSE 'Tersedia'
+             END
+         WHERE id = ?"
+    );
+    $tripStatement->execute([(int) $totals['quota'], $slots, $slots, $tripId]);
+}
+
 function privateTripEndAt(array $trip, array $sessions = []): ?DateTimeImmutable
 {
     $endDate = trim((string) ($trip['available_end_date'] ?? $trip['availableEndDate'] ?? ''));

@@ -1,7 +1,8 @@
 const fullScheduleStatuses = ['full', 'penuh']
 const inactiveScheduleStatuses = ['inactive', 'ditutup', 'selesai']
 const approvedStatuses = ['approved', 'disetujui', 'selesai']
-const privateBlockingStatuses = ['pending', 'menunggu approval', 'approved', 'disetujui']
+const slotHoldingStatuses = ['pending', 'menunggu approval', 'approved', 'disetujui', 'selesai']
+const privateBlockingStatuses = slotHoldingStatuses
 
 const normalized = (value) => String(value || '').trim().toLowerCase()
 
@@ -29,6 +30,8 @@ export const isScheduleUpcoming = (date, endTime) => Boolean(date) && scheduleEn
 export const getRegistrationDate = (registration) => registration?.selectedDate || registration?.requestedDate || ''
 
 export const isApprovedRegistration = (registration) => approvedStatuses.includes(normalized(registration?.status))
+
+export const isSlotHoldingRegistration = (registration) => slotHoldingStatuses.includes(normalized(registration?.status))
 
 export const isPrivateBlockingRegistration = (registration) => privateBlockingStatuses.includes(normalized(registration?.status))
 
@@ -129,7 +132,7 @@ export function isSameScheduleRegistration(registration, schedule) {
 export function getScheduleBookedCount(registrations = [], tripId, schedule) {
   return registrations
     .filter((registration) => Number(registration.tripId) === Number(tripId))
-    .filter(isApprovedRegistration)
+    .filter(isSlotHoldingRegistration)
     .filter((registration) => isSameScheduleRegistration(registration, schedule))
     .reduce((total, registration) => total + Number(registration.participants || registration.participantCount || 0), 0)
 }

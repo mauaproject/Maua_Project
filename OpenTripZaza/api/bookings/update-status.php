@@ -6,7 +6,7 @@ requireMethod('POST');
 runEndpoint(function (PDO $pdo): void {
     $data = jsonInput();
     requiredFields($data, ['id', 'status']);
-    $allowed = ['Menunggu Approval', 'Disetujui', 'Ditolak', 'Selesai'];
+    $allowed = ['Menunggu Approval', 'Disetujui', 'Ditolak', 'Dibatalkan', 'Expired', 'Selesai'];
     if (!in_array($data['status'], $allowed, true)) {
         throw new InvalidArgumentException('Status booking tidak valid.');
     }
@@ -19,9 +19,24 @@ runEndpoint(function (PDO $pdo): void {
         if (!$booking) {
             jsonError('Booking tidak ditemukan.', 404);
         }
+        if ($booking['schedule_id']) {
+            $scheduleStatement = $pdo->prepare('SELECT quota, booked_count FROM trip_schedules WHERE id = ? FOR UPDATE');
+            $scheduleStatement->execute([(int) $booking['schedule_id']]);
+            $schedule = $scheduleStatement->fetch();
+            if (!$schedule) {
+                throw new InvalidArgumentException('Jadwal trip tidak tersedia.');
+            }
+            if (
+                !bookingHoldsOpenTripSlot($booking['status'])
+                && bookingHoldsOpenTripSlot($data['status'])
+                && ((int) $schedule['quota'] - max((int) $schedule['booked_count'], getOpenTripReservedParticipants($pdo, (int) $booking['schedule_id']))) < (int) $booking['participants']
+            ) {
+                throw new InvalidArgumentException('Slot jadwal tidak mencukupi untuk mengaktifkan booking ini.');
+            }
+        }
         $paymentStatus = match ($data['status']) {
             'Disetujui', 'Selesai' => 'verified',
-            'Ditolak' => 'rejected',
+            'Ditolak', 'Dibatalkan', 'Expired' => 'rejected',
             default => 'waiting_verification',
         };
         $pdo->prepare(
@@ -31,24 +46,7 @@ runEndpoint(function (PDO $pdo): void {
             ->execute([$paymentStatus, $bookingId]);
 
         if ($booking['schedule_id']) {
-            $countStatement = $pdo->prepare(
-                "SELECT COALESCE(SUM(participants), 0) FROM bookings
-                 WHERE schedule_id = ? AND status IN ('Disetujui','Selesai')"
-            );
-            $countStatement->execute([(int) $booking['schedule_id']]);
-            $bookedCount = (int) $countStatement->fetchColumn();
-            $scheduleStatement = $pdo->prepare(
-                "UPDATE trip_schedules SET booked_count = ?,
-                 status = CASE WHEN status = 'inactive' THEN 'inactive' WHEN quota <= ? THEN 'full' ELSE 'active' END
-                 WHERE id = ?"
-            );
-            $scheduleStatement->execute([$bookedCount, $bookedCount, (int) $booking['schedule_id']]);
-            $totalsStatement = $pdo->prepare('SELECT COALESCE(SUM(quota),0) quota, COALESCE(SUM(GREATEST(quota-booked_count,0)),0) slots FROM trip_schedules WHERE trip_id = ?');
-            $totalsStatement->execute([(int) $booking['trip_id']]);
-            $totals = $totalsStatement->fetch();
-            $pdo->prepare(
-                "UPDATE trips SET quota=?, slots=?, status=CASE WHEN status IN ('Ditutup','Selesai') THEN status WHEN ? <= 0 THEN 'Penuh' ELSE 'Tersedia' END WHERE id=?"
-            )->execute([(int) $totals['quota'], (int) $totals['slots'], (int) $totals['slots'], (int) $booking['trip_id']]);
+            syncOpenTripAvailability($pdo, (int) $booking['schedule_id'], (int) $booking['trip_id']);
         }
 
         if (in_array($data['status'], ['Disetujui', 'Selesai'], true)) {

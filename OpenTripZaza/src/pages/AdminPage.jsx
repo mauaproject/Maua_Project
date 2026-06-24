@@ -7,7 +7,7 @@ import { localizedList, localizedText, multilingualLines, multilingualText, text
 import { getPaymentStatusLabel, getPaymentTypeLabel } from '../utils/payments'
 import { getPrivatePackages, newPrivatePackage } from '../utils/privatePackages'
 import { ABOVE_MAX_PAX_RULE, normalizePricePerPersonTiers } from '../utils/pricing'
-import { getPrivateDateRange, getRegistrationDate, getTripSchedules, getTripSessions, hasScheduleRegistrations, isSameScheduleRegistration, scheduleStatusLabel } from '../utils/schedules'
+import { getPrivateDateRange, getRegistrationDate, getTripSchedules, getTripSessions, hasScheduleRegistrations, isSameScheduleRegistration, isSlotHoldingRegistration, scheduleStatusLabel } from '../utils/schedules'
 import { AppModal, Badge, DataPanel, Metric, Sidebar } from './shared'
 
 const parseImageUrls = (value) => String(value || '')
@@ -1293,14 +1293,17 @@ export function AdminSchedule(props) {
     const scheduleItems = schedules.map((schedule) => {
       const scheduleRegistrations = registrations.filter((item) => Number(item.tripId) === Number(trip.id) && !item.isPrivateTrip && !item.isPrivateTour && item.tripType !== 'private' && isSameScheduleRegistration(item, schedule))
       const approvedRegistrations = scheduleRegistrations.filter((item) => item.status === 'Disetujui' || item.status === 'Selesai')
+      const reservedRegistrations = scheduleRegistrations.filter(isSlotHoldingRegistration)
       const waitingRegistrations = scheduleRegistrations.filter(isPendingRegistration)
       const approvedParticipants = countParticipants(approvedRegistrations)
+      const reservedParticipants = Math.max(Number(schedule.bookedCount || 0), countParticipants(reservedRegistrations))
       const waitingParticipants = countParticipants(waitingRegistrations)
       const relatedJobs = jobs.filter((job) => Number(job.tripId) === Number(trip.id) && (!job.registrationId || scheduleRegistrations.some((registration) => Number(registration.id) === Number(job.registrationId))))
-      const remaining = Math.max(Number(schedule.quota || 0) - approvedParticipants, 0)
+      const remaining = Math.max(Number(schedule.quota || 0) - reservedParticipants, 0)
       return {
         ...schedule,
         approvedParticipants,
+        reservedParticipants,
         waitingParticipants,
         remaining,
         status: schedule.status === 'inactive' ? 'inactive' : remaining <= 0 ? 'full' : schedule.status,
@@ -1655,13 +1658,20 @@ function AdminScheduleDetail({ trip, scheduleId, registrations, jobs, setRegistr
     .filter((item) => !selectedSchedule || isSameScheduleRegistration(item, selectedSchedule))
   const approvedParticipants = tripRegistrations.filter((item) => item.status === 'Disetujui' || item.status === 'Selesai')
   const waitingRegistrations = tripRegistrations.filter(isPendingRegistration)
-  const rejectedRegistrations = tripRegistrations.filter((item) => item.status === 'Ditolak')
+  const rejectedRegistrations = tripRegistrations.filter((item) => ['Ditolak', 'Dibatalkan', 'Expired'].includes(item.status))
   const tripJobs = jobs.filter((job) => job.tripId === trip.id && (!selectedSchedule || !job.registrationId || tripRegistrations.some((registration) => Number(registration.id) === Number(job.registrationId))))
   const tripSchedules = (selectedSchedule ? [selectedSchedule] : getTripSchedules(trip)).map((schedule) => {
     const approvedCount = approvedParticipants
       .filter((registration) => registration.scheduleId ? registration.scheduleId === schedule.id : getRegistrationDate(registration) === schedule.date)
       .reduce((total, registration) => total + Number(registration.participants || 0), 0)
-    return { ...schedule, approvedCount, remaining: Math.max(Number(schedule.quota || 0) - approvedCount, 0) }
+    const reservedCount = Math.max(
+      Number(schedule.bookedCount || 0),
+      tripRegistrations
+        .filter(isSlotHoldingRegistration)
+        .filter((registration) => registration.scheduleId ? registration.scheduleId === schedule.id : getRegistrationDate(registration) === schedule.date)
+        .reduce((total, registration) => total + Number(registration.participants || 0), 0),
+    )
+    return { ...schedule, approvedCount, reservedCount, remaining: Math.max(Number(schedule.quota || 0) - reservedCount, 0) }
   })
   const [activeStatus, setActiveStatus] = useState('Menunggu Approval')
   const [search, setSearch] = useState('')
@@ -1732,6 +1742,7 @@ function AdminScheduleDetail({ trip, scheduleId, registrations, jobs, setRegistr
                     <dl>
                       <div><dt>Kuota</dt><dd>{schedule.quota}</dd></div>
                       <div><dt>Disetujui</dt><dd>{schedule.approvedCount}</dd></div>
+                      <div><dt>Tertahan</dt><dd>{schedule.reservedCount}</dd></div>
                       <div><dt>Sisa kuota</dt><dd>{schedule.remaining}</dd></div>
                       <div><dt>Status</dt><dd><Badge status={lifecycleLabel(schedule.lifecycleStatus)} label={lifecycleLabel(schedule.lifecycleStatus)} /></dd></div>
                     </dl>
