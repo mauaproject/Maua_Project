@@ -3371,6 +3371,73 @@ button:disabled {
   border-color: #c08a2e;
   box-shadow: 0 0 0 3px rgba(192, 138, 46, 0.16);
 }
+.participant-count-field {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  color: #241a08;
+  font-weight: 600;
+}
+.participant-count-field small {
+  color: #7d6938;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+.participant-stepper {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) 48px;
+  overflow: hidden;
+  border: 1px solid #e6cfa8;
+  border-radius: 16px;
+  background: #ffffff;
+}
+.participant-stepper:focus-within {
+  border-color: #c08a2e;
+  box-shadow: 0 0 0 3px rgba(192, 138, 46, 0.16);
+}
+.participant-stepper button {
+  display: grid;
+  min-height: 48px;
+  place-items: center;
+  border: 0;
+  background: #fff8e7;
+  color: #6e4710;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1;
+  touch-action: manipulation;
+}
+.participant-stepper button:not(:disabled):hover,
+.participant-stepper button:not(:disabled):focus-visible {
+  background: var(--color-gold-soft);
+  color: var(--color-ink);
+}
+.participant-stepper input,
+.registration-fields .participant-stepper input {
+  min-width: 0;
+  border: 0;
+  border-right: 1px solid #e6cfa8;
+  border-left: 1px solid #e6cfa8;
+  border-radius: 0;
+  background: #ffffff;
+  padding: 12px 8px;
+  text-align: center;
+  font-weight: 700;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+.participant-stepper input:focus,
+.registration-fields .participant-stepper input:focus {
+  border-color: #e6cfa8;
+  box-shadow: none;
+}
+.participant-stepper input::-webkit-outer-spin-button,
+.participant-stepper input::-webkit-inner-spin-button {
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+}
 
 /* Auth / login pages */
 .login-page {

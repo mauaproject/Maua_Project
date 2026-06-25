@@ -892,6 +892,50 @@ function CustomerTripProfileFields({ form, setForm, t }) {
   )
 }
 
+function ParticipantCountField({ label, value, min = 1, max, hint, onChange }) {
+  const numericValue = Number(value) || min
+  const hasMax = Number.isFinite(Number(max))
+  const minValue = Number(min) || 1
+  const maxValue = hasMax ? Number(max) : undefined
+  const canDecrease = numericValue > minValue
+  const canIncrease = !hasMax || numericValue < maxValue
+
+  return (
+    <div className="participant-count-field">
+      <span className="field-like-label">{label}</span>
+      <div className="participant-stepper">
+        <button
+          aria-label="Kurangi jumlah peserta"
+          disabled={!canDecrease}
+          onClick={() => onChange(numericValue - 1)}
+          type="button"
+        >
+          -
+        </button>
+        <input
+          aria-label={label}
+          inputMode="numeric"
+          max={maxValue}
+          min={minValue}
+          onChange={(event) => onChange(event.target.value)}
+          pattern="[0-9]*"
+          type="number"
+          value={value}
+        />
+        <button
+          aria-label="Tambah jumlah peserta"
+          disabled={!canIncrease}
+          onClick={() => onChange(numericValue + 1)}
+          type="button"
+        >
+          +
+        </button>
+      </div>
+      {hint && <small>{hint}</small>}
+    </div>
+  )
+}
+
 const buildParticipant = (source = {}) => ({
   name: source.name || '',
   email: source.email || '',
@@ -1151,6 +1195,10 @@ export function RegistrationPage({
   const participants = Number(form.participants) || 1
   const isPrivateTrip = Boolean(selectedTrip?.isPrivateTrip)
   const isPrivateBooking = isPrivateTrip || form.isPrivateTour
+  const participantMin = isPrivateBooking ? Number(selectedTrip?.minParticipants || 1) : 1
+  const participantMax = isPrivateBooking
+    ? Number(selectedTrip?.maxParticipants || selectedTrip?.quota || 99)
+    : Number(selectedSchedule?.remaining || selectedTrip?.quota || 99)
   const pricePerPerson = selectedTrip
     ? isPrivateBooking
       ? selectedPackage
@@ -1447,11 +1495,24 @@ export function RegistrationPage({
                 </div>
               )}
               {!isPrivateBooking && (
-                <label>{t('checkout.participantTotal')}<input type="number" min="1" max={selectedSchedule?.remaining || selectedTrip.quota || undefined} value={form.participants} onChange={(e) => updateParticipantCount(e.target.value)} />{selectedSchedule && <small>Sisa slot: {selectedSchedule.remaining} orang</small>}</label>
+                <ParticipantCountField
+                  hint={selectedSchedule ? `Sisa slot: ${selectedSchedule.remaining} orang` : ''}
+                  label={t('checkout.participantTotal')}
+                  max={participantMax}
+                  min={participantMin}
+                  onChange={updateParticipantCount}
+                  value={form.participants}
+                />
               )}
               {isPrivateBooking && (
                 <>
-                  <label>{t('checkout.participantTotal')}<input type="number" min={selectedTrip.minParticipants || 1} max={selectedTrip.maxParticipants || selectedTrip.quota || undefined} value={form.participants} onChange={(e) => updateParticipantCount(e.target.value)} /></label>
+                  <ParticipantCountField
+                    label={t('checkout.participantTotal')}
+                    max={participantMax}
+                    min={participantMin}
+                    onChange={updateParticipantCount}
+                    value={form.participants}
+                  />
                   {privatePackages.length > 0 && <div className="full private-package-checkout-section">
                     <h3>Pilih Paket Private Trip</h3>
                     <p>Paket menentukan rute, destinasi/aktivitas, dan harga. Pilihan sesi dilakukan setelahnya.</p>
