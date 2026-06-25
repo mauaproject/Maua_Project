@@ -14,6 +14,18 @@ const parseImageUrls = (value) => String(value || '')
   .split(/\r?\n|,/)
   .map((item) => item.trim())
   .filter(Boolean)
+const getTimeRangeLabel = (registration) => {
+  const startTime = registration?.startTime || ''
+  const endTime = registration?.endTime || ''
+  if (startTime && endTime) return `${startTime} - ${endTime} WIB`
+  if (startTime) return `${startTime} WIB`
+  return ''
+}
+const getJobScheduleLabel = (job, registration, trip) => {
+  const dateText = formatDate(job.requestedDate || getRegistrationDate(registration) || trip?.date)
+  const details = [registration?.sessionName, getTimeRangeLabel(registration)].filter(Boolean)
+  return details.length ? `${dateText} · ${details.join(' · ')}` : dateText
+}
 
 const MAX_TRIP_IMAGE_SIZE = 10 * 1024 * 1024
 const ALLOWED_TRIP_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
@@ -1983,7 +1995,7 @@ function RegistrationDetailModal({ item, trip, jobs = [], setRegistrationStatus,
 }
 
 export function AdminWorkers(props) {
-  const { workerAccounts, createWorkerAccount, updateWorkerAccount, deleteWorkerAccount, jobs, trips } = props
+  const { workerAccounts, createWorkerAccount, updateWorkerAccount, deleteWorkerAccount, jobs, trips, registrations = [] } = props
   const [form, setForm] = useState({ name: '', email: '', password: '' })
   const [error, setError] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -2089,11 +2101,12 @@ export function AdminWorkers(props) {
                     <div className="worker-job-list">
                       {workerJobs.length ? workerJobs.map((job) => {
                         const trip = trips.find((item) => item.id === job.tripId)
+                        const registration = registrations.find((item) => Number(item.id) === Number(job.registrationId))
                         return (
                           <article className="worker-job-item" key={job.id}>
                             <div>
                               <strong>{job.addonLabel || 'Job trip'}</strong>
-                              <span>{trip?.name || 'Cave trip'} - {formatDate(job.requestedDate || trip?.date)}</span>
+                              <span>{trip?.name || 'Cave trip'} - {getJobScheduleLabel(job, registration, trip)}</span>
                             </div>
                             <p>{job.task}</p>
                             <Badge status={job.status} />
@@ -2158,7 +2171,7 @@ export function AdminWorkers(props) {
   )
 }
 
-export function JobTable({ jobs, trips, compact }) {
+export function JobTable({ jobs, trips, registrations = [], compact }) {
   const rows = compact ? jobs.slice(0, 5) : jobs
   return (
     <div className="table-wrap">
@@ -2166,7 +2179,8 @@ export function JobTable({ jobs, trips, compact }) {
         <thead><tr><th>Paket</th><th>Destinasi</th><th>Tanggal</th><th>Kebutuhan</th><th>Tugas</th><th>Status job</th><th>Tim</th></tr></thead>
         <tbody>{rows.map((job) => {
           const trip = trips.find((item) => item.id === job.tripId)
-          return <tr key={job.id}><td>{trip?.name}</td><td>{adminText(trip?.destination)}</td><td>{formatDate(job.requestedDate || trip?.date)}</td><td>{job.addonLabel || 'Job trip'}</td><td>{job.task}</td><td><Badge status={job.status} /></td><td>{job.worker || '-'}</td></tr>
+          const registration = registrations.find((item) => Number(item.id) === Number(job.registrationId))
+          return <tr key={job.id}><td>{trip?.name}</td><td>{adminText(trip?.destination)}</td><td>{getJobScheduleLabel(job, registration, trip)}</td><td>{job.addonLabel || 'Job trip'}</td><td>{job.task}</td><td><Badge status={job.status} /></td><td>{job.worker || '-'}</td></tr>
         })}</tbody>
       </table>
     </div>
