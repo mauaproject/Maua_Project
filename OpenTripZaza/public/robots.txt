@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /tim
+Disallow: /akun
+Disallow: /payment-confirmation
+Disallow: /daftar
+Disallow: /verify-email
+
+Sitemap: https://mauaproject.com/sitemap.xml

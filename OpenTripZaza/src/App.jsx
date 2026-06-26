@@ -9,6 +9,7 @@ import { getRequiredPaymentAmount } from './utils/payments'
 import { getPackagePricePerPerson, getPrivatePackages } from './utils/privatePackages'
 import { validateCustomerTripProfile } from './utils/customerProfile'
 import { getAddonLineTotal, hydrateAddonForParticipants } from './utils/addons'
+import { localizedText } from './utils/localization'
 import {
   getOpenTripScheduleOptions,
   getPrivateSessionOptions,
@@ -19,6 +20,12 @@ import {
 
 const getJobScope = (job) => job.registrationId ? `registration-${job.registrationId}` : `trip-${job.tripId}`
 const CHECKOUT_DRAFT_KEY = 'mauaCheckoutDraft'
+const SITE_URL = (import.meta.env.VITE_SITE_URL || 'https://mauaproject.com').replace(/\/$/, '')
+const DEFAULT_SEO = {
+  title: 'MAUA Project | Open Trip Goa Yogyakarta',
+  description: 'MAUA Project menyediakan open trip goa dan private cave tour di Yogyakarta dengan jadwal fleksibel, booking mudah, dan pengalaman jelajah goa yang tertata.',
+  robots: 'index, follow',
+}
 const lazyNamed = (loader, name) => lazy(() => loader().then((module) => ({ default: module[name] })))
 const loadAdminPage = () => import('./pages/AdminPage')
 const loadWorkerPage = () => import('./pages/WorkerPage')
@@ -55,6 +62,92 @@ const readCheckoutDraft = () => {
     return JSON.parse(window.sessionStorage.getItem(CHECKOUT_DRAFT_KEY) || 'null')
   } catch {
     return null
+  }
+}
+
+const getPublicPath = (path) => {
+  const currentPath = path.split('?')[0] || '/'
+  if (currentPath === '/open-trip') return '/'
+  if (currentPath === '/review') return '/reviews'
+  return currentPath
+}
+
+const upsertMetaTag = (selector, attributes) => {
+  let element = document.head.querySelector(selector)
+  if (!element) {
+    element = document.createElement('meta')
+    document.head.appendChild(element)
+  }
+  Object.entries(attributes).forEach(([key, value]) => element.setAttribute(key, value))
+}
+
+const upsertLinkTag = (selector, attributes) => {
+  let element = document.head.querySelector(selector)
+  if (!element) {
+    element = document.createElement('link')
+    document.head.appendChild(element)
+  }
+  Object.entries(attributes).forEach(([key, value]) => element.setAttribute(key, value))
+}
+
+const buildSeo = (path, trips) => {
+  const cleanPath = path.split('?')[0] || '/'
+  const parts = cleanPath.split('/').filter(Boolean)
+  const tripId = parts[0] === 'open-trip' ? Number(parts[1]) : 0
+  const trip = tripId ? trips.find((item) => Number(item.id) === tripId) : null
+  const privatePath = cleanPath.startsWith('/admin') || cleanPath.startsWith('/tim') || cleanPath.startsWith('/akun') || cleanPath.startsWith('/payment-confirmation') || cleanPath.startsWith('/daftar') || cleanPath.startsWith('/verify-email')
+
+  if (privatePath) {
+    return {
+      ...DEFAULT_SEO,
+      title: 'Area Akun | MAUA Project',
+      description: 'Area akun MAUA Project.',
+      robots: 'noindex, nofollow',
+      canonicalPath: '/',
+    }
+  }
+
+  if (trip) {
+    const destination = localizedText(trip.destination, 'id') || trip.destination || 'Yogyakarta'
+    return {
+      title: `${trip.name} | MAUA Project`,
+      description: `Lihat detail ${trip.name} di ${destination}, termasuk jadwal, harga, kuota, dan informasi booking open trip atau private trip goa.`,
+      robots: 'index, follow',
+      canonicalPath: `/open-trip/${trip.id}`,
+    }
+  }
+
+  if (cleanPath.startsWith('/destinasi')) {
+    return {
+      title: 'Destinasi Open Trip Goa | MAUA Project',
+      description: 'Jelajahi daftar destinasi wisata goa, open trip, private tour, jadwal, dan pilihan paket pengalaman bersama MAUA Project.',
+      robots: 'index, follow',
+      canonicalPath: '/destinasi',
+    }
+  }
+
+  if (cleanPath === '/reviews' || cleanPath === '/review') {
+    return {
+      title: 'Review Peserta | MAUA Project',
+      description: 'Baca pengalaman peserta yang sudah mengikuti open trip goa dan private cave tour bersama MAUA Project.',
+      robots: 'index, follow',
+      canonicalPath: '/reviews',
+    }
+  }
+
+  if (cleanPath === '/login' || cleanPath === '/customer/login' || cleanPath === '/signup' || cleanPath === '/customer/signup') {
+    return {
+      ...DEFAULT_SEO,
+      title: 'Masuk atau Daftar | MAUA Project',
+      description: 'Masuk atau daftar akun pelanggan MAUA Project.',
+      robots: 'noindex, follow',
+      canonicalPath: '/',
+    }
+  }
+
+  return {
+    ...DEFAULT_SEO,
+    canonicalPath: getPublicPath(cleanPath),
   }
 }
 
@@ -191,6 +284,22 @@ function App() {
       }
     }).catch((error) => showToast(error.message))
       .finally(() => detailRequestsRef.current.delete(tripId))
+  }, [path, trips])
+
+  useEffect(() => {
+    const seo = buildSeo(path, trips)
+    const canonicalUrl = `${SITE_URL}${seo.canonicalPath === '/' ? '/' : seo.canonicalPath}`
+    document.documentElement.lang = i18n.language?.startsWith('en') ? 'en' : 'id'
+    document.title = seo.title
+    upsertMetaTag('meta[name="description"]', { name: 'description', content: seo.description })
+    upsertMetaTag('meta[name="robots"]', { name: 'robots', content: seo.robots })
+    upsertMetaTag('meta[name="googlebot"]', { name: 'googlebot', content: `${seo.robots}, max-snippet:-1, max-image-preview:large, max-video-preview:-1` })
+    upsertLinkTag('link[rel="canonical"]', { rel: 'canonical', href: canonicalUrl })
+    upsertMetaTag('meta[property="og:title"]', { property: 'og:title', content: seo.title })
+    upsertMetaTag('meta[property="og:description"]', { property: 'og:description', content: seo.description })
+    upsertMetaTag('meta[property="og:url"]', { property: 'og:url', content: canonicalUrl })
+    upsertMetaTag('meta[name="twitter:title"]', { name: 'twitter:title', content: seo.title })
+    upsertMetaTag('meta[name="twitter:description"]', { name: 'twitter:description', content: seo.description })
   }, [path, trips])
 
   const login = async (role, form) => {
