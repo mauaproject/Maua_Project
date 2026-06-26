@@ -40,14 +40,16 @@ const getCompletionType = (job) => {
 
 function WorkerShell({ title, children, navigate, logout, path }) {
   return (
-    <main className="app-shell">
+    <main className="app-shell worker-shell">
       <Sidebar title="Tim" links={[
         ['/tim/dashboard', 'Dashboard'],
         ['/tim/job', 'Job tersedia'],
         ['/tim/job-saya', 'Job saya'],
       ]} navigate={navigate} logout={logout} path={path} />
-      <section className="workspace">
-        <h1>{title}</h1>
+      <section className="workspace worker-workspace">
+        <header className="worker-page-header">
+          <h1>{title}</h1>
+        </header>
         {children}
       </section>
     </main>
@@ -59,10 +61,13 @@ export function WorkerDashboard(props) {
   const takenScopes = new Set(ownJobs.map(getJobScope))
   return (
     <WorkerShell title="Dashboard Tim" {...props}>
-      <section className="stat-grid">
+      <section className="stat-grid worker-stat-grid">
         <Metric label="Job tersedia" value={props.jobs.filter((job) => job.status === 'Tersedia' && !takenScopes.has(getJobScope(job))).length} />
         <Metric label="Job saya" value={ownJobs.length} />
         <Metric label="Sedang berjalan" value={ownJobs.filter((job) => job.status === 'Sedang Berjalan').length} />
+      </section>
+      <section className="worker-section-head">
+        <h2>Job tersedia</h2>
       </section>
       <WorkerJobs {...props} embedded />
     </WorkerShell>
@@ -100,18 +105,24 @@ export function WorkerJobDetail({ jobId, jobs, trips, takeJob, updateJobStatus, 
   const showCompletionChecklist = job.status !== 'Tersedia' && Boolean(job.worker)
   return (
     <WorkerShell title="Detail Job" navigate={navigate} {...props}>
-      <article className="detail-panel standalone">
-        <Badge status={job.status} />
-        <h2>{job.addonLabel || 'Job trip'} - {trip?.name || 'Cave trip'}</h2>
-        <p className="muted">{workerText(trip?.destination)} - {scheduleLabel}</p>
-        <div className="metric-row">
+      <article className="detail-panel standalone worker-detail-panel">
+        <div className="worker-detail-hero">
+          <Badge status={job.status} />
+          <div>
+            <h2>{job.addonLabel || 'Job trip'} - {trip?.name || 'Cave trip'}</h2>
+            <p className="muted">{workerText(trip?.destination)} - {scheduleLabel}</p>
+          </div>
+        </div>
+        <div className="metric-row worker-info-grid">
           <Metric label="Customer" value={registration?.name || job.customerName || '-'} />
           <Metric label="Peserta" value={registration?.participants || (trip ? trip.quota - trip.slots : 0)} />
           <Metric label="Jadwal" value={scheduleLabel} />
           <Metric label="Status job" value={job.status} />
           <Metric label="Tim" value={job.worker || '-'} />
         </div>
-        <InfoBlock title="Detail tugas" text={job.task} />
+        <div className="worker-task-section">
+          <InfoBlock title="Detail tugas" text={job.task} />
+        </div>
         {job.status === 'Tersedia' ? <button className="primary-btn" disabled={alreadyTookScope} onClick={() => takeJob(job.id)}>{alreadyTookScope ? 'Sudah ambil booking ini' : 'Ambil job'}</button> : (
           <label className="status-control">Update status<select value={job.status === 'Selesai' ? 'Selesai' : job.status} disabled={job.status === 'Selesai'} onChange={(e) => updateJobStatus(job.id, e.target.value)}>{job.status === 'Selesai' && <option>Selesai</option>}{completionStatusOptions.map((status) => <option key={status}>{status}</option>)}</select></label>
         )}
@@ -125,13 +136,22 @@ function JobCard({ job, trips, registrations, navigate, takeJob, mine, updateJob
   const trip = trips.find((item) => item.id === job.tripId)
   const registration = registrations?.find((item) => Number(item.id) === Number(job.registrationId))
   const scheduleLabel = getJobScheduleLabel(job, registration, trip)
+  const participantCount = registration?.participants || (trip ? trip.quota - trip.slots : 0)
   return (
     <article className="job-card">
-      <div><h3>{job.addonLabel || 'Job trip'}</h3><p>{trip?.name} - {workerText(trip?.destination)}</p></div>
-      <Badge status={job.status} />
+      <div className="job-card-head">
+        <div>
+          <h3>{job.addonLabel || 'Job trip'}</h3>
+          <p>{trip?.name} - {workerText(trip?.destination)}</p>
+        </div>
+        <Badge status={job.status} />
+      </div>
       <p className="job-slot-label">{job.addonLabel ? `Kebutuhan ${job.addonLabel}` : `Slot tim ${job.slot || 1} dari ${job.totalWorkers || trip?.workerCount || 1}`}</p>
-      <p>{scheduleLabel} - {registration?.name || job.customerName || 'Customer'} ({registration?.participants || (trip ? trip.quota - trip.slots : 0)} peserta)</p>
-      <p className="muted">{job.task}</p>
+      <div className="job-card-meta">
+        <p>{scheduleLabel}</p>
+        <p>{registration?.name || job.customerName || 'Customer'} ({participantCount} peserta)</p>
+      </div>
+      <p className="muted job-card-task">{job.task}</p>
       {job.status === 'Tersedia' && !mine && <button className="primary-btn" onClick={() => takeJob(job.id)}>Ambil job</button>}
       {mine && <select className="status-select" value={job.status === 'Selesai' ? 'Selesai' : job.status} disabled={job.status === 'Selesai'} onChange={(e) => updateJobStatus(job.id, e.target.value)}>{job.status === 'Selesai' && <option>Selesai</option>}{completionStatusOptions.map((status) => <option key={status}>{status}</option>)}</select>}
       {mine && <JobCompletionChecklist key={`${job.id}-${job.status}-${getJobResultLink(job)}-${job.proofPhotoName || ''}`} job={job} updateJobStatus={updateJobStatus} session={session} compact />}

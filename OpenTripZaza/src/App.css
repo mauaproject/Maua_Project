@@ -5279,6 +5279,246 @@ td {
   border-radius: 20px;
 }
 
+/* Worker pages */
+.worker-workspace {
+  display: grid;
+  align-content: start;
+  gap: 22px;
+  width: min(100%, 1520px);
+  margin: 0 auto;
+  padding: 40px clamp(32px, 3vw, 48px) 52px;
+}
+.worker-page-header h1 {
+  margin: 0;
+  color: #241a08;
+  font-size: clamp(34px, 3.35vw, 50px);
+  line-height: 1.02;
+  letter-spacing: 0;
+}
+.worker-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 2px 0 -4px;
+}
+.worker-section-head h2 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.15;
+}
+.worker-shell .worker-stat-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.worker-shell .worker-stat-grid .metric {
+  min-width: 0;
+  min-height: 96px;
+  border-radius: 18px;
+  padding: 18px 20px;
+  box-shadow: 0 10px 26px rgba(36, 26, 8, 0.05);
+}
+.worker-shell .worker-stat-grid .metric span,
+.worker-shell .worker-info-grid .metric span {
+  color: #76551d;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+.worker-shell .worker-stat-grid .metric strong {
+  margin-top: 8px;
+  font-size: 30px;
+  line-height: 1;
+}
+.worker-shell .job-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  align-items: stretch;
+}
+.worker-shell .job-card {
+  display: grid;
+  grid-template-rows: auto auto auto 1fr auto auto;
+  gap: 13px;
+  min-width: 0;
+  min-height: 360px;
+  border-color: rgba(184, 132, 43, 0.2);
+  border-radius: 24px;
+  background: #fffdf8;
+  padding: 24px 26px;
+  box-shadow: 0 14px 32px rgba(36, 26, 8, 0.055);
+}
+.worker-shell .job-card-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+  min-width: 0;
+}
+.worker-shell .job-card-head > div {
+  min-width: 0;
+}
+.worker-shell .job-card h3 {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 0 0 6px;
+  font-size: 20px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.worker-shell .job-card-head p,
+.worker-shell .job-card-meta p,
+.worker-shell .job-card-task {
+  min-width: 0;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.worker-shell .job-card-head p {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 15px;
+  text-overflow: ellipsis;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+}
+.worker-shell .badge,
+.worker-shell .job-slot-label {
+  max-width: 100%;
+  min-height: 30px;
+  border: 1px solid rgba(184, 132, 43, 0.18);
+  background: #f8e9bf;
+  padding: 6px 11px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.worker-shell .job-slot-label {
+  display: -webkit-box;
+  overflow: hidden;
+  width: fit-content;
+  text-overflow: ellipsis;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+}
+.worker-shell .job-card-meta {
+  display: grid;
+  gap: 4px;
+  border-top: 1px solid rgba(184, 132, 43, 0.14);
+  padding-top: 12px;
+}
+.worker-shell .job-card-meta p {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #6f5b2c;
+  font-size: 15px;
+  text-overflow: ellipsis;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.worker-shell .job-card-task {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #6f5b2c;
+  font-size: 15px;
+  text-overflow: ellipsis;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.worker-shell .job-card .primary-btn,
+.worker-shell .job-card .outline-btn,
+.worker-detail-panel > .primary-btn {
+  width: 100%;
+  min-height: 48px;
+  padding: 11px 18px;
+  font-size: 16px;
+  font-weight: 800;
+}
+.worker-shell .job-card .primary-btn,
+.worker-detail-panel > .primary-btn {
+  border-color: rgba(166, 111, 20, 0.62);
+  background: linear-gradient(135deg, #f8df91, #c8912e);
+  box-shadow: 0 10px 20px rgba(184, 132, 43, 0.16);
+}
+.worker-shell .job-card .primary-btn:hover,
+.worker-shell .job-card .primary-btn:focus-visible,
+.worker-detail-panel > .primary-btn:hover,
+.worker-detail-panel > .primary-btn:focus-visible {
+  background: linear-gradient(135deg, #f5d678, #b97b20);
+  box-shadow: 0 14px 24px rgba(184, 132, 43, 0.22);
+  outline: 0;
+}
+.worker-shell .job-card .outline-btn {
+  border-color: rgba(184, 132, 43, 0.34);
+  background: #fffdf8;
+  box-shadow: none;
+}
+.worker-shell .job-card .outline-btn:hover,
+.worker-shell .job-card .outline-btn:focus-visible {
+  border-color: rgba(184, 132, 43, 0.52);
+  background: #fff5d6;
+  outline: 0;
+}
+.worker-detail-panel.standalone {
+  width: min(100%, 1160px);
+  max-width: none;
+  border-color: rgba(184, 132, 43, 0.2);
+  border-radius: 30px;
+  background: #fffdf8;
+  padding: 28px;
+  box-shadow: 0 18px 44px rgba(36, 26, 8, 0.07);
+}
+.worker-detail-hero {
+  display: grid;
+  gap: 16px;
+}
+.worker-detail-hero h2 {
+  margin: 0 0 10px;
+  font-size: clamp(25px, 2.2vw, 34px);
+  line-height: 1.17;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+.worker-detail-hero .muted {
+  font-size: 16px;
+  line-height: 1.5;
+}
+.worker-shell .worker-info-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+.worker-shell .worker-info-grid .metric {
+  min-width: 0;
+  border-radius: 18px;
+  background: #fffefa;
+  padding: 16px 18px;
+  box-shadow: none;
+}
+.worker-shell .worker-info-grid .metric strong {
+  display: -webkit-box;
+  overflow: hidden;
+  margin-top: 8px;
+  font-size: 24px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  text-overflow: ellipsis;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+.worker-task-section .info-block {
+  border-top: 1px solid rgba(184, 132, 43, 0.2);
+  padding-top: 18px;
+}
+.worker-task-section .info-block h3 {
+  margin-bottom: 8px;
+  font-size: 18px;
+}
+.worker-task-section .info-block p {
+  color: #6f5b2c;
+  font-size: 16px;
+  line-height: 1.55;
+}
+
 /* Compact Paket Trip dashboard */
 .admin-trip-page {
   gap: 16px;
@@ -6201,5 +6441,116 @@ td {
   .admin-trip-page .admin-trip-actions {
     flex-wrap: wrap;
     justify-content: flex-start;
+  }
+}
+
+@media (max-width: 1380px) {
+  .worker-shell .job-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .worker-shell .worker-info-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1024px) {
+  .worker-shell {
+    grid-template-columns: 1fr;
+  }
+  .worker-shell .sidebar {
+    position: static;
+    height: auto;
+    gap: 14px;
+    padding: 16px 20px;
+  }
+  .worker-shell .sidebar-brand {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 0 0 14px;
+  }
+  .worker-shell .sidebar-brand .brand-logo-btn img {
+    width: 150px;
+    height: auto;
+  }
+  .worker-shell .sidebar-nav {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .worker-shell .sidebar-nav button {
+    justify-content: center;
+    min-width: 0;
+    padding: 11px 10px;
+    text-align: center;
+  }
+  .worker-shell .sidebar-nav-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .worker-shell .sidebar-footer {
+    padding-top: 10px;
+  }
+  .worker-workspace {
+    width: min(100%, 980px);
+    padding: 28px 22px 40px;
+  }
+  .worker-shell .worker-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .worker-page-header h1 {
+    font-size: clamp(30px, 9vw, 36px);
+  }
+  .worker-shell .job-grid,
+  .worker-shell .worker-stat-grid,
+  .worker-shell .worker-info-grid {
+    grid-template-columns: 1fr;
+  }
+  .worker-shell .job-card {
+    min-height: 0;
+    border-radius: 22px;
+    padding: 20px;
+  }
+  .worker-shell .job-card-head {
+    grid-template-columns: 1fr;
+  }
+  .worker-detail-panel.standalone {
+    border-radius: 24px;
+    padding: 22px;
+  }
+  .worker-detail-hero h2 {
+    font-size: 26px;
+  }
+  .worker-shell .worker-info-grid .metric strong {
+    -webkit-line-clamp: 2;
+  }
+}
+
+@media (max-width: 560px) {
+  .worker-shell .sidebar {
+    padding: 14px 16px;
+  }
+  .worker-shell .sidebar-brand .brand-logo-btn img {
+    width: 132px;
+  }
+  .worker-shell .sidebar-nav {
+    grid-template-columns: 1fr;
+  }
+  .worker-shell .sidebar-nav button {
+    justify-content: flex-start;
+    text-align: left;
+  }
+  .worker-workspace {
+    padding: 22px 16px 34px;
+  }
+  .worker-shell .job-card .primary-btn,
+  .worker-shell .job-card .outline-btn,
+  .worker-detail-panel > .primary-btn {
+    min-height: 46px;
   }
 }

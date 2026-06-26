@@ -16,7 +16,7 @@
 
 html {
   scroll-behavior: smooth;
-  scrollbar-color: #c08a2e #f7f1e8;
+  scrollbar-color: rgba(184, 132, 43, 0.6) #f7f1e8;
   scrollbar-width: thin;
 }
 
@@ -26,8 +26,8 @@ body {
 }
 
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
@@ -37,11 +37,11 @@ body {
 ::-webkit-scrollbar-thumb {
   border: 2px solid #f7f1e8;
   border-radius: 999px;
-  background: linear-gradient(180deg, #f4d98d, #c08a2e);
+  background: linear-gradient(180deg, rgba(244, 217, 141, 0.72), rgba(184, 132, 43, 0.62));
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #ffe5a1, #a66f14);
+  background: linear-gradient(180deg, rgba(255, 229, 161, 0.9), rgba(166, 111, 20, 0.72));
 }
 
 ::-webkit-scrollbar-button {
