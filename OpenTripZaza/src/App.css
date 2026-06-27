@@ -5426,7 +5426,9 @@ td {
 }
 .worker-shell .job-card .primary-btn,
 .worker-shell .job-card .outline-btn,
-.worker-detail-panel > .primary-btn {
+.worker-shell .job-card .whatsapp-action-btn,
+.worker-detail-actions > .primary-btn,
+.worker-detail-actions .whatsapp-action-btn {
   width: 100%;
   min-height: 48px;
   padding: 11px 18px;
@@ -5434,15 +5436,15 @@ td {
   font-weight: 800;
 }
 .worker-shell .job-card .primary-btn,
-.worker-detail-panel > .primary-btn {
+.worker-detail-actions > .primary-btn {
   border-color: rgba(166, 111, 20, 0.62);
   background: linear-gradient(135deg, #f8df91, #c8912e);
   box-shadow: 0 10px 20px rgba(184, 132, 43, 0.16);
 }
 .worker-shell .job-card .primary-btn:hover,
 .worker-shell .job-card .primary-btn:focus-visible,
-.worker-detail-panel > .primary-btn:hover,
-.worker-detail-panel > .primary-btn:focus-visible {
+.worker-detail-actions > .primary-btn:hover,
+.worker-detail-actions > .primary-btn:focus-visible {
   background: linear-gradient(135deg, #f5d678, #b97b20);
   box-shadow: 0 14px 24px rgba(184, 132, 43, 0.22);
   outline: 0;
@@ -5457,6 +5459,49 @@ td {
   border-color: rgba(184, 132, 43, 0.52);
   background: #fff5d6;
   outline: 0;
+}
+.worker-shell .job-card-actions,
+.worker-detail-actions {
+  display: grid;
+  gap: 10px;
+}
+.worker-shell .job-card-actions {
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+}
+.worker-detail-actions {
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+  align-items: end;
+}
+.worker-shell .whatsapp-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border: 1px solid rgba(45, 135, 82, 0.34);
+  border-radius: 999px;
+  background: #edf8f0;
+  color: #173d24;
+  text-align: center;
+  text-decoration: none;
+  box-shadow: 0 8px 18px rgba(35, 106, 65, 0.08);
+}
+.worker-shell .whatsapp-action-btn:hover,
+.worker-shell .whatsapp-action-btn:focus-visible {
+  border-color: rgba(45, 135, 82, 0.52);
+  background: #ddf2e4;
+  color: #102d1b;
+  outline: 0;
+}
+.worker-shell .whatsapp-action-btn.compact {
+  min-height: 48px;
+}
+.worker-whatsapp-note {
+  align-self: center;
+  margin: 0;
+  color: #7d6938;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
 }
 .worker-detail-panel.standalone {
   width: min(100%, 1160px);
@@ -6519,6 +6564,9 @@ td {
   .worker-shell .job-card-head {
     grid-template-columns: 1fr;
   }
+  .worker-detail-actions {
+    grid-template-columns: 1fr;
+  }
   .worker-detail-panel.standalone {
     border-radius: 24px;
     padding: 22px;
@@ -6550,7 +6598,9 @@ td {
   }
   .worker-shell .job-card .primary-btn,
   .worker-shell .job-card .outline-btn,
-  .worker-detail-panel > .primary-btn {
+  .worker-shell .job-card .whatsapp-action-btn,
+  .worker-detail-actions > .primary-btn,
+  .worker-detail-actions .whatsapp-action-btn {
     min-height: 46px;
   }
 }
