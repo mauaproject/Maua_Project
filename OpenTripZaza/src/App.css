@@ -5495,6 +5495,30 @@ td {
 .worker-shell .whatsapp-action-btn.compact {
   min-height: 48px;
 }
+.worker-whatsapp-contact {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.worker-whatsapp-contact.compact {
+  gap: 5px;
+}
+.worker-whatsapp-number {
+  margin: 0;
+  color: #5e4b21;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.worker-whatsapp-number strong {
+  color: #173d24;
+  font-weight: 800;
+}
+.worker-whatsapp-number.compact {
+  font-size: 12px;
+}
 .worker-whatsapp-note {
   align-self: center;
   margin: 0;
