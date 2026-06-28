@@ -5427,8 +5427,7 @@ td {
 .worker-shell .job-card .primary-btn,
 .worker-shell .job-card .outline-btn,
 .worker-shell .job-card .whatsapp-action-btn,
-.worker-detail-actions > .primary-btn,
-.worker-detail-actions .whatsapp-action-btn {
+.worker-detail-actions > .primary-btn {
   width: 100%;
   min-height: 48px;
   padding: 11px 18px;
@@ -5469,8 +5468,7 @@ td {
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
 }
 .worker-detail-actions {
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
-  align-items: end;
+  grid-template-columns: 1fr;
 }
 .worker-shell .whatsapp-action-btn {
   display: inline-flex;
@@ -5495,37 +5493,40 @@ td {
 .worker-shell .whatsapp-action-btn.compact {
   min-height: 48px;
 }
-.worker-whatsapp-contact {
+.worker-customer-card {
   display: grid;
-  gap: 6px;
+  align-content: start;
+}
+.worker-shell .worker-info-grid .worker-customer-card strong {
+  -webkit-line-clamp: 2;
+}
+.worker-customer-whatsapp {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
   min-width: 0;
 }
-.worker-whatsapp-contact.compact {
-  gap: 5px;
-}
-.worker-whatsapp-number {
+.worker-customer-whatsapp p,
+.worker-customer-card small {
   margin: 0;
   color: #5e4b21;
   font-size: 13px;
   font-weight: 600;
   line-height: 1.35;
-  text-align: center;
   overflow-wrap: anywhere;
 }
-.worker-whatsapp-number strong {
-  color: #173d24;
-  font-weight: 800;
-}
-.worker-whatsapp-number.compact {
-  font-size: 12px;
-}
-.worker-whatsapp-note {
-  align-self: center;
-  margin: 0;
+.worker-customer-card small {
+  display: block;
+  margin-top: 10px;
   color: #7d6938;
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.45;
+}
+.worker-customer-card .whatsapp-action-btn {
+  width: fit-content;
+  min-height: 34px;
+  padding: 7px 13px;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.2;
 }
 .worker-detail-panel.standalone {
   width: min(100%, 1160px);
@@ -6600,6 +6601,9 @@ td {
   }
   .worker-shell .worker-info-grid .metric strong {
     -webkit-line-clamp: 2;
+  }
+  .worker-customer-card .whatsapp-action-btn {
+    width: 100%;
   }
 }
 

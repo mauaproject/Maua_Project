@@ -10,6 +10,17 @@ export function normalizeWhatsAppNumber(phone) {
   return normalized
 }
 
+export function formatWhatsAppDisplay(phone) {
+  const normalizedPhone = normalizeWhatsAppNumber(phone)
+  if (!normalizedPhone) return ''
+
+  const localPhone = normalizedPhone.startsWith('62') ? `0${normalizedPhone.slice(2)}` : normalizedPhone
+  const head = localPhone.slice(0, 4)
+  const middle = localPhone.slice(4, 8)
+  const tail = localPhone.slice(8).match(/.{1,4}/g) || []
+  return [head, middle, ...tail].filter(Boolean).join(' ')
+}
+
 export function buildWhatsAppUrl({ phone, customerName, tripName, date, session }) {
   const normalizedPhone = normalizeWhatsAppNumber(phone)
   if (!normalizedPhone) return ''

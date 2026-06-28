@@ -4,7 +4,7 @@ import { formatDate } from '../utils/formatters'
 import { getJobResultLink } from '../utils/jobResults'
 import { localizedText } from '../utils/localization'
 import { getRegistrationDate } from '../utils/schedules'
-import { buildWhatsAppUrl } from '../utils/whatsapp'
+import { buildWhatsAppUrl, formatWhatsAppDisplay } from '../utils/whatsapp'
 import { AppModal, Badge, InfoBlock, Metric, NotFound, Sidebar } from './shared'
 
 const getJobScope = (job) => job.registrationId ? `registration-${job.registrationId}` : `trip-${job.tripId}`
@@ -56,7 +56,7 @@ const getWhatsAppUrl = (job, registration, trip) => buildWhatsAppUrl({
   date: formatDate(job.requestedDate || getRegistrationDate(registration) || trip?.date),
   session: getJobSessionLabel(registration),
 })
-const getCustomerPhoneDisplay = (job, registration) => String(getCustomerPhone(job, registration) || '').trim()
+const getCustomerPhoneDisplay = (job, registration) => formatWhatsAppDisplay(getCustomerPhone(job, registration))
 
 const getCompletionType = (job) => {
   if (job.workerAction === 'drive_link') return 'drive'
@@ -138,6 +138,7 @@ export function WorkerJobDetail({ jobId, jobs, trips, takeJob, updateJobStatus, 
   const scheduleLabel = getJobScheduleLabel(job, registration, trip)
   const whatsappUrl = getWhatsAppUrl(job, registration, trip)
   const customerPhoneDisplay = getCustomerPhoneDisplay(job, registration)
+  const customerName = getCustomerName(job, registration)
   const alreadyTookScope = jobs.some((item) => getJobScope(item) === getJobScope(job) && item.worker === props.session?.name)
   const showCompletionChecklist = job.status !== 'Tersedia' && Boolean(job.worker)
   return (
@@ -151,7 +152,18 @@ export function WorkerJobDetail({ jobId, jobs, trips, takeJob, updateJobStatus, 
           </div>
         </div>
         <div className="metric-row worker-info-grid">
-          <Metric label="Customer" value={registration?.name || job.customerName || '-'} />
+          <div className="metric worker-customer-card">
+            <span>CUSTOMER</span>
+            <strong>{customerName}</strong>
+            {whatsappUrl ? (
+              <div className="worker-customer-whatsapp">
+                <p>{customerPhoneDisplay}</p>
+                <a className="whatsapp-action-btn customer" href={whatsappUrl} target="_blank" rel="noreferrer">Hubungi WhatsApp</a>
+              </div>
+            ) : (
+              <small>Nomor WhatsApp belum tersedia</small>
+            )}
+          </div>
           <Metric label="Peserta" value={registration?.participants || (trip ? trip.quota - trip.slots : 0)} />
           <Metric label="Jadwal" value={scheduleLabel} />
           <Metric label="Status job" value={job.status} />
@@ -163,14 +175,6 @@ export function WorkerJobDetail({ jobId, jobs, trips, takeJob, updateJobStatus, 
         <div className="worker-detail-actions">
           {job.status === 'Tersedia' ? <button className="primary-btn" disabled={alreadyTookScope} onClick={() => takeJob(job.id)}>{alreadyTookScope ? 'Sudah ambil booking ini' : 'Ambil job'}</button> : (
             <label className="status-control">Update status<select value={job.status === 'Selesai' ? 'Selesai' : job.status} disabled={job.status === 'Selesai'} onChange={(e) => updateJobStatus(job.id, e.target.value)}>{job.status === 'Selesai' && <option>Selesai</option>}{completionStatusOptions.map((status) => <option key={status}>{status}</option>)}</select></label>
-          )}
-          {whatsappUrl ? (
-            <div className="worker-whatsapp-contact">
-              <a className="whatsapp-action-btn" href={whatsappUrl} target="_blank" rel="noreferrer">Hubungi Customer</a>
-              <p className="worker-whatsapp-number">Nomor WhatsApp: <strong>{customerPhoneDisplay}</strong></p>
-            </div>
-          ) : (
-            <p className="worker-whatsapp-note">Nomor WhatsApp customer belum tersedia.</p>
           )}
         </div>
         {showCompletionChecklist && <JobCompletionChecklist key={`${job.id}-${job.status}-${getJobResultLink(job)}-${job.proofPhotoName || ''}`} job={job} updateJobStatus={updateJobStatus} session={props.session} />}
@@ -184,7 +188,6 @@ function JobCard({ job, trips, registrations, navigate, takeJob, mine, updateJob
   const registration = registrations?.find((item) => Number(item.id) === Number(job.registrationId))
   const scheduleLabel = getJobScheduleLabel(job, registration, trip)
   const whatsappUrl = getWhatsAppUrl(job, registration, trip)
-  const customerPhoneDisplay = getCustomerPhoneDisplay(job, registration)
   const participantCount = registration?.participants || (trip ? trip.quota - trip.slots : 0)
   return (
     <article className="job-card">
@@ -205,12 +208,7 @@ function JobCard({ job, trips, registrations, navigate, takeJob, mine, updateJob
       {mine && <select className="status-select" value={job.status === 'Selesai' ? 'Selesai' : job.status} disabled={job.status === 'Selesai'} onChange={(e) => updateJobStatus(job.id, e.target.value)}>{job.status === 'Selesai' && <option>Selesai</option>}{completionStatusOptions.map((status) => <option key={status}>{status}</option>)}</select>}
       {mine && <JobCompletionChecklist key={`${job.id}-${job.status}-${getJobResultLink(job)}-${job.proofPhotoName || ''}`} job={job} updateJobStatus={updateJobStatus} session={session} compact />}
       <div className="job-card-actions">
-        {whatsappUrl && (
-          <div className="worker-whatsapp-contact compact">
-            <a className="whatsapp-action-btn compact" href={whatsappUrl} target="_blank" rel="noreferrer">WhatsApp</a>
-            <p className="worker-whatsapp-number compact">{customerPhoneDisplay}</p>
-          </div>
-        )}
+        {whatsappUrl && <a className="whatsapp-action-btn compact" href={whatsappUrl} target="_blank" rel="noreferrer">WhatsApp</a>}
         <button className="outline-btn" onClick={() => navigate(`/tim/job/${job.id}`)}>Detail</button>
       </div>
     </article>
