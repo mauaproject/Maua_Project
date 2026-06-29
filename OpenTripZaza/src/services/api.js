@@ -61,6 +61,7 @@ export const updateReviewStatus = (id, status, adminEmail) => jsonPost('reviews/
 export const getAddons = () => request('addons/index.php')
 export const getWorkerTasks = () => request('worker-tasks/index.php')
 export const takeWorkerTask = (id, workerData) => jsonPost('worker-tasks/take.php', { id, ...workerData })
+export const releaseWorkerTask = (id, workerData) => jsonPost('worker-tasks/release.php', { id, ...workerData })
 export const completeWorkerTask = (id, data = {}) => {
   if (data.proofPhotoFile instanceof File) {
     const form = new FormData()

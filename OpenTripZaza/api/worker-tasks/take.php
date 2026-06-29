@@ -20,11 +20,6 @@ runEndpoint(function (PDO $pdo): void {
         if (!$task || $task['status'] !== 'Tersedia' || $task['worker_id']) {
             throw new InvalidArgumentException('Tugas sudah tidak tersedia.');
         }
-        $scopeStatement = $pdo->prepare('SELECT COUNT(*) FROM worker_tasks WHERE booking_id = ? AND worker_id = ?');
-        $scopeStatement->execute([(int) $task['booking_id'], (int) $worker['id']]);
-        if ((int) $scopeStatement->fetchColumn() > 0) {
-            throw new InvalidArgumentException('Tim sudah mengambil tugas untuk booking ini.');
-        }
         $pdo->prepare("UPDATE worker_tasks SET worker_id=?, status='Diambil', updated_at=CURRENT_TIMESTAMP WHERE id=?")
             ->execute([(int) $worker['id'], (int) $data['id']]);
         $pdo->commit();

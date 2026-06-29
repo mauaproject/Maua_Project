@@ -7,10 +7,15 @@ import { getRegistrationDate } from '../utils/schedules'
 import { buildWhatsAppUrl, formatWhatsAppDisplay } from '../utils/whatsapp'
 import { AppModal, Badge, InfoBlock, Metric, NotFound, Sidebar } from './shared'
 
-const getJobScope = (job) => job.registrationId ? `registration-${job.registrationId}` : `trip-${job.tripId}`
 const completionStatusOptions = jobStatuses.filter((status) => status !== 'Tersedia' && status !== 'Selesai')
 const mediaAddonIds = ['drone', 'camera360', 'documentation']
 const workerText = (value) => localizedText(value, 'id') || '-'
+const isOwnJob = (job, session) => {
+  const sessionId = Number(session?.id || 0)
+  const workerId = Number(job?.workerId || 0)
+  if (sessionId && workerId) return sessionId === workerId
+  return Boolean(job?.worker && session?.name && job.worker === session.name)
+}
 const getTimeRangeLabel = (registration) => {
   const startTime = registration?.startTime || ''
   const endTime = registration?.endTime || ''
@@ -92,12 +97,11 @@ function WorkerShell({ title, children, navigate, logout, path }) {
 }
 
 export function WorkerDashboard(props) {
-  const ownJobs = props.jobs.filter((job) => job.worker === props.session?.name)
-  const takenScopes = new Set(ownJobs.map(getJobScope))
+  const ownJobs = props.jobs.filter((job) => isOwnJob(job, props.session))
   return (
     <WorkerShell title="Dashboard Tim" {...props}>
       <section className="stat-grid worker-stat-grid">
-        <Metric label="Job tersedia" value={props.jobs.filter((job) => job.status === 'Tersedia' && !takenScopes.has(getJobScope(job))).length} />
+        <Metric label="Job tersedia" value={props.jobs.filter((job) => job.status === 'Tersedia').length} />
         <Metric label="Job saya" value={ownJobs.length} />
         <Metric label="Sedang berjalan" value={ownJobs.filter((job) => job.status === 'Sedang Berjalan').length} />
       </section>
@@ -110,10 +114,9 @@ export function WorkerDashboard(props) {
 }
 
 export function WorkerJobs(props) {
-  const takenScopes = new Set(props.jobs.filter((job) => job.worker === props.session?.name).map(getJobScope))
   const content = (
     <div className="job-grid">
-      {props.jobs.filter((job) => job.status === 'Tersedia' && !takenScopes.has(getJobScope(job))).map((job) => <JobCard key={job.id} job={job} {...props} />)}
+      {props.jobs.filter((job) => job.status === 'Tersedia').map((job) => <JobCard key={job.id} job={job} {...props} />)}
     </div>
   )
   if (props.embedded) return content
@@ -124,13 +127,13 @@ export function MyJobs(props) {
   return (
     <WorkerShell title="Job Saya" {...props}>
       <div className="job-grid">
-        {props.jobs.filter((job) => job.worker === props.session?.name).map((job) => <JobCard key={job.id} job={job} mine {...props} />)}
+        {props.jobs.filter((job) => isOwnJob(job, props.session)).map((job) => <JobCard key={job.id} job={job} mine {...props} />)}
       </div>
     </WorkerShell>
   )
 }
 
-export function WorkerJobDetail({ jobId, jobs, trips, takeJob, updateJobStatus, navigate, ...props }) {
+export function WorkerJobDetail({ jobId, jobs, trips, takeJob, releaseJob, updateJobStatus, navigate, ...props }) {
   const job = jobs.find((item) => item.id === jobId)
   if (!job) return <NotFound navigate={navigate} />
   const trip = trips.find((item) => item.id === job.tripId)
@@ -139,8 +142,8 @@ export function WorkerJobDetail({ jobId, jobs, trips, takeJob, updateJobStatus, 
   const whatsappUrl = getWhatsAppUrl(job, registration, trip)
   const customerPhoneDisplay = getCustomerPhoneDisplay(job, registration)
   const customerName = getCustomerName(job, registration)
-  const alreadyTookScope = jobs.some((item) => getJobScope(item) === getJobScope(job) && item.worker === props.session?.name)
-  const showCompletionChecklist = job.status !== 'Tersedia' && Boolean(job.worker)
+  const ownsJob = isOwnJob(job, props.session)
+  const showCompletionChecklist = job.status !== 'Tersedia' && Boolean(job.worker) && ownsJob
   return (
     <WorkerShell title="Detail Job" navigate={navigate} {...props}>
       <article className="detail-panel standalone worker-detail-panel">
@@ -173,8 +176,13 @@ export function WorkerJobDetail({ jobId, jobs, trips, takeJob, updateJobStatus, 
           <InfoBlock title="Detail tugas" text={job.task} />
         </div>
         <div className="worker-detail-actions">
-          {job.status === 'Tersedia' ? <button className="primary-btn" disabled={alreadyTookScope} onClick={() => takeJob(job.id)}>{alreadyTookScope ? 'Sudah ambil booking ini' : 'Ambil job'}</button> : (
-            <label className="status-control">Update status<select value={job.status === 'Selesai' ? 'Selesai' : job.status} disabled={job.status === 'Selesai'} onChange={(e) => updateJobStatus(job.id, e.target.value)}>{job.status === 'Selesai' && <option>Selesai</option>}{completionStatusOptions.map((status) => <option key={status}>{status}</option>)}</select></label>
+          {job.status === 'Tersedia' ? <button className="primary-btn" onClick={() => takeJob(job.id)}>Ambil job</button> : ownsJob ? (
+            <>
+              <label className="status-control">Update status<select value={job.status === 'Selesai' ? 'Selesai' : job.status} disabled={job.status === 'Selesai'} onChange={(e) => updateJobStatus(job.id, e.target.value)}>{job.status === 'Selesai' && <option>Selesai</option>}{completionStatusOptions.map((status) => <option key={status}>{status}</option>)}</select></label>
+              <ReleaseJobButton job={job} releaseJob={releaseJob} />
+            </>
+          ) : (
+            <p className="muted">Job ini sudah diambil tim lain.</p>
           )}
         </div>
         {showCompletionChecklist && <JobCompletionChecklist key={`${job.id}-${job.status}-${getJobResultLink(job)}-${job.proofPhotoName || ''}`} job={job} updateJobStatus={updateJobStatus} session={props.session} />}
@@ -183,7 +191,7 @@ export function WorkerJobDetail({ jobId, jobs, trips, takeJob, updateJobStatus, 
   )
 }
 
-function JobCard({ job, trips, registrations, navigate, takeJob, mine, updateJobStatus, session }) {
+function JobCard({ job, trips, registrations, navigate, takeJob, releaseJob, mine, updateJobStatus, session }) {
   const trip = trips.find((item) => item.id === job.tripId)
   const registration = registrations?.find((item) => Number(item.id) === Number(job.registrationId))
   const scheduleLabel = getJobScheduleLabel(job, registration, trip)
@@ -206,12 +214,39 @@ function JobCard({ job, trips, registrations, navigate, takeJob, mine, updateJob
       <p className="muted job-card-task">{job.task}</p>
       {job.status === 'Tersedia' && !mine && <button className="primary-btn" onClick={() => takeJob(job.id)}>Ambil job</button>}
       {mine && <select className="status-select" value={job.status === 'Selesai' ? 'Selesai' : job.status} disabled={job.status === 'Selesai'} onChange={(e) => updateJobStatus(job.id, e.target.value)}>{job.status === 'Selesai' && <option>Selesai</option>}{completionStatusOptions.map((status) => <option key={status}>{status}</option>)}</select>}
+      {mine && <ReleaseJobButton job={job} releaseJob={releaseJob} compact />}
       {mine && <JobCompletionChecklist key={`${job.id}-${job.status}-${getJobResultLink(job)}-${job.proofPhotoName || ''}`} job={job} updateJobStatus={updateJobStatus} session={session} compact />}
       <div className="job-card-actions">
         {whatsappUrl && <a className="whatsapp-action-btn compact" href={whatsappUrl} target="_blank" rel="noreferrer">WhatsApp</a>}
         <button className="outline-btn" onClick={() => navigate(`/tim/job/${job.id}`)}>Detail</button>
       </div>
     </article>
+  )
+}
+
+function ReleaseJobButton({ job, releaseJob, compact = false }) {
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false)
+  if (!releaseJob || job.status === 'Selesai') return null
+
+  const confirmRelease = async () => {
+    await releaseJob(job.id)
+    setIsConfirmModalOpen(false)
+  }
+
+  return (
+    <>
+      <button className={`outline-btn danger-btn ${compact ? 'compact-action-btn' : ''}`} type="button" onClick={() => setIsConfirmModalOpen(true)}>Cancel job</button>
+      <AppModal
+        isOpen={isConfirmModalOpen}
+        title="Cancel job?"
+        description="Job akan kembali tersedia dan bisa diambil oleh tim lain."
+        confirmText="Ya, Cancel Job"
+        cancelText="Batal"
+        variant="warning"
+        onConfirm={confirmRelease}
+        onCancel={() => setIsConfirmModalOpen(false)}
+      />
+    </>
   )
 }
 

@@ -17,8 +17,6 @@ import {
   isPrivateSessionBooked,
   isSharedPrivateBooking,
 } from './utils/schedules'
-
-const getJobScope = (job) => job.registrationId ? `registration-${job.registrationId}` : `trip-${job.tripId}`
 const CHECKOUT_DRAFT_KEY = 'mauaCheckoutDraft'
 const SITE_URL = (import.meta.env.VITE_SITE_URL || 'https://mauaproject.com').replace(/\/$/, '')
 const DEFAULT_SEO = {
@@ -723,15 +721,15 @@ function App() {
     const job = jobs.find((item) => item.id === id)
     if (!job || job.status !== 'Tersedia') return
     const workerName = session?.name || 'Worker'
-    const jobScope = getJobScope(job)
-    const alreadyTookScope = jobs.some((item) => getJobScope(item) === jobScope && item.worker === workerName)
-    if (alreadyTookScope) {
-      showToast('Kamu sudah mengambil job untuk booking ini.')
-      return
-    }
     await api.takeWorkerTask(id, { workerEmail: session?.email, workerName })
     await refreshData()
     showToast('Job berhasil diambil.')
+  }
+
+  const releaseJob = async (id) => {
+    await api.releaseWorkerTask(id, { workerEmail: session?.email })
+    await refreshData()
+    showToast('Job berhasil dicancel dan kembali tersedia.')
   }
 
   const updateJobStatus = async (id, status, extraFields = {}) => {
@@ -774,6 +772,7 @@ function App() {
     deleteTrip,
     permanentlyDeleteTrip,
     takeJob,
+    releaseJob,
     updateJobStatus,
     showToast,
     isSessionRestoring,
