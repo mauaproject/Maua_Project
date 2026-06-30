@@ -3,7 +3,7 @@ import { jobStatuses } from '../config/constants'
 import { formatDate } from '../utils/formatters'
 import { getJobResultLink } from '../utils/jobResults'
 import { localizedText } from '../utils/localization'
-import { getRegistrationDate } from '../utils/schedules'
+import { getJakartaToday, getRegistrationDate } from '../utils/schedules'
 import { buildWhatsAppUrl, formatWhatsAppDisplay } from '../utils/whatsapp'
 import { AppModal, Badge, InfoBlock, Metric, NotFound, Sidebar } from './shared'
 
@@ -23,11 +23,47 @@ const getTimeRangeLabel = (registration) => {
   if (startTime) return `${startTime} WIB`
   return ''
 }
+const getJobDate = (job, registration, trip) => job.requestedDate || job.selectedDate || getRegistrationDate(registration) || trip?.date || ''
 const getJobScheduleLabel = (job, registration, trip) => {
-  const dateText = formatDate(job.requestedDate || getRegistrationDate(registration) || trip?.date)
+  const dateText = formatDate(getJobDate(job, registration, trip))
   const details = [registration?.sessionName, getTimeRangeLabel(registration)].filter(Boolean)
   return details.length ? `${dateText} · ${details.join(' · ')}` : dateText
 }
+
+const getJobSortDate = (job, registration, trip) => String(getJobDate(job, registration, trip)).slice(0, 10)
+const isSortableDate = (date) => /^\d{4}-\d{2}-\d{2}$/.test(date)
+const getRelatedRegistration = (registrations = [], job) => registrations.find((item) => Number(item.id) === Number(job.registrationId))
+const getRelatedTrip = (trips = [], job) => trips.find((item) => Number(item.id) === Number(job.tripId))
+const getJobSortMeta = (job, registrations, trips) => {
+  const registration = getRelatedRegistration(registrations, job)
+  const trip = getRelatedTrip(trips, job)
+  const date = getJobSortDate(job, registration, trip)
+  return {
+    date: isSortableDate(date) ? date : '',
+    startTime: registration?.startTime || '',
+  }
+}
+const compareJobSchedule = (first, second, registrations, trips, today = getJakartaToday()) => {
+  const firstMeta = getJobSortMeta(first, registrations, trips)
+  const secondMeta = getJobSortMeta(second, registrations, trips)
+
+  if (!firstMeta.date && secondMeta.date) return 1
+  if (firstMeta.date && !secondMeta.date) return -1
+  if (firstMeta.date && secondMeta.date) {
+    const firstIsPast = firstMeta.date < today
+    const secondIsPast = secondMeta.date < today
+    if (firstIsPast !== secondIsPast) return firstIsPast ? 1 : -1
+    const dateComparison = firstIsPast
+      ? secondMeta.date.localeCompare(firstMeta.date)
+      : firstMeta.date.localeCompare(secondMeta.date)
+    if (dateComparison) return dateComparison
+  }
+
+  const idComparison = Number(first.id || 0) - Number(second.id || 0)
+  return firstMeta.startTime.localeCompare(secondMeta.startTime)
+    || (Number.isNaN(idComparison) ? String(first.id || '').localeCompare(String(second.id || '')) : idComparison)
+}
+const sortJobsBySchedule = (jobs, registrations, trips) => [...jobs].sort((first, second) => compareJobSchedule(first, second, registrations, trips))
 
 const getFirstValue = (values) => values.find((value) => String(value || '').trim())
 const getCustomerName = (job, registration) => getFirstValue([
@@ -58,7 +94,7 @@ const getWhatsAppUrl = (job, registration, trip) => buildWhatsAppUrl({
   phone: getCustomerPhone(job, registration),
   customerName: getCustomerName(job, registration),
   tripName: trip?.name || job.tripName || '',
-  date: formatDate(job.requestedDate || getRegistrationDate(registration) || trip?.date),
+  date: formatDate(getJobDate(job, registration, trip)),
   session: getJobSessionLabel(registration),
 })
 const getCustomerPhoneDisplay = (job, registration) => formatWhatsAppDisplay(getCustomerPhone(job, registration))
@@ -114,9 +150,14 @@ export function WorkerDashboard(props) {
 }
 
 export function WorkerJobs(props) {
+  const availableJobs = sortJobsBySchedule(
+    props.jobs.filter((job) => job.status === 'Tersedia'),
+    props.registrations,
+    props.trips,
+  )
   const content = (
     <div className="job-grid">
-      {props.jobs.filter((job) => job.status === 'Tersedia').map((job) => <JobCard key={job.id} job={job} {...props} />)}
+      {availableJobs.map((job) => <JobCard key={job.id} job={job} {...props} />)}
     </div>
   )
   if (props.embedded) return content
@@ -124,10 +165,15 @@ export function WorkerJobs(props) {
 }
 
 export function MyJobs(props) {
+  const ownJobs = sortJobsBySchedule(
+    props.jobs.filter((job) => isOwnJob(job, props.session)),
+    props.registrations,
+    props.trips,
+  )
   return (
     <WorkerShell title="Job Saya" {...props}>
       <div className="job-grid">
-        {props.jobs.filter((job) => isOwnJob(job, props.session)).map((job) => <JobCard key={job.id} job={job} mine {...props} />)}
+        {ownJobs.map((job) => <JobCard key={job.id} job={job} mine {...props} />)}
       </div>
     </WorkerShell>
   )
@@ -136,8 +182,8 @@ export function MyJobs(props) {
 export function WorkerJobDetail({ jobId, jobs, trips, takeJob, releaseJob, updateJobStatus, navigate, ...props }) {
   const job = jobs.find((item) => item.id === jobId)
   if (!job) return <NotFound navigate={navigate} />
-  const trip = trips.find((item) => item.id === job.tripId)
-  const registration = props.registrations?.find((item) => Number(item.id) === Number(job.registrationId))
+  const trip = getRelatedTrip(trips, job)
+  const registration = getRelatedRegistration(props.registrations, job)
   const scheduleLabel = getJobScheduleLabel(job, registration, trip)
   const whatsappUrl = getWhatsAppUrl(job, registration, trip)
   const customerPhoneDisplay = getCustomerPhoneDisplay(job, registration)
@@ -192,8 +238,8 @@ export function WorkerJobDetail({ jobId, jobs, trips, takeJob, releaseJob, updat
 }
 
 function JobCard({ job, trips, registrations, navigate, takeJob, releaseJob, mine, updateJobStatus, session }) {
-  const trip = trips.find((item) => item.id === job.tripId)
-  const registration = registrations?.find((item) => Number(item.id) === Number(job.registrationId))
+  const trip = getRelatedTrip(trips, job)
+  const registration = getRelatedRegistration(registrations, job)
   const scheduleLabel = getJobScheduleLabel(job, registration, trip)
   const whatsappUrl = getWhatsAppUrl(job, registration, trip)
   const participantCount = registration?.participants || (trip ? trip.quota - trip.slots : 0)
