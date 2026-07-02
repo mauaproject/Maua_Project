@@ -1842,9 +1842,10 @@ export function AdminBookingCalendar(props) {
                 const dayBookings = bookingsByDate[cell.date] || []
                 const isSelected = selectedDate === cell.date
                 const isToday = cell.date === toIsoDate(today)
+                const isPastBooking = dayBookings.length > 0 && cell.date < toIsoDate(today)
                 return (
                   <button
-                    className={`booking-calendar-cell ${dayBookings.length ? 'has-booking' : ''} ${isSelected ? 'is-selected' : ''} ${isToday ? 'is-today' : ''}`}
+                    className={`booking-calendar-cell ${dayBookings.length ? 'has-booking' : ''} ${isPastBooking ? 'is-past-booking' : ''} ${isSelected ? 'is-selected' : ''} ${isToday ? 'is-today' : ''}`}
                     key={cell.key}
                     type="button"
                     onClick={() => setSelectedDate(cell.date)}
