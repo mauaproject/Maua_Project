@@ -1771,6 +1771,36 @@ export function AdminBookingCalendar(props) {
     return groups
   }, {})
   const selectedBookings = bookingsByDate[selectedDate] || []
+  const selectedScheduleBookings = Object.values(selectedBookings.reduce((groups, item) => {
+    const groupKey = [
+      item.isPrivate ? 'private' : 'open',
+      item.trip.id,
+      item.date,
+      item.isPrivate ? (item.registration.sessionId || item.sessionLabel) : item.scheduleId,
+      item.sessionLabel,
+      item.timeLabel,
+    ].join('|')
+    if (!groups[groupKey]) {
+      groups[groupKey] = {
+        ...item,
+        key: groupKey,
+        registrations: [],
+        participantTotal: 0,
+        addons: new Set(),
+        statuses: {},
+      }
+    }
+    groups[groupKey].registrations.push(item.registration)
+    groups[groupKey].participantTotal += Number(item.registration.participants || 1)
+    getSelectedAddons(item.registration).forEach((addon) => groups[groupKey].addons.add(addon))
+    const status = item.registration.status || '-'
+    groups[groupKey].statuses[status] = (groups[groupKey].statuses[status] || 0) + 1
+    return groups
+  }, {})).map((item) => ({
+    ...item,
+    addons: Array.from(item.addons),
+    statusSummary: Object.entries(item.statuses).map(([status, count]) => `${count} ${status}`).join(', '),
+  }))
   const monthBookingCount = bookings.filter((item) => item.date.slice(0, 7) === getMonthKey(visibleMonth)).length
 
   const goToday = () => {
@@ -1832,9 +1862,9 @@ export function AdminBookingCalendar(props) {
               <p className="eyebrow">Detail tanggal</p>
               <h3>{formatDate(selectedDate)}</h3>
             </div>
-            {selectedBookings.length ? (
+            {selectedScheduleBookings.length ? (
               <div className="booking-calendar-booking-list">
-                {selectedBookings.map(({ key, trip, registration, isPrivate, scheduleId, sessionLabel, timeLabel }) => (
+                {selectedScheduleBookings.map(({ key, trip, registration, registrations: groupRegistrations, isPrivate, scheduleId, sessionLabel, timeLabel, participantTotal, statusSummary, addons }) => (
                   <article className="booking-calendar-booking-card" key={key}>
                     <div>
                       <h4>{trip.name}</h4>
@@ -1843,9 +1873,10 @@ export function AdminBookingCalendar(props) {
                     <dl>
                       <div><dt>Tanggal trip</dt><dd>{formatDate(getRegistrationDate(registration))}</dd></div>
                       <div><dt>Sesi / jam</dt><dd>{sessionLabel}{timeLabel ? `, ${timeLabel} WIB` : ''}</dd></div>
-                      <div><dt>Peserta</dt><dd>{registration.participants || 1} peserta</dd></div>
-                      <div><dt>Status</dt><dd>{registration.status || '-'}</dd></div>
-                      <div className="full"><dt>Add-on</dt><dd>{getSelectedAddons(registration).join(', ') || '-'}</dd></div>
+                      <div><dt>Booking</dt><dd>{groupRegistrations.length} booking</dd></div>
+                      <div><dt>Peserta</dt><dd>{participantTotal} peserta</dd></div>
+                      <div className="full"><dt>Status</dt><dd>{statusSummary || '-'}</dd></div>
+                      <div className="full"><dt>Add-on</dt><dd>{addons.join(', ') || '-'}</dd></div>
                     </dl>
                     <button
                       className="outline-btn"
