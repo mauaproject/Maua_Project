@@ -3180,14 +3180,6 @@ button:disabled {
   border-color: rgba(192, 138, 46, 0.58);
   background: #fff4d6;
 }
-.admin-schedule-action-row.has-booking {
-  border-color: rgba(77, 143, 96, 0.42);
-  background: #eef8ed;
-}
-.admin-schedule-action-row.has-booking.needs-review {
-  border-color: rgba(77, 143, 96, 0.52);
-  background: linear-gradient(135deg, #eef8ed, #fff7df);
-}
 .admin-schedule-action-row strong,
 .admin-schedule-action-row small {
   display: block;
@@ -3202,18 +3194,6 @@ button:disabled {
   color: #7d6938;
   font-weight: 700;
   line-height: 1.35;
-}
-.schedule-participant-label {
-  display: inline-flex;
-  width: max-content;
-  margin-top: 8px;
-  border: 1px solid rgba(77, 143, 96, 0.26);
-  border-radius: 999px;
-  background: #dff1df;
-  color: #2f7a4e;
-  padding: 4px 9px;
-  font-size: 12px;
-  font-weight: 800;
 }
 .schedule-detail-btn {
   position: relative;
@@ -3973,15 +3953,6 @@ button:disabled {
   border-color: rgba(192, 138, 46, 0.52);
   box-shadow: 0 14px 32px rgba(192, 138, 46, 0.12);
 }
-.schedule-card.has-booking {
-  border-color: rgba(77, 143, 96, 0.38);
-  background: #f4fbf2;
-  box-shadow: 0 14px 30px rgba(77, 143, 96, 0.1);
-}
-.schedule-card.has-booking.needs-review {
-  border-color: rgba(77, 143, 96, 0.5);
-  background: linear-gradient(135deg, #f4fbf2 0%, #fffdf8 58%, #fff7df 100%);
-}
 .schedule-card h3 {
   font-size: 20px;
   line-height: 1.15;
@@ -4317,19 +4288,6 @@ button:disabled {
   border-radius: 999px;
   background: linear-gradient(135deg, #fff4d6, #f1c65f);
   color: #5f3d08;
-  padding: 6px 10px;
-  font-size: 12px;
-  font-weight: 800;
-  white-space: nowrap;
-}
-.booking-state-badge {
-  display: inline-flex;
-  align-items: center;
-  width: max-content;
-  border: 1px solid rgba(77, 143, 96, 0.28);
-  border-radius: 999px;
-  background: #dff1df;
-  color: #2f7a4e;
   padding: 6px 10px;
   font-size: 12px;
   font-weight: 800;

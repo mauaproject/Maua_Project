@@ -172,6 +172,8 @@ const isPendingRegistration = (registration) => {
   return status.includes('pending') || status.includes('menunggu')
 }
 
+const isActiveBookingForCalendar = (registration) => isSlotHoldingRegistration(registration)
+
 const countParticipants = (items) => items.reduce((sum, item) => sum + Number(item.participants || 0), 0)
 
 function AdminShell({ title, children, navigate, logout, path, registrations = [] }) {
@@ -1459,16 +1461,15 @@ export function AdminSchedule(props) {
         <div className="schedule-list admin-card-grid">
           {visibleScheduleItems.map((item) => {
             if (item.type === 'open') {
-              const { trip, schedules, approvedParticipants, bookingParticipants, waitingParticipants, assignedWorkers, workerTarget, quota, remaining } = item
+              const { trip, schedules, approvedParticipants, waitingParticipants, assignedWorkers, workerTarget, quota, remaining } = item
               return (
-                <article className={`schedule-card ${bookingParticipants > 0 ? 'has-booking' : ''} ${waitingParticipants > 0 ? 'needs-review' : ''}`} key={item.key}>
+                <article className={`schedule-card ${waitingParticipants > 0 ? 'needs-review' : ''}`} key={item.key}>
                 <div className="schedule-card-head">
                   <div>
                     <h3>{trip.name}</h3>
                     <p className="icon-line"><span className="asset-icon icon-geo" aria-hidden="true" />{adminText(trip.destination)}</p>
                   </div>
                   <div className="card-badge-stack">
-                    {bookingParticipants > 0 && <span className="booking-state-badge">{bookingParticipants} peserta</span>}
                     {waitingParticipants > 0 && <span className="review-badge">Ada Pendaftar Baru</span>}
                     <Badge status={lifecycleLabel(trip.lifecycleStatus)} label={lifecycleLabel(trip.lifecycleStatus)} />
                   </div>
@@ -1479,10 +1480,9 @@ export function AdminSchedule(props) {
                 </div>
                 <div className="admin-schedule-action-list">
                   {schedules.map((schedule) => (
-                    <div className={`admin-schedule-action-row ${schedule.reservedParticipants > 0 ? 'has-booking' : ''} ${schedule.waitingParticipants > 0 ? 'needs-review' : ''}`} key={schedule.id}>
+                    <div className={`admin-schedule-action-row ${schedule.waitingParticipants > 0 ? 'needs-review' : ''}`} key={schedule.id}>
                       <div>
                         <strong>{schedule.name} · {formatDate(schedule.date)}{schedule.startTime && schedule.endTime ? `, ${schedule.startTime} - ${schedule.endTime} WIB` : ''} - {schedule.approvedParticipants}/{schedule.quota} peserta, sisa {schedule.remaining}</strong>
-                        <span className="schedule-participant-label">{schedule.reservedParticipants > 0 ? `${schedule.reservedParticipants} peserta/booking` : 'Belum ada peserta'}</span>
                         <small>Status: {schedule.lifecycleStatus === 'upcoming' ? scheduleStatusLabel(schedule.status) : lifecycleLabel(schedule.lifecycleStatus)}{schedule.waitingParticipants > 0 ? ` - ${schedule.waitingParticipants} menunggu approval` : ''}</small>
                       </div>
                       <button className="outline-btn schedule-detail-btn" type="button" onClick={() => props.navigate(`/admin/jadwal/${trip.id}/${schedule.id}`)}>
@@ -1509,14 +1509,13 @@ export function AdminSchedule(props) {
             const { trip, registration, range, bookingCount, pendingCount, assignedWorkers, workerTarget } = item
             const bookingDate = getRegistrationDate(registration)
             return (
-              <article className={`schedule-card has-booking ${pendingCount > 0 ? 'needs-review' : ''}`} key={item.key}>
+              <article className={`schedule-card ${pendingCount > 0 ? 'needs-review' : ''}`} key={item.key}>
                 <div className="schedule-card-head">
                   <div>
                     <h3>{trip.name}</h3>
                     <p className="icon-line"><span className="asset-icon icon-geo" aria-hidden="true" />{adminText(trip.destination)}</p>
                   </div>
                   <div className="card-badge-stack">
-                    <span className="booking-state-badge">Sudah ada booking</span>
                     {pendingCount > 0 && <span className="review-badge">Butuh Review</span>}
                     <span className="trip-type-chip">{getAdminTripTypeLabel(trip)}</span>
                     <Badge status={lifecycleLabel(trip.lifecycleStatus)} label={lifecycleLabel(trip.lifecycleStatus)} />
@@ -1746,6 +1745,7 @@ export function AdminBookingCalendar(props) {
     }),
   ]
   const bookings = registrations
+    .filter(isActiveBookingForCalendar)
     .map((registration) => {
       const trip = trips.find((item) => Number(item.id) === Number(registration.tripId))
       if (!trip) return null
