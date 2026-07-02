@@ -242,44 +242,40 @@ function h1ReminderHtml(array $booking, array $invoice): string
         . '</div>';
 }
 
-function hPlus1ReminderHtml(array $booking): string
+function hPlus2ReminderHtml(array $booking): string
 {
     $customerName = reminderEscape($booking['customer_name']);
     $tripName = reminderEscape($booking['trip_name']);
-    $accountUrl = trim((string) (getenv('CUSTOMER_ACCOUNT_URL') ?: 'https://mauaproject.com/akun'));
-    $reviewUrl = trim((string) getenv('REVIEW_URL'));
+    $accountUrl = 'https://mauaproject.com/akun';
     $accountLink = '<a href="' . reminderEscape($accountUrl) . '" style="color:#173f35;font-weight:bold">'
-        . reminderEscape(preg_replace('#^https?://#', '', $accountUrl) ?? $accountUrl)
+        . reminderEscape($accountUrl)
         . '</a>';
-    $reviewLink = $reviewUrl !== ''
-        ? '<a href="' . reminderEscape($reviewUrl) . '" style="display:inline-block;background:#173f35;color:#fff;'
-            . 'padding:12px 18px;border-radius:8px;text-decoration:none;font-weight:bold">Berikan Review Anda</a>'
-        : '<strong>Silakan membalas email ini untuk memberikan ulasan Anda.</strong>';
+    $reviewLink = '<a href="' . reminderEscape($accountUrl) . '" style="color:#173f35;font-weight:bold">'
+        . '[' . reminderEscape($accountUrl) . ']'
+        . '</a>';
 
     return '<div style="line-height:1.65">'
-        . '<p>Hi, Kak <strong>' . $customerName . '</strong>.</p>'
+        . '<p>Hi, <strong>' . $customerName . '</strong></p>'
         . '<p>Terima kasih telah menjadi bagian dari perjalanan bersama Maua Project. Kami merasa senang dapat berbagi '
-        . 'pengalaman dan petualangan dalam kegiatan <strong>' . $tripName . '</strong> bersama Kakak.</p>'
+        . 'petualangan dalam kegiatan <strong>' . $tripName . '</strong> bersama kakak.</p>'
         . '<p>Sebagai kenang-kenangan dari perjalanan tersebut, dokumentasi kegiatan telah kami unggah dan dapat diakses '
-        . 'melalui tautan berikut:<br>' . $accountLink . '</p>'
+        . 'melalui tautan berikut:</p>'
+        . '<p>' . $accountLink . '</p>'
         . '<p>Dokumentasi dapat diakses selama 7 (tujuh) hari sejak email ini dikirimkan. Setelah periode tersebut berakhir, '
-        . 'file akan kami arsipkan. Apabila berkenan, kami sarankan untuk mengunduh seluruh dokumentasi sebelum batas waktu '
+        . 'file akan kami pulihkan. Karena itu, kami sarankan untuk mengunduh seluruh dokumentasi sebelum batas waktu '
         . 'akses berakhir.</p>'
-        . '<p>Kami juga mohon izin apabila beberapa foto atau video dari kegiatan kemarin digunakan sebagai materi promosi '
-        . 'dan dokumentasi di media sosial maupun platform resmi Maua Project. Apabila terdapat foto atau video yang tidak '
+        . '<p>Kami juga mohon izin apabila foto atau video dari kegiatan kemarin digunakan sebagai materi promosi di media '
+        . 'sosial maupun platform resmi Maua Project. Apabila terdapat foto atau video yang tidak '
         . 'berkenan untuk dipublikasikan, silakan membalas email ini atau menghubungi admin kami.</p>'
-        . '<p>Kiranya berkenan mengunggah momen selama kegiatan di media sosial, kami akan sangat senang apabila Kakak '
-        . 'berkenan menandai atau mengajak kolaborasi akun <strong>@mauaproject</strong>. Cerita dan pengalaman yang Kakak '
+        . '<p>Kiranya berkenan mengunggah momen selama kegiatan di media sosial, kami akan sangat senang apabila kakak '
+        . 'berkenan menandai atau mengajak berkolaborasi akun <strong>@mauaproject</strong>. Cerita dan pengalaman yang kakak '
         . 'bagikan akan sangat berarti bagi kami.</p>'
         . '<p>Selain itu, kami juga ingin meminta sedikit waktu Anda untuk memberikan ulasan mengenai pengalaman bersama '
         . 'Maua Project.</p>'
         . '<p>&#11088; <strong>Berikan Review Anda di:</strong><br>' . $reviewLink . '</p>'
-        . '<p>Atas kepercayaan yang telah diberikan, kami mengucapkan terima kasih. Apabila selama kegiatan terdapat '
-        . 'kekurangan dalam pelayanan kami, kami memohon maaf sebesar-besarnya dan akan menjadikannya sebagai bahan evaluasi '
-        . 'untuk menjadi lebih baik ke depannya.</p>'
-        . '<p>Semoga pengalaman ini menjadi cerita yang menyenangkan untuk dikenang, dan kami berharap dapat kembali bertemu '
-        . 'dalam petualangan berikutnya bersama Maua Project.</p>'
-        . '<p>Sampai jumpa di perjalanan selanjutnya.</p>'
+        . '<p>Apabila selama kegiatan terdapat kekurangan dalam pelayanan, kami memohon maaf sebesar-besarnya dan akan '
+        . 'menjadikannya sebagai bahan evaluasi untuk menjadi lebih baik ke depannya. Semoga pengalaman ini menjadi cerita '
+        . 'yang menyenangkan untuk dikenang, dan kami berharap dapat kembali bertemu dalam petualangan berikutnya&#128075;&#127995;</p>'
         . '<p>Salam hangat,<br><strong>Maua Project</strong></p>'
         . '</div>';
 }
@@ -315,7 +311,7 @@ function buildReminderMessage(PDO $pdo, array $booking, string $type): array
 
     return [
         'subject' => 'Love Letter from Maua Project 💌',
-        'html' => reminderLayout('Love Letter from Maua Project 💌', hPlus1ReminderHtml($booking)),
+        'html' => reminderLayout('Love Letter from Maua Project 💌', hPlus2ReminderHtml($booking)),
         'attachments' => [],
     ];
 }
@@ -355,9 +351,10 @@ function runDailyReminders(PDO $pdo): array
             $today->modify('+1 day')->format('Y-m-d'),
             $today->modify('+1 day')->format('Y-m-d'),
         ],
+        // Log key kept for reminder_logs enum compatibility; review email is sent on H+2.
         'HPLUS1' => [
-            $today->modify('-1 day')->format('Y-m-d'),
-            $today->modify('-1 day')->format('Y-m-d'),
+            $today->modify('-2 days')->format('Y-m-d'),
+            $today->modify('-2 days')->format('Y-m-d'),
         ],
     ];
 
