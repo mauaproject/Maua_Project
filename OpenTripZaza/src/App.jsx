@@ -8,7 +8,7 @@ import { ABOVE_MAX_PAX_RULE, getPrivatePricePerPerson, normalizePricePerPersonTi
 import { getRequiredPaymentAmount } from './utils/payments'
 import { getPackagePricePerPerson, getPrivatePackages } from './utils/privatePackages'
 import { validateCustomerTripProfile } from './utils/customerProfile'
-import { getAddonLineTotal, hydrateAddonForParticipants } from './utils/addons'
+import { getAddonLineTotal, hydrateAddonForParticipants, isTripAddonActive } from './utils/addons'
 import { localizedText } from './utils/localization'
 import {
   getOpenTripScheduleOptions,
@@ -28,6 +28,7 @@ const lazyNamed = (loader, name) => lazy(() => loader().then((module) => ({ defa
 const loadAdminPage = () => import('./pages/AdminPage')
 const loadWorkerPage = () => import('./pages/WorkerPage')
 const AdminDashboard = lazyNamed(loadAdminPage, 'AdminDashboard')
+const AdminBookingCalendar = lazyNamed(loadAdminPage, 'AdminBookingCalendar')
 const AdminReviews = lazyNamed(loadAdminPage, 'AdminReviews')
 const AdminSchedule = lazyNamed(loadAdminPage, 'AdminSchedule')
 const AdminTripArchive = lazyNamed(loadAdminPage, 'AdminTripArchive')
@@ -505,10 +506,14 @@ function App() {
       : [{ name: form.name, email: form.email, whatsapp: form.whatsapp, address: form.address || '', age: form.age || '', gender: form.gender || '', healthNotes: form.healthNotes || '', bloodType: form.bloodType || '', heightCm: form.heightCm || '', weightKg: form.weightKg || '', shoeSize: form.shoeSize || '' }]
     const primaryParticipant = participantDetails[0] || {}
     const tripAddons = Array.isArray(trip.addons) ? trip.addons : []
+    const activeTripAddons = tripAddons.filter(isTripAddonActive)
     const selectedAddonIds = Array.isArray(form.addons)
-      ? form.addons.map(Number).filter((addonId) => tripAddons.some((option) => Number(option.id) === addonId))
+      ? form.addons.map(Number).filter((addonId) => activeTripAddons.some((option) => Number(option.id) === addonId))
       : []
-    const selectedAddonTotal = tripAddons
+    if (Array.isArray(form.addons) && form.addons.some((addonId) => !activeTripAddons.some((option) => Number(option.id) === Number(addonId)))) {
+      throw new Error('Salah satu add-on sedang tidak tersedia. Silakan kembali ke checkout dan pilih ulang add-on.')
+    }
+    const selectedAddonTotal = activeTripAddons
       .filter((option) => selectedAddonIds.includes(Number(option.id)))
       .reduce((total, option) => total + getAddonLineTotal(option, participantCount), 0)
     const privatePackages = isPrivateTour ? getPrivatePackages(trip, true) : []
@@ -556,7 +561,7 @@ function App() {
       healthNotes: primaryParticipant.healthNotes || '',
       participantDetails,
       addons: selectedAddonIds,
-      selectedAddonDetails: tripAddons
+      selectedAddonDetails: activeTripAddons
         .filter((option) => selectedAddonIds.includes(Number(option.id)))
         .map((option) => hydrateAddonForParticipants(option, participantCount)),
       transportFrom: '',
@@ -841,6 +846,7 @@ function RouteRenderer(props) {
   }
   if (path === '/admin/pendaftaran') return <AdminSchedule {...props} />
   if (path === '/admin/jadwal') return <AdminSchedule {...props} />
+  if (path === '/admin/kalender-booking') return <AdminBookingCalendar {...props} />
   if (parts[0] === 'admin' && parts[1] === 'jadwal' && parts[2] === 'private-trip' && Number(parts[3])) return <AdminSchedule privateTripId={Number(parts[3])} {...props} />
   if (parts[0] === 'admin' && parts[1] === 'jadwal' && parts[2] === 'private' && Number(parts[3])) return <AdminSchedule scheduleRegistrationId={Number(parts[3])} {...props} />
   if (parts[0] === 'admin' && parts[1] === 'jadwal' && Number(parts[2])) return <AdminSchedule scheduleTripId={Number(parts[2])} scheduleId={parts[3] || ''} {...props} />

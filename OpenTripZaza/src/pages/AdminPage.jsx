@@ -8,6 +8,7 @@ import { getPaymentStatusLabel, getPaymentTypeLabel } from '../utils/payments'
 import { getPrivatePackages, newPrivatePackage } from '../utils/privatePackages'
 import { ABOVE_MAX_PAX_RULE, normalizePricePerPersonTiers } from '../utils/pricing'
 import { getPrivateDateRange, getRegistrationDate, getTripSchedules, getTripSessions, hasScheduleRegistrations, isSameScheduleRegistration, isSlotHoldingRegistration, scheduleStatusLabel } from '../utils/schedules'
+import { isTripAddonActive } from '../utils/addons'
 import { AppModal, Badge, DataPanel, Metric, Sidebar } from './shared'
 
 const parseImageUrls = (value) => String(value || '')
@@ -84,6 +85,7 @@ const newTripAddon = (source = {}) => ({
   price: Number(source.price || 0),
   maxParticipantsPerUnit: source.maxParticipantsPerUnit || '',
   workerAction: source.workerAction === 'drive_link' ? 'drive_link' : 'none',
+  status: isTripAddonActive(source) ? 'active' : 'inactive',
 })
 
 const getActivityText = (trip) => {
@@ -183,6 +185,7 @@ function AdminShell({ title, children, navigate, logout, path, registrations = [
         ['/admin/open-trip', 'Paket Trip'],
         ['/admin/arsip-trip', 'Arsip Trip'],
         ['/admin/jadwal', 'Jadwal', pendingParticipants],
+        ['/admin/kalender-booking', 'Kalender Booking'],
         ['/admin/reviews', t('reviews.admin.menu')],
         ['/admin/tim', 'Akun Tim'],
       ]} navigate={navigate} logout={logout} path={path} />
@@ -947,6 +950,7 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
           name: addon.name.trim(),
           price: Number(addon.price || 0),
           maxParticipantsPerUnit: addon.maxParticipantsPerUnit === '' ? null : Number(addon.maxParticipantsPerUnit),
+          status: addon.status === 'inactive' ? 'inactive' : 'active',
         })),
       })
       if (saved === false) {
@@ -1120,6 +1124,10 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
                   <h4>Add-on {index + 1}</h4>
                   <label>Nama add-on<input required value={addon.name} onChange={(event) => updateTripAddon(index, 'name', event.target.value)} /></label>
                   <label>Harga add-on<input required type="number" min="0" value={addon.price} onChange={(event) => updateTripAddon(index, 'price', event.target.value)} /></label>
+                  <label>Status add-on<select value={addon.status === 'inactive' ? 'inactive' : 'active'} onChange={(event) => updateTripAddon(index, 'status', event.target.value)}>
+                    <option value="active">Aktif</option>
+                    <option value="inactive">Nonaktif</option>
+                  </select><small>Add-on nonaktif tetap tersimpan, tetapi tidak bisa dipesan customer baru.</small></label>
                   <label>Maksimal peserta per add-on<input type="number" min="1" placeholder="Kosong = 1 kali" value={addon.maxParticipantsPerUnit} onChange={(event) => updateTripAddon(index, 'maxParticipantsPerUnit', event.target.value)} /><small>Contoh mobil 5 orang: peserta 6-10 otomatis dihitung 2 unit.</small></label>
                   <label>Aksi tim<select value={addon.workerAction} onChange={(event) => updateTripAddon(index, 'workerAction', event.target.value)}>
                     <option value="drive_link">Tim upload link Google Drive</option>
@@ -1285,11 +1293,19 @@ function RegistrationTable({ registrations, trips, setRegistrationStatus, compac
 }
 
 function AdminJobResultsPanel({ jobs = [], emptyText = 'Belum ada hasil pekerjaan tim.' }) {
+  if (!jobs.length) {
+    return (
+      <div className="job-empty-state">
+        <strong>Belum ada job add-on</strong>
+        <p>{emptyText}</p>
+      </div>
+    )
+  }
   return (
     <div className="table-wrap compact-table">
       <table>
         <thead><tr><th>Jenis pekerjaan</th><th>Tim</th><th>Status</th><th>Link hasil</th><th>Waktu selesai</th></tr></thead>
-        <tbody>{jobs.length ? jobs.map((job) => {
+        <tbody>{jobs.map((job) => {
           const resultLink = getJobResultLink(job)
           const completedAt = getJobCompletedAt(job)
           return (
@@ -1301,7 +1317,7 @@ function AdminJobResultsPanel({ jobs = [], emptyText = 'Belum ada hasil pekerjaa
               <td>{completedAt ? formatDate(completedAt) : '-'}</td>
             </tr>
           )
-        }) : <tr><td colSpan="5">{emptyText}</td></tr>}</tbody>
+        })}</tbody>
       </table>
     </div>
   )
@@ -1350,6 +1366,7 @@ export function AdminSchedule(props) {
       trip,
       schedules: scheduleItems,
       approvedParticipants: scheduleItems.reduce((total, schedule) => total + schedule.approvedParticipants, 0),
+      bookingParticipants: scheduleItems.reduce((total, schedule) => total + schedule.reservedParticipants, 0),
       waitingParticipants: scheduleItems.reduce((total, schedule) => total + schedule.waitingParticipants, 0),
       assignedWorkers: scheduleItems.reduce((total, schedule) => total + schedule.assignedWorkers, 0),
       workerTarget: scheduleItems.reduce((total, schedule) => total + schedule.workerTarget, 0),
@@ -1442,15 +1459,16 @@ export function AdminSchedule(props) {
         <div className="schedule-list admin-card-grid">
           {visibleScheduleItems.map((item) => {
             if (item.type === 'open') {
-              const { trip, schedules, approvedParticipants, waitingParticipants, assignedWorkers, workerTarget, quota, remaining } = item
+              const { trip, schedules, approvedParticipants, bookingParticipants, waitingParticipants, assignedWorkers, workerTarget, quota, remaining } = item
               return (
-                <article className={`schedule-card ${waitingParticipants > 0 ? 'needs-review' : ''}`} key={item.key}>
+                <article className={`schedule-card ${bookingParticipants > 0 ? 'has-booking' : ''} ${waitingParticipants > 0 ? 'needs-review' : ''}`} key={item.key}>
                 <div className="schedule-card-head">
                   <div>
                     <h3>{trip.name}</h3>
                     <p className="icon-line"><span className="asset-icon icon-geo" aria-hidden="true" />{adminText(trip.destination)}</p>
                   </div>
                   <div className="card-badge-stack">
+                    {bookingParticipants > 0 && <span className="booking-state-badge">{bookingParticipants} peserta</span>}
                     {waitingParticipants > 0 && <span className="review-badge">Ada Pendaftar Baru</span>}
                     <Badge status={lifecycleLabel(trip.lifecycleStatus)} label={lifecycleLabel(trip.lifecycleStatus)} />
                   </div>
@@ -1461,9 +1479,10 @@ export function AdminSchedule(props) {
                 </div>
                 <div className="admin-schedule-action-list">
                   {schedules.map((schedule) => (
-                    <div className={`admin-schedule-action-row ${schedule.waitingParticipants > 0 ? 'needs-review' : ''}`} key={schedule.id}>
+                    <div className={`admin-schedule-action-row ${schedule.reservedParticipants > 0 ? 'has-booking' : ''} ${schedule.waitingParticipants > 0 ? 'needs-review' : ''}`} key={schedule.id}>
                       <div>
                         <strong>{schedule.name} · {formatDate(schedule.date)}{schedule.startTime && schedule.endTime ? `, ${schedule.startTime} - ${schedule.endTime} WIB` : ''} - {schedule.approvedParticipants}/{schedule.quota} peserta, sisa {schedule.remaining}</strong>
+                        <span className="schedule-participant-label">{schedule.reservedParticipants > 0 ? `${schedule.reservedParticipants} peserta/booking` : 'Belum ada peserta'}</span>
                         <small>Status: {schedule.lifecycleStatus === 'upcoming' ? scheduleStatusLabel(schedule.status) : lifecycleLabel(schedule.lifecycleStatus)}{schedule.waitingParticipants > 0 ? ` - ${schedule.waitingParticipants} menunggu approval` : ''}</small>
                       </div>
                       <button className="outline-btn schedule-detail-btn" type="button" onClick={() => props.navigate(`/admin/jadwal/${trip.id}/${schedule.id}`)}>
@@ -1490,13 +1509,14 @@ export function AdminSchedule(props) {
             const { trip, registration, range, bookingCount, pendingCount, assignedWorkers, workerTarget } = item
             const bookingDate = getRegistrationDate(registration)
             return (
-              <article className={`schedule-card ${pendingCount > 0 ? 'needs-review' : ''}`} key={item.key}>
+              <article className={`schedule-card has-booking ${pendingCount > 0 ? 'needs-review' : ''}`} key={item.key}>
                 <div className="schedule-card-head">
                   <div>
                     <h3>{trip.name}</h3>
                     <p className="icon-line"><span className="asset-icon icon-geo" aria-hidden="true" />{adminText(trip.destination)}</p>
                   </div>
                   <div className="card-badge-stack">
+                    <span className="booking-state-badge">Sudah ada booking</span>
                     {pendingCount > 0 && <span className="review-badge">Butuh Review</span>}
                     <span className="trip-type-chip">{getAdminTripTypeLabel(trip)}</span>
                     <Badge status={lifecycleLabel(trip.lifecycleStatus)} label={lifecycleLabel(trip.lifecycleStatus)} />
@@ -1693,6 +1713,154 @@ function AdminPrivateTripScheduleDetail({ trip, registrations, jobs, setRegistra
               )) : <p className="empty-column">Belum ada booking untuk private trip ini.</p>}
             </div>
           </DataPanel>
+        </section>
+      </section>
+    </AdminShell>
+  )
+}
+
+const toIsoDate = (date) => {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+const getMonthKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+const addMonths = (date, delta) => new Date(date.getFullYear(), date.getMonth() + delta, 1)
+
+export function AdminBookingCalendar(props) {
+  const { trips, registrations, navigate } = props
+  const today = new Date()
+  const [visibleMonth, setVisibleMonth] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1))
+  const [selectedDate, setSelectedDate] = useState(() => toIsoDate(today))
+  const monthLabel = new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' }).format(visibleMonth)
+  const monthStart = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), 1)
+  const firstWeekday = (monthStart.getDay() + 6) % 7
+  const daysInMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 0).getDate()
+  const calendarCells = [
+    ...Array.from({ length: firstWeekday }, (_, index) => ({ key: `empty-${index}`, isEmpty: true })),
+    ...Array.from({ length: daysInMonth }, (_, index) => {
+      const day = index + 1
+      const date = toIsoDate(new Date(visibleMonth.getFullYear(), visibleMonth.getMonth(), day))
+      return { key: date, date, day, isEmpty: false }
+    }),
+  ]
+  const bookings = registrations
+    .map((registration) => {
+      const trip = trips.find((item) => Number(item.id) === Number(registration.tripId))
+      if (!trip) return null
+      const date = getRegistrationDate(registration)
+      if (!date) return null
+      const isPrivate = registration.isPrivateTrip || registration.isPrivateTour || registration.tripType === 'private'
+      const fallbackSchedule = !isPrivate ? getTripSchedules(trip).find((schedule) => isSameScheduleRegistration(registration, schedule) || schedule.date === date) : null
+      return {
+        key: `${registration.id}-${date}`,
+        registration,
+        trip,
+        date,
+        isPrivate,
+        scheduleId: isPrivate ? '' : (registration.scheduleId || fallbackSchedule?.id || ''),
+        sessionLabel: registration.sessionName || fallbackSchedule?.name || 'Sesi',
+        timeLabel: [registration.startTime || fallbackSchedule?.startTime, registration.endTime || fallbackSchedule?.endTime].filter(Boolean).join(' - '),
+      }
+    })
+    .filter(Boolean)
+  const bookingsByDate = bookings.reduce((groups, item) => {
+    if (!groups[item.date]) groups[item.date] = []
+    groups[item.date].push(item)
+    return groups
+  }, {})
+  const selectedBookings = bookingsByDate[selectedDate] || []
+  const monthBookingCount = bookings.filter((item) => item.date.slice(0, 7) === getMonthKey(visibleMonth)).length
+
+  const goToday = () => {
+    const now = new Date()
+    setVisibleMonth(new Date(now.getFullYear(), now.getMonth(), 1))
+    setSelectedDate(toIsoDate(now))
+  }
+
+  return (
+    <AdminShell title="Kalender Booking" {...props}>
+      <section className="admin-page-stack booking-calendar-page">
+        <div className="admin-page-head">
+          <div>
+            <p className="eyebrow">Kalender booking</p>
+            <h2>Pesanan berdasarkan tanggal trip.</h2>
+            <p className="muted">Lihat tanggal yang sudah memiliki booking Open Trip dan Private Trip dalam satu kalender bulanan.</p>
+          </div>
+          <div className="calendar-toolbar">
+            <button className="outline-btn" type="button" onClick={() => setVisibleMonth(addMonths(visibleMonth, -1))}>Bulan sebelumnya</button>
+            <button className="outline-btn" type="button" onClick={goToday}>Bulan ini</button>
+            <button className="outline-btn" type="button" onClick={() => setVisibleMonth(addMonths(visibleMonth, 1))}>Bulan berikutnya</button>
+          </div>
+        </div>
+
+        <section className="booking-calendar-layout">
+          <div className="booking-calendar-panel">
+            <div className="booking-calendar-head">
+              <div>
+                <h3>{monthLabel}</h3>
+                <p>{monthBookingCount} booking di bulan ini</p>
+              </div>
+            </div>
+            <div className="booking-calendar-weekdays">
+              {['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'].map((day) => <span key={day}>{day}</span>)}
+            </div>
+            <div className="booking-calendar-grid">
+              {calendarCells.map((cell) => {
+                if (cell.isEmpty) return <span className="booking-calendar-cell is-empty" key={cell.key} />
+                const dayBookings = bookingsByDate[cell.date] || []
+                const isSelected = selectedDate === cell.date
+                const isToday = cell.date === toIsoDate(today)
+                return (
+                  <button
+                    className={`booking-calendar-cell ${dayBookings.length ? 'has-booking' : ''} ${isSelected ? 'is-selected' : ''} ${isToday ? 'is-today' : ''}`}
+                    key={cell.key}
+                    type="button"
+                    onClick={() => setSelectedDate(cell.date)}
+                  >
+                    <strong>{cell.day}</strong>
+                    {dayBookings.length > 0 && <span>{dayBookings.length} booking</span>}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <aside className="booking-calendar-detail">
+            <div className="booking-calendar-detail-head">
+              <p className="eyebrow">Detail tanggal</p>
+              <h3>{formatDate(selectedDate)}</h3>
+            </div>
+            {selectedBookings.length ? (
+              <div className="booking-calendar-booking-list">
+                {selectedBookings.map(({ key, trip, registration, isPrivate, scheduleId, sessionLabel, timeLabel }) => (
+                  <article className="booking-calendar-booking-card" key={key}>
+                    <div>
+                      <h4>{trip.name}</h4>
+                      <span>{isPrivate ? 'Private Trip' : 'Open Trip'}</span>
+                    </div>
+                    <dl>
+                      <div><dt>Tanggal trip</dt><dd>{formatDate(getRegistrationDate(registration))}</dd></div>
+                      <div><dt>Sesi / jam</dt><dd>{sessionLabel}{timeLabel ? `, ${timeLabel} WIB` : ''}</dd></div>
+                      <div><dt>Peserta</dt><dd>{registration.participants || 1} peserta</dd></div>
+                      <div><dt>Status</dt><dd>{registration.status || '-'}</dd></div>
+                      <div className="full"><dt>Add-on</dt><dd>{getSelectedAddons(registration).join(', ') || '-'}</dd></div>
+                    </dl>
+                    <button
+                      className="outline-btn"
+                      type="button"
+                      onClick={() => navigate(isPrivate ? `/admin/jadwal/private/${registration.id}` : `/admin/jadwal/${trip.id}/${scheduleId}`)}
+                    >
+                      Detail jadwal
+                    </button>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p className="empty-state">Tidak ada pesanan di tanggal ini.</p>
+            )}
+          </aside>
         </section>
       </section>
     </AdminShell>

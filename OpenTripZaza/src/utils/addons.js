@@ -8,6 +8,8 @@ export const getAddonLineTotal = (addon, participants = 1) => (
   Number(addon?.price || 0) * getAddonUnitCount(addon, participants)
 )
 
+export const isTripAddonActive = (addon) => addon?.status !== 'inactive' && addon?.isActive !== false
+
 export const hydrateAddonForParticipants = (addon, participants = 1) => {
   const quantity = getAddonUnitCount(addon, participants)
   const unitPrice = Number(addon?.price || addon?.unitPrice || 0)

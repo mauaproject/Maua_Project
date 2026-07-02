@@ -320,10 +320,10 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
     $incomingAddonIds = [];
     $addonInsert = $pdo->prepare(
         "INSERT INTO trip_addons (trip_id, name, price, max_participants_per_unit, worker_action, status, sort_order)
-         VALUES (?,?,?,?,?, 'active', ?)"
+         VALUES (?,?,?,?,?,?,?)"
     );
     $addonUpdate = $pdo->prepare(
-        "UPDATE trip_addons SET name=?, price=?, max_participants_per_unit=?, worker_action=?, status='active', sort_order=?
+        "UPDATE trip_addons SET name=?, price=?, max_participants_per_unit=?, worker_action=?, status=?, sort_order=?
          WHERE id=? AND trip_id=?"
     );
     foreach ((array) ($data['addons'] ?? []) as $index => $addon) {
@@ -337,9 +337,10 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
             throw new InvalidArgumentException('Maksimal peserta per add-on harus lebih dari 0.');
         }
         $workerAction = ($addon['workerAction'] ?? 'none') === 'drive_link' ? 'drive_link' : 'none';
+        $status = ($addon['status'] ?? 'active') === 'inactive' ? 'inactive' : 'active';
         $addonId = nullableInt($addon['id'] ?? null);
         if ($addonId) {
-            $addonUpdate->execute([$name, $price, $maxParticipantsPerUnit, $workerAction, $index, $addonId, $tripId]);
+            $addonUpdate->execute([$name, $price, $maxParticipantsPerUnit, $workerAction, $status, $index, $addonId, $tripId]);
             if ($addonUpdate->rowCount() === 0) {
                 $exists = $pdo->prepare('SELECT id FROM trip_addons WHERE id=? AND trip_id=?');
                 $exists->execute([$addonId, $tripId]);
@@ -349,7 +350,7 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
             }
             $incomingAddonIds[] = $addonId;
         } else {
-            $addonInsert->execute([$tripId, $name, $price, $maxParticipantsPerUnit, $workerAction, $index]);
+            $addonInsert->execute([$tripId, $name, $price, $maxParticipantsPerUnit, $workerAction, $status, $index]);
             $incomingAddonIds[] = (int) $pdo->lastInsertId();
         }
     }

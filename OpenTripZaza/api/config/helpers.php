@@ -67,6 +67,21 @@ function nullableFloat(mixed $value): ?float
     return $value === null || $value === '' ? null : (float) $value;
 }
 
+function tableHasColumn(PDO $pdo, string $table, string $column): bool
+{
+    static $cache = [];
+    $key = $table . '.' . $column;
+    if (!array_key_exists($key, $cache)) {
+        $statement = $pdo->prepare(
+            'SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?'
+        );
+        $statement->execute([$table, $column]);
+        $cache[$key] = (int) $statement->fetchColumn() > 0;
+    }
+    return $cache[$key];
+}
+
 function appNow(): DateTimeImmutable
 {
     return new DateTimeImmutable('now');
@@ -583,7 +598,7 @@ function mapTrip(PDO $pdo, array $trip, bool $customerView = false): array
          WHERE ptp.trip_id = ? ORDER BY ppt.package_id, ppt.pax_count'
     );
     $tiers = $query('SELECT pax_count, price_per_person FROM private_price_tiers WHERE trip_id = ? ORDER BY pax_count');
-    $addons = $query("SELECT id, name, price, max_participants_per_unit, worker_action, status, sort_order FROM trip_addons WHERE trip_id = ? AND status = 'active' ORDER BY sort_order, id");
+    $addons = $query("SELECT id, name, price, max_participants_per_unit, worker_action, status, sort_order FROM trip_addons WHERE trip_id = ? ORDER BY sort_order, id");
     $tierMap = [];
     foreach ($tiers as $tier) {
         $tierMap[(string) $tier['pax_count']] = (float) $tier['price_per_person'];
@@ -893,11 +908,14 @@ function mapBookings(PDO $pdo, array $bookings): array
         $participants[(int) $participant['booking_id']][] = $participant;
     }
     $addons = [];
+    $bookingAddonNameSelect = tableHasColumn($pdo, 'booking_addons', 'addon_name') ? 'ba.addon_name' : 'NULL';
+    $bookingAddonMaxSelect = tableHasColumn($pdo, 'booking_addons', 'max_participants_per_unit') ? 'ba.max_participants_per_unit' : 'NULL';
+    $bookingAddonActionSelect = tableHasColumn($pdo, 'booking_addons', 'worker_action') ? 'ba.worker_action' : 'NULL';
     $addonStatement = $pdo->prepare(
         "SELECT ba.booking_id, ba.addon_id, ba.trip_addon_id, ba.quantity, ba.price,
-                COALESCE(ta.name, a.label, ba.addon_id) addon_name,
-                ta.max_participants_per_unit,
-                COALESCE(ta.worker_action, 'none') worker_action
+                COALESCE($bookingAddonNameSelect, ta.name, a.label, ba.addon_id) addon_name,
+                COALESCE($bookingAddonMaxSelect, ta.max_participants_per_unit) max_participants_per_unit,
+                COALESCE($bookingAddonActionSelect, ta.worker_action, 'none') worker_action
          FROM booking_addons ba
          LEFT JOIN trip_addons ta ON ta.id = ba.trip_addon_id
          LEFT JOIN addons a ON a.id = ba.addon_id

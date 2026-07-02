@@ -50,11 +50,13 @@ runEndpoint(function (PDO $pdo): void {
         }
 
         if (in_array($data['status'], ['Disetujui', 'Selesai'], true)) {
+            $bookingAddonNameSelect = tableHasColumn($pdo, 'booking_addons', 'addon_name') ? 'ba.addon_name' : 'NULL';
+            $bookingAddonActionSelect = tableHasColumn($pdo, 'booking_addons', 'worker_action') ? 'ba.worker_action' : 'NULL';
             $addonsStatement = $pdo->prepare(
                 "SELECT ba.addon_id, ba.trip_addon_id, ba.quantity,
-                        COALESCE(ta.name, a.label, ba.addon_id) addon_name,
-                        COALESCE(ta.worker_action, 'none') worker_action,
-                        COALESCE(a.task, CONCAT('Kerjakan add-on ', ta.name, ' untuk booking ini.')) task
+                        COALESCE($bookingAddonNameSelect, ta.name, a.label, ba.addon_id) addon_name,
+                        COALESCE($bookingAddonActionSelect, ta.worker_action, 'none') worker_action,
+                        COALESCE(a.task, CONCAT('Kerjakan add-on ', COALESCE($bookingAddonNameSelect, ta.name, a.label, ba.addon_id), ' untuk booking ini.')) task
                  FROM booking_addons ba
                  LEFT JOIN trip_addons ta ON ta.id = ba.trip_addon_id
                  LEFT JOIN addons a ON a.id = ba.addon_id

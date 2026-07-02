@@ -289,15 +289,39 @@ runEndpoint(function (PDO $pdo): void {
             ]);
         }
 
+        $bookingAddonHasName = tableHasColumn($pdo, 'booking_addons', 'addon_name');
+        $bookingAddonHasMaxParticipants = tableHasColumn($pdo, 'booking_addons', 'max_participants_per_unit');
+        $bookingAddonHasWorkerAction = tableHasColumn($pdo, 'booking_addons', 'worker_action');
+        $bookingAddonColumns = ['booking_id', 'addon_id', 'trip_addon_id', 'quantity', 'price'];
+        if ($bookingAddonHasName) {
+            $bookingAddonColumns[] = 'addon_name';
+        }
+        if ($bookingAddonHasMaxParticipants) {
+            $bookingAddonColumns[] = 'max_participants_per_unit';
+        }
+        if ($bookingAddonHasWorkerAction) {
+            $bookingAddonColumns[] = 'worker_action';
+        }
         $addonStatement = $pdo->prepare(
-            'INSERT INTO booking_addons (booking_id, addon_id, trip_addon_id, quantity, price) VALUES (?,NULL,?,?,?)'
+            'INSERT INTO booking_addons (' . implode(',', $bookingAddonColumns) . ')
+             VALUES (' . implode(',', array_fill(0, count($bookingAddonColumns), '?')) . ')'
         );
         foreach ($selectedAddons as $addon) {
             $maxParticipantsPerUnit = nullableInt($addon['max_participants_per_unit'] ?? null);
             $quantity = $maxParticipantsPerUnit && $maxParticipantsPerUnit > 0
                 ? (int) ceil($participants / $maxParticipantsPerUnit)
                 : 1;
-            $addonStatement->execute([$bookingId, (int) $addon['id'], max(1, $quantity), (float) $addon['price']]);
+            $addonValues = [$bookingId, null, (int) $addon['id'], max(1, $quantity), (float) $addon['price']];
+            if ($bookingAddonHasName) {
+                $addonValues[] = $addon['name'];
+            }
+            if ($bookingAddonHasMaxParticipants) {
+                $addonValues[] = $maxParticipantsPerUnit;
+            }
+            if ($bookingAddonHasWorkerAction) {
+                $addonValues[] = $addon['worker_action'] ?? 'none';
+            }
+            $addonStatement->execute($addonValues);
         }
 
         if ($hasPayment) {

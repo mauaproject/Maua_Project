@@ -12,7 +12,7 @@ import { getPackagePricePerPerson, getPackagePriceRange, getPrivatePackages } fr
 import { getPrivatePricePerPerson, getPrivatePriceRange, getTripStartingPrice } from '../utils/pricing'
 import { getJakartaToday, getOpenTripScheduleOptions, getPrivateDateRange, getPrivateSessionOptions, getRegistrationDate, getTripSchedules, isDateWithinPrivateRange } from '../utils/schedules'
 import { bloodTypeOptions, isCustomerTripProfileComplete, validateCustomerTripProfile } from '../utils/customerProfile'
-import { getAddonLineTotal, getAddonUnitCount, hydrateAddonForParticipants } from '../utils/addons'
+import { getAddonLineTotal, getAddonUnitCount, hydrateAddonForParticipants, isTripAddonActive } from '../utils/addons'
 import { AppModal, Badge, InfoBlock, NotFound } from './shared'
 
 const useCustomerLanguage = () => {
@@ -1207,8 +1207,10 @@ export function RegistrationPage({
       : Number(selectedTrip.price || 0)
     : 0
   const availableAddons = Array.isArray(selectedTrip?.addons) ? selectedTrip.addons : []
+  const activeAddons = availableAddons.filter(isTripAddonActive)
+  const selectedActiveAddonIds = form.addons.filter((addonId) => activeAddons.some((addon) => Number(addon.id) === Number(addonId)))
   const selectedAddonTotal = availableAddons
-    .filter((addon) => form.addons.includes(addon.id))
+    .filter((addon) => selectedActiveAddonIds.some((addonId) => Number(addon.id) === Number(addonId)))
     .reduce((total, addon) => total + getAddonLineTotal(addon, participants), 0)
   const tripSubtotal = participants * pricePerPerson
   const estimatedTotal = tripSubtotal + selectedAddonTotal
@@ -1310,11 +1312,12 @@ export function RegistrationPage({
     }
     setPendingSubmission({
       ...form,
+      addons: selectedActiveAddonIds,
       userId: session.id,
       tripName: selectedTrip.name,
       tripDestination: getTripDestination(selectedTrip, lang),
-      selectedAddonDetails: availableAddons
-        .filter((addon) => form.addons.includes(addon.id))
+      selectedAddonDetails: activeAddons
+        .filter((addon) => selectedActiveAddonIds.some((addonId) => Number(addon.id) === Number(addonId)))
         .map((addon) => hydrateAddonForParticipants(addon, participants)),
       selectedPackageId: selectedPackage?.id || '',
       selectedPackageName: selectedPackage?.name || '',
@@ -1405,6 +1408,8 @@ export function RegistrationPage({
   }
 
   const toggleAddon = (addonId) => {
+    const addon = availableAddons.find((option) => Number(option.id) === Number(addonId))
+    if (!addon || !isTripAddonActive(addon)) return
     const hasAddon = form.addons.includes(addonId)
     const nextAddons = hasAddon ? form.addons.filter((item) => item !== addonId) : [...form.addons, addonId]
     setForm({
@@ -1550,16 +1555,17 @@ export function RegistrationPage({
             </div>
             {availableAddons.length ? <section className="addon-option-grid">
               {availableAddons.map((option) => {
+                const isActive = isTripAddonActive(option)
                 const addonUnits = getAddonUnitCount(option, participants)
                 const addonTotal = getAddonLineTotal(option, participants)
                 return (
-                <label className="addon-option-card" key={option.id}>
-                  <input type="checkbox" checked={form.addons.includes(option.id)} onChange={() => toggleAddon(option.id)} />
+                <label className={`addon-option-card ${!isActive ? 'is-disabled' : ''}`} key={option.id}>
+                  <input type="checkbox" disabled={!isActive} checked={isActive && form.addons.includes(option.id)} onChange={() => toggleAddon(option.id)} />
                   <span>
-                    <strong>{option.name || option.label}</strong>
+                    <strong>{option.name || option.label}{!isActive && <em>Sedang tidak tersedia</em>}</strong>
                     <small>
-                      {formatCurrency(addonTotal)}
-                      {addonUnits > 1 ? ` (${addonUnits} unit x ${formatCurrency(option.price)})` : ''}
+                      {isActive ? formatCurrency(addonTotal) : 'Tidak bisa dipesan saat ini'}
+                      {isActive && addonUnits > 1 ? ` (${addonUnits} unit x ${formatCurrency(option.price)})` : ''}
                       {option.maxParticipantsPerUnit ? ` - maks ${option.maxParticipantsPerUnit} peserta/unit` : ''}
                     </small>
                   </span>
