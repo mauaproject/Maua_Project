@@ -224,14 +224,16 @@ function App() {
     setTrips(tripData)
     setReviews(reviewData)
     if (role === 'customer') {
-      const [bookingData, userReviewData] = await Promise.all([
+      const [bookingData, taskData, userReviewData] = await Promise.all([
         Promise.all([
           api.getUserBookings(activeSession.email, 'active'),
           api.getUserBookings(activeSession.email, 'history'),
         ]).then(([activeBookings, historyBookings]) => [...activeBookings, ...historyBookings]),
+        api.getWorkerTasks(),
         api.getUserReviews(activeSession.email, activeSession.id),
       ])
       setRegistrations(bookingData)
+      setJobs(taskData)
       setUserReviews(userReviewData)
     }
   }
