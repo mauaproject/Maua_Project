@@ -26,7 +26,10 @@ const getTimeRangeLabel = (registration) => {
 const getJobDate = (job, registration, trip) => job.requestedDate || job.selectedDate || getRegistrationDate(registration) || trip?.date || ''
 const getJobScheduleLabel = (job, registration, trip) => {
   const dateText = formatDate(getJobDate(job, registration, trip))
-  const details = [registration?.sessionName, getTimeRangeLabel(registration)].filter(Boolean)
+  const details = [
+    registration?.sessionName || job.sessionName,
+    getTimeRangeLabel(registration || job),
+  ].filter(Boolean)
   return details.length ? `${dateText} · ${details.join(' · ')}` : dateText
 }
 
@@ -40,7 +43,7 @@ const getJobSortMeta = (job, registrations, trips) => {
   const date = getJobSortDate(job, registration, trip)
   return {
     date: isSortableDate(date) ? date : '',
-    startTime: registration?.startTime || '',
+    startTime: registration?.startTime || job.startTime || '',
   }
 }
 const compareJobSchedule = (first, second, registrations, trips, today = getJakartaToday()) => {
@@ -89,13 +92,16 @@ const getCustomerPhone = (job, registration) => getFirstValue([
   job.customer?.whatsapp,
   job.customer?.phone,
 ])
-const getJobSessionLabel = (registration) => [registration?.sessionName, getTimeRangeLabel(registration)].filter(Boolean).join(' ')
+const getJobSessionLabel = (job, registration) => [
+  registration?.sessionName || job.sessionName,
+  getTimeRangeLabel(registration || job),
+].filter(Boolean).join(' ')
 const getWhatsAppUrl = (job, registration, trip) => buildWhatsAppUrl({
   phone: getCustomerPhone(job, registration),
   customerName: getCustomerName(job, registration),
   tripName: trip?.name || job.tripName || '',
   date: formatDate(getJobDate(job, registration, trip)),
-  session: getJobSessionLabel(registration),
+  session: getJobSessionLabel(job, registration),
 })
 const getCustomerPhoneDisplay = (job, registration) => formatWhatsAppDisplay(getCustomerPhone(job, registration))
 
@@ -213,7 +219,7 @@ export function WorkerJobDetail({ jobId, jobs, trips, takeJob, releaseJob, updat
               <small>Nomor WhatsApp belum tersedia</small>
             )}
           </div>
-          <Metric label="Peserta" value={registration?.participants || (trip ? trip.quota - trip.slots : 0)} />
+          <Metric label="Peserta" value={registration?.participants || job.participants || (trip ? trip.quota - trip.slots : 0)} />
           <Metric label="Jadwal" value={scheduleLabel} />
           <Metric label="Status job" value={job.status} />
           <Metric label="Tim" value={job.worker || '-'} />
@@ -242,7 +248,7 @@ function JobCard({ job, trips, registrations, navigate, takeJob, releaseJob, min
   const registration = getRelatedRegistration(registrations, job)
   const scheduleLabel = getJobScheduleLabel(job, registration, trip)
   const whatsappUrl = getWhatsAppUrl(job, registration, trip)
-  const participantCount = registration?.participants || (trip ? trip.quota - trip.slots : 0)
+  const participantCount = registration?.participants || job.participants || (trip ? trip.quota - trip.slots : 0)
   return (
     <article className="job-card">
       <div className="job-card-head">
