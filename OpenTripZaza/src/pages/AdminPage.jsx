@@ -58,6 +58,8 @@ const lifecycleLabel = (status) => {
   if (status === 'completed') return 'Selesai'
   return 'Aktif'
 }
+const isArchivedLifecycle = (item) => Boolean(item?.isArchived) || item?.lifecycleStatus === 'archived'
+const isActiveLifecycle = (item) => !isArchivedLifecycle(item)
 const newSchedule = (index, source = {}) => ({
   id: source.id || `schedule_${index + 1}`,
   name: source.name || source.sessionName || `Sesi ${index + 1}`,
@@ -472,7 +474,7 @@ export function AdminTripArchive(props) {
   const [deleteError, setDeleteError] = useState('')
   const [isDeleting, setIsDeleting] = useState(false)
   const searchTerm = search.trim().toLowerCase()
-  const archivedTrips = props.trips
+  const archivedTripCards = props.trips
     .filter((trip) => trip.isArchived || trip.lifecycleStatus === 'archived')
     .filter((trip) => {
       if (!searchTerm) return true
@@ -482,6 +484,58 @@ export function AdminTripArchive(props) {
         .toLowerCase()
         .includes(searchTerm)
     })
+  const archivedOpenScheduleCards = props.trips
+    .filter((trip) => !trip.isPrivateTrip)
+    .flatMap((trip) => getTripSchedules(trip)
+      .filter(isArchivedLifecycle)
+      .map((schedule) => {
+        const scheduleRegistrations = props.registrations.filter((item) => Number(item.tripId) === Number(trip.id) && !item.isPrivateTrip && !item.isPrivateTour && item.tripType !== 'private' && isSameScheduleRegistration(item, schedule))
+        const approvedRegistrations = scheduleRegistrations.filter((item) => item.status === 'Disetujui' || item.status === 'Selesai')
+        const reservedRegistrations = scheduleRegistrations.filter(isSlotHoldingRegistration)
+        const waitingRegistrations = scheduleRegistrations.filter(isPendingRegistration)
+        const reservedParticipants = Math.max(Number(schedule.bookedCount || 0), countParticipants(reservedRegistrations))
+        const relatedJobs = props.jobs.filter((job) => Number(job.tripId) === Number(trip.id) && (!job.registrationId || scheduleRegistrations.some((registration) => Number(registration.id) === Number(job.registrationId))))
+        return {
+          type: 'open-schedule',
+          key: `open-schedule-${trip.id}-${schedule.id}`,
+          trip,
+          schedule,
+          approvedParticipants: countParticipants(approvedRegistrations),
+          waitingParticipants: countParticipants(waitingRegistrations),
+          reservedParticipants,
+          remaining: Math.max(Number(schedule.quota || 0) - reservedParticipants, 0),
+          assignedWorkers: relatedJobs.filter((job) => job.worker).length,
+          workerTarget: relatedJobs.length,
+          searchValues: [trip.name, adminText(trip.destination), schedule.name, schedule.date, formatDate(schedule.date), ...scheduleRegistrations.flatMap((item) => [item.name, item.whatsapp, item.email])],
+          date: schedule.date,
+        }
+      }))
+    .filter((item) => {
+      if (!searchTerm) return true
+      return item.searchValues.filter(Boolean).join(' ').toLowerCase().includes(searchTerm)
+    })
+  const archivedPrivateBookingCards = props.registrations
+    .map((registration) => ({ registration, trip: props.trips.find((trip) => Number(trip.id) === Number(registration.tripId)) }))
+    .filter(({ registration, trip }) => trip && (trip.isPrivateTrip || registration.isPrivateTrip || registration.isPrivateTour || registration.tripType === 'private') && isArchivedLifecycle(registration))
+    .map(({ registration, trip }) => {
+      const relatedJobs = props.jobs.filter((job) => Number(job.registrationId) === Number(registration.id))
+      return {
+        type: 'private-booking',
+        key: `private-booking-${registration.id}`,
+        trip,
+        registration,
+        assignedWorkers: relatedJobs.filter((job) => job.worker).length,
+        workerTarget: relatedJobs.length || getSelectedAddons(registration).length || 0,
+        searchValues: [trip.name, adminText(trip.destination), registration.name, registration.whatsapp, registration.email, getRegistrationDate(registration), registration.sessionName],
+        date: getRegistrationDate(registration),
+      }
+    })
+    .filter((item) => {
+      if (!searchTerm) return true
+      return item.searchValues.filter(Boolean).join(' ').toLowerCase().includes(searchTerm)
+    })
+  const archiveCards = [...archivedOpenScheduleCards, ...archivedPrivateBookingCards]
+    .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')))
   const confirmPermanentDelete = async () => {
     if (!tripToDelete || deleteConfirmation !== 'HAPUS PERMANEN') return
     setIsDeleting(true)
@@ -510,7 +564,7 @@ export function AdminTripArchive(props) {
           <div>
             <p className="eyebrow">Penyimpanan data lama</p>
             <h2>Arsip Trip</h2>
-            <p className="muted">Trip masuk ke sini setelah melewati H+1 dari jadwal terakhir. Seluruh jadwal dan booking tetap tersimpan.</p>
+            <p className="muted">Jadwal dan booking masuk ke sini setelah melewati jam selesai. Seluruh data tetap tersimpan.</p>
           </div>
         </div>
         <section className="admin-list-toolbar">
@@ -520,7 +574,63 @@ export function AdminTripArchive(props) {
           </label>
         </section>
         <div className="admin-trip-grid">
-          {archivedTrips.length ? archivedTrips.map((trip) => {
+          {archiveCards.map((item) => {
+            if (item.type === 'open-schedule') {
+              const { trip, schedule, approvedParticipants, waitingParticipants, assignedWorkers, workerTarget, remaining } = item
+              return (
+                <article className="admin-trip-card is-open" key={item.key}>
+                  <div className="admin-trip-card-head">
+                    <div><h3>{trip.name}</h3></div>
+                    <div className="card-badge-stack">
+                      <span className="trip-type-chip">Open Trip</span>
+                      <Badge status="Arsip" label="Arsip" />
+                    </div>
+                  </div>
+                  <p className="icon-line"><span className="asset-icon icon-geo" aria-hidden="true" />{adminText(trip.destination)}</p>
+                  <dl className="admin-trip-meta">
+                    <div><dt>Jadwal</dt><dd>{schedule.name}</dd></div>
+                    <div><dt>Tanggal</dt><dd>{formatDate(schedule.date)}</dd></div>
+                    <div><dt>Jam</dt><dd>{schedule.startTime && schedule.endTime ? `${schedule.startTime} - ${schedule.endTime} WIB` : '-'}</dd></div>
+                    <div><dt>Peserta</dt><dd>{approvedParticipants}/{schedule.quota}</dd></div>
+                    <div><dt>Sisa</dt><dd>{remaining}</dd></div>
+                    <div className={waitingParticipants > 0 ? 'metric-highlight' : ''}><dt>Menunggu</dt><dd>{waitingParticipants}</dd></div>
+                    <div><dt>Tim</dt><dd>{assignedWorkers}/{workerTarget}</dd></div>
+                  </dl>
+                  <div className="admin-trip-actions">
+                    <button className="outline-btn compact-action-btn" type="button" onClick={() => props.navigate(`/admin/arsip-trip/${trip.id}/${schedule.id}`)}>Lihat Detail</button>
+                  </div>
+                </article>
+              )
+            }
+
+            const { trip, registration, assignedWorkers, workerTarget } = item
+            const bookingDate = getRegistrationDate(registration)
+            return (
+              <article className="admin-trip-card is-private" key={item.key}>
+                <div className="admin-trip-card-head">
+                  <div><h3>{trip.name}</h3></div>
+                  <div className="card-badge-stack">
+                    <span className="trip-type-chip">Private Trip</span>
+                    <Badge status="Arsip" label="Arsip" />
+                  </div>
+                </div>
+                <p className="icon-line"><span className="asset-icon icon-geo" aria-hidden="true" />{adminText(trip.destination)}</p>
+                <dl className="admin-trip-meta">
+                  <div><dt>Tanggal booking</dt><dd>{bookingDate ? formatDate(bookingDate) : '-'}</dd></div>
+                  <div><dt>Sesi</dt><dd>{registration.sessionName || '-'}</dd></div>
+                  <div><dt>Jam</dt><dd>{registration.startTime && registration.endTime ? `${registration.startTime} - ${registration.endTime} WIB` : '-'}</dd></div>
+                  <div><dt>Pemesan</dt><dd>{registration.name}</dd></div>
+                  <div><dt>Peserta</dt><dd>{registration.participants || 1}</dd></div>
+                  <div><dt>Status</dt><dd>{registration.status}</dd></div>
+                  <div><dt>Tim</dt><dd>{assignedWorkers}/{workerTarget}</dd></div>
+                </dl>
+                <div className="admin-trip-actions">
+                  <button className="outline-btn compact-action-btn" type="button" onClick={() => props.navigate(`/admin/arsip-trip/private/${registration.id}`)}>Lihat Detail</button>
+                </div>
+              </article>
+            )
+          })}
+          {archivedTripCards.length ? archivedTripCards.map((trip) => {
             const schedules = trip.isPrivateTrip ? [] : getTripSchedules(trip)
             return (
               <article className={`admin-trip-card ${trip.isPrivateTrip ? 'is-private' : 'is-open'}`} key={trip.id}>
@@ -555,7 +665,8 @@ export function AdminTripArchive(props) {
                 </div>
               </article>
             )
-          }) : <p className="empty-state">Belum ada trip yang masuk arsip.</p>}
+          }) : null}
+          {!archiveCards.length && !archivedTripCards.length && <p className="empty-state">Belum ada trip yang masuk arsip.</p>}
         </div>
         <AppModal
           isOpen={Boolean(tripToDelete)}
@@ -1333,11 +1444,11 @@ export function AdminSchedule(props) {
   const selectedPrivateTrip = trips.find((trip) => trip.id === privateTripId)
   const selectedRegistration = registrations.find((item) => item.id === scheduleRegistrationId)
   if (scheduleTripId && selectedTrip) return <AdminScheduleDetail trip={selectedTrip} scheduleId={scheduleId} archivedView={archivedView} {...props} />
-  if (privateTripId && selectedPrivateTrip) return <AdminPrivateTripScheduleDetail trip={selectedPrivateTrip} {...props} />
-  if (scheduleRegistrationId && selectedRegistration) return <AdminPrivateScheduleDetail registration={selectedRegistration} {...props} />
+  if (privateTripId && selectedPrivateTrip) return <AdminPrivateTripScheduleDetail trip={selectedPrivateTrip} archivedView={archivedView} {...props} />
+  if (scheduleRegistrationId && selectedRegistration) return <AdminPrivateScheduleDetail registration={selectedRegistration} archivedView={archivedView} {...props} />
   const openTrips = trips.filter((trip) => !trip.isPrivateTrip && !trip.isArchived)
   const openScheduleItems = openTrips.map((trip) => {
-    const schedules = getTripSchedules(trip)
+    const schedules = getTripSchedules(trip).filter(isActiveLifecycle)
     const scheduleItems = schedules.map((schedule) => {
       const scheduleRegistrations = registrations.filter((item) => Number(item.tripId) === Number(trip.id) && !item.isPrivateTrip && !item.isPrivateTour && item.tripType !== 'private' && isSameScheduleRegistration(item, schedule))
       const approvedRegistrations = scheduleRegistrations.filter((item) => item.status === 'Disetujui' || item.status === 'Selesai')
@@ -1377,10 +1488,10 @@ export function AdminSchedule(props) {
       searchValues: [trip.name, adminText(trip.destination), ...scheduleItems.flatMap((schedule) => [schedule.name, schedule.date, formatDate(schedule.date), ...schedule.scheduleRegistrations.flatMap((item) => [item.name, item.whatsapp, item.email])])],
       date: scheduleItems[0]?.date || trip.date,
     }
-  })
+  }).filter((item) => item.schedules.length > 0)
   const privateScheduleItems = registrations
     .map((registration) => ({ registration, trip: trips.find((trip) => Number(trip.id) === Number(registration.tripId)) }))
-    .filter(({ registration, trip }) => trip && !trip.isArchived && (trip.isPrivateTrip || registration.isPrivateTrip || registration.isPrivateTour || registration.tripType === 'private'))
+    .filter(({ registration, trip }) => trip && !trip.isArchived && isActiveLifecycle(registration) && (trip.isPrivateTrip || registration.isPrivateTrip || registration.isPrivateTour || registration.tripType === 'private'))
     .map(({ registration, trip }) => {
     const relatedJobs = jobs.filter((job) => Number(job.registrationId) === Number(registration.id))
     const range = getPrivateDateRange(trip)
@@ -1548,7 +1659,7 @@ export function AdminSchedule(props) {
   )
 }
 
-function AdminPrivateScheduleDetail({ registration, trips, jobs, setRegistrationStatus, navigate, updateTripDriveLink, ...props }) {
+function AdminPrivateScheduleDetail({ registration, trips, jobs, setRegistrationStatus, navigate, updateTripDriveLink, archivedView = false, ...props }) {
   const trip = trips.find((item) => item.id === registration.tripId)
   const tripJobs = jobs.filter((job) => Number(job.registrationId) === Number(registration.id))
   const assignedJobs = tripJobs.filter((job) => job.worker)
@@ -1568,7 +1679,7 @@ function AdminPrivateScheduleDetail({ registration, trips, jobs, setRegistration
             <p className="muted">{adminText(trip?.destination)} - {formatDate(registrationDate)} - {registration.sessionName ? `${registration.sessionName} ` : ''}{registration.startTime && registration.endTime ? `(${registration.startTime} - ${registration.endTime}) - ` : ''}{registration.name}</p>
           </div>
           <div className="registration-management-actions">
-            <button className="outline-btn" onClick={() => navigate('/admin/jadwal')}>Kembali ke jadwal</button>
+            <button className="outline-btn" onClick={() => navigate(archivedView ? '/admin/arsip-trip' : '/admin/jadwal')}>{archivedView ? 'Kembali ke arsip' : 'Kembali ke jadwal'}</button>
           </div>
         </div>
 

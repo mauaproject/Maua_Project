@@ -853,7 +853,8 @@ function RouteRenderer(props) {
   if (parts[0] === 'admin' && parts[1] === 'jadwal' && parts[2] === 'private' && Number(parts[3])) return <AdminSchedule scheduleRegistrationId={Number(parts[3])} {...props} />
   if (parts[0] === 'admin' && parts[1] === 'jadwal' && Number(parts[2])) return <AdminSchedule scheduleTripId={Number(parts[2])} scheduleId={parts[3] || ''} {...props} />
   if (parts[0] === 'admin' && parts[1] === 'arsip-trip' && parts[2] === 'private-trip' && Number(parts[3])) return <AdminSchedule privateTripId={Number(parts[3])} archivedView {...props} />
-  if (parts[0] === 'admin' && parts[1] === 'arsip-trip' && Number(parts[2])) return <AdminSchedule scheduleTripId={Number(parts[2])} archivedView {...props} />
+  if (parts[0] === 'admin' && parts[1] === 'arsip-trip' && parts[2] === 'private' && Number(parts[3])) return <AdminSchedule scheduleRegistrationId={Number(parts[3])} archivedView {...props} />
+  if (parts[0] === 'admin' && parts[1] === 'arsip-trip' && Number(parts[2])) return <AdminSchedule scheduleTripId={Number(parts[2])} scheduleId={parts[3] || ''} archivedView {...props} />
   if (path === '/admin/tim') return <AdminWorkers {...props} />
   if (path === '/tim/login') return <LoginPage role="pekerja" {...props} />
   if (path === '/tim' || path === '/tim/dashboard') return <WorkerDashboard {...props} />

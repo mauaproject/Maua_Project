@@ -361,19 +361,13 @@ function runDailyReminders(PDO $pdo): array
     $pdo->exec(
         "UPDATE bookings
          SET archived_at=COALESCE(archived_at, NOW())
-         WHERE DATE_ADD(
-             TIMESTAMP(selected_date, COALESCE(end_time, '23:59:59')),
-             INTERVAL 1 DAY
-         ) < NOW()"
+         WHERE TIMESTAMP(selected_date, COALESCE(end_time, '23:59:59')) < NOW()"
     );
     $pdo->exec(
         "UPDATE trip_schedules
          SET archived_at=COALESCE(archived_at, NOW()),
              status=CASE WHEN status='inactive' THEN status ELSE 'inactive' END
-         WHERE DATE_ADD(
-             TIMESTAMP(schedule_date, COALESCE(end_time, '23:59:59')),
-             INTERVAL 1 DAY
-         ) < NOW()"
+         WHERE TIMESTAMP(schedule_date, COALESCE(end_time, '23:59:59')) < NOW()"
     );
 
     $candidate = $pdo->prepare(
