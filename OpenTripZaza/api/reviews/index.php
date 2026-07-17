@@ -38,9 +38,9 @@ runEndpoint(function (PDO $pdo): void {
         $where[] = 'r.user_id=?';
         $params[] = $userId;
     }
-    $sql = 'SELECT r.*, t.name trip_name
+    $sql = 'SELECT r.*, COALESCE(t.name, r.trip_label) trip_name
             FROM reviews r
-            INNER JOIN trips t ON t.id=r.trip_id';
+            LEFT JOIN trips t ON t.id=r.trip_id';
     if ($where) {
         $sql .= ' WHERE ' . implode(' AND ', $where);
     }

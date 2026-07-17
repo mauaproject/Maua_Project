@@ -211,8 +211,8 @@ Jalankan migrasi berikut satu kali melalui phpMyAdmin:
 `api/migrations/2026-06-19-reviews.sql`
 
 Review baru langsung berstatus `approved` dan dapat dibuat oleh akun customer
-tanpa harus memiliki booking di sistem. Customer memilih trip yang ingin direview,
-dan admin tetap dapat menyembunyikan atau melakukan soft delete bila ada spam.
+tanpa harus memiliki booking di sistem. Customer menulis nama trip/pengalaman
+yang ingin direview, dan admin tetap dapat menyembunyikan atau melakukan soft delete bila ada spam.
 Review `hidden` dan `deleted` tidak dikirim ke halaman publik.
 
 Untuk database yang sudah terlanjur memakai skema lama, jalankan migrasi tambahan:

@@ -154,7 +154,6 @@ function App() {
   const [path, setPath] = useState(readCurrentPath)
   const [session, setSession] = useState(null)
   const [trips, setTrips] = useState([])
-  const [reviewTrips, setReviewTrips] = useState([])
   const [registrations, setRegistrations] = useState([])
   const [jobs, setJobs] = useState([])
   const [customerAccounts, setCustomerAccounts] = useState([])
@@ -203,7 +202,6 @@ function App() {
       setCustomerAccounts(customerData)
       setWorkerAccounts(workerData)
       setReviews(reviewData)
-      setReviewTrips([])
       return
     }
 
@@ -216,7 +214,6 @@ function App() {
       setTrips(tripData)
       setRegistrations(bookingData)
       setJobs(taskData)
-      setReviewTrips([])
       return
     }
 
@@ -226,21 +223,18 @@ function App() {
     ])
     setTrips(tripData)
     setReviews(reviewData)
-    if (role !== 'customer') setReviewTrips([])
     if (role === 'customer') {
-      const [bookingData, taskData, userReviewData, reviewTripData] = await Promise.all([
+      const [bookingData, taskData, userReviewData] = await Promise.all([
         Promise.all([
           api.getUserBookings(activeSession.email, 'active'),
           api.getUserBookings(activeSession.email, 'history'),
         ]).then(([activeBookings, historyBookings]) => [...activeBookings, ...historyBookings]),
         api.getWorkerTasks(),
         api.getUserReviews(activeSession.email, activeSession.id),
-        api.getTripSummaries(true),
       ])
       setRegistrations(bookingData)
       setJobs(taskData)
       setUserReviews(userReviewData)
-      setReviewTrips(reviewTripData)
     }
   }
 
@@ -326,9 +320,8 @@ function App() {
     try {
       const account = await api.loginUser(form.email, form.password, 'customer')
       setSession(account)
-      const [tripData, reviewTripData, publicReviewData, bookingData, reviewData] = await Promise.all([
+      const [tripData, publicReviewData, bookingData, reviewData] = await Promise.all([
         api.getTripSummaries(),
-        api.getTripSummaries(true),
         api.getReviews(),
         Promise.all([
           api.getUserBookings(account.email, 'active'),
@@ -337,7 +330,6 @@ function App() {
         api.getUserReviews(account.email, account.id),
       ])
       setTrips(tripData)
-      setReviewTrips(reviewTripData)
       setReviews(publicReviewData)
       setRegistrations(bookingData)
       setUserReviews(reviewData)
@@ -465,7 +457,6 @@ function App() {
     api.clearSessionToken()
     setSession(null)
     setUserReviews([])
-    setReviewTrips([])
     setAdminReviews([])
     setCheckoutDraft(null)
     window.sessionStorage.removeItem(CHECKOUT_DRAFT_KEY)
@@ -627,7 +618,7 @@ function App() {
   const submitReview = async (form) => {
     if (session?.role !== 'customer') return false
     const created = await api.createReview({
-      tripId: Number(form.tripId),
+      tripName: form.tripName,
       rating: Number(form.rating),
       content: form.content,
     })
@@ -759,7 +750,6 @@ function App() {
     path,
     session,
     trips,
-    reviewTrips,
     registrations,
     jobs,
     customerAccounts,

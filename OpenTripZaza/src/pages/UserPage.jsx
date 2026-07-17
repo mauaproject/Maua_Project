@@ -1959,7 +1959,7 @@ export function EmailVerificationPage({ path, navigate, verifyEmailOtp, resendVe
   )
 }
 
-export function CustomerAccountPage({ registrations, trips, reviewTrips = [], jobs = [], submitReview, navigate, session, logout, customerAccounts = [], updateCustomerProfile }) {
+export function CustomerAccountPage({ registrations, trips, jobs = [], submitReview, navigate, session, logout, customerAccounts = [], updateCustomerProfile }) {
   const { t, lang, dateLocale, statusLabel } = useCustomerLanguage()
   const customerProfile = {
     ...(customerAccounts.find((item) => item.email === session?.email) || {}),
@@ -1972,7 +1972,7 @@ export function CustomerAccountPage({ registrations, trips, reviewTrips = [], jo
   const [profileForm, setProfileForm] = useState(() => getCustomerProfileForm(customerProfile))
   const [profileError, setProfileError] = useState('')
   const [profileSaving, setProfileSaving] = useState(false)
-  const [reviewForm, setReviewForm] = useState({ tripId: '', rating: 5, content: '' })
+  const [reviewForm, setReviewForm] = useState({ tripName: '', rating: 5, content: '' })
   const [reviewError, setReviewError] = useState('')
   const [reviewSubmitting, setReviewSubmitting] = useState(false)
 
@@ -1992,9 +1992,6 @@ export function CustomerAccountPage({ registrations, trips, reviewTrips = [], jo
   const waitingCount = sectionRegistrations.filter((item) => item.status === 'Menunggu Approval').length
   const approvedCount = sectionRegistrations.filter((item) => item.status === 'Disetujui' || item.status === 'Selesai').length
   const rejectedCount = sectionRegistrations.filter((item) => item.status === 'Ditolak').length
-  const reviewTripOptions = [...(reviewTrips.length ? reviewTrips : trips)]
-    .filter((trip) => trip?.id && trip?.name)
-    .sort((a, b) => String(a.name).localeCompare(String(b.name)))
   const filterOptions = [
     ['Semua', t('account.all'), sectionRegistrations.length],
     ['Menunggu', t('account.waiting'), waitingCount],
@@ -2098,45 +2095,39 @@ export function CustomerAccountPage({ registrations, trips, reviewTrips = [], jo
             <h2>{t('reviews.formTitle')}</h2>
             <p className="muted">{t('reviews.formHelp')}</p>
           </div>
-          {reviewTripOptions.length ? (
-            <form onSubmit={async (event) => {
-              event.preventDefault()
-              const content = reviewForm.content.trim()
-              if (!reviewForm.tripId || Number(reviewForm.rating) < 1 || Number(reviewForm.rating) > 5) {
-                setReviewError(t('reviews.selectRequired'))
-                return
-              }
-              if (content.length < 10 || content.length > 500) {
-                setReviewError(t('reviews.contentLength'))
-                return
-              }
-              setReviewSubmitting(true)
-              setReviewError('')
-              try {
-                await submitReview({ ...reviewForm, content })
-                setReviewForm({ tripId: '', rating: 5, content: '' })
-              } catch (error) {
-                setReviewError(error.message || t('reviews.submitFailed'))
-              } finally {
-                setReviewSubmitting(false)
-              }
-            }}>
-              {reviewError && <p className="form-error">{reviewError}</p>}
-              <div className="review-form-fields">
-                <label>{t('reviews.chooseTrip')}<select required value={reviewForm.tripId} onChange={(event) => setReviewForm({ ...reviewForm, tripId: event.target.value })}>
-                  <option value="">{t('reviews.chooseBooking')}</option>
-                  {reviewTripOptions.map((trip) => (
-                    <option key={trip.id} value={trip.id}>{trip.name}</option>
-                  ))}
-                </select></label>
-                <label>{t('reviews.rating')}<select required value={reviewForm.rating} onChange={(event) => setReviewForm({ ...reviewForm, rating: Number(event.target.value) })}>
-                  {[5, 4, 3, 2, 1].map((rating) => <option value={rating} key={rating}>{t('reviews.stars', { rating })}</option>)}
-                </select></label>
-                <label className="full">{t('reviews.content')}<textarea minLength="10" maxLength="500" required placeholder={t('reviews.contentPlaceholder')} value={reviewForm.content} onChange={(event) => setReviewForm({ ...reviewForm, content: event.target.value })} /><small>{t('reviews.characterCount', { count: reviewForm.content.length })}</small></label>
-              </div>
-              <button className="primary-btn" disabled={reviewSubmitting} type="submit">{reviewSubmitting ? t('reviews.submitting') : t('reviews.submit')}</button>
-            </form>
-          ) : <p className="review-empty-state">{t('reviews.noEligibleBooking')}</p>}
+          <form onSubmit={async (event) => {
+            event.preventDefault()
+            const tripName = reviewForm.tripName.trim()
+            const content = reviewForm.content.trim()
+            if (!tripName || Number(reviewForm.rating) < 1 || Number(reviewForm.rating) > 5) {
+              setReviewError(t('reviews.selectRequired'))
+              return
+            }
+            if (content.length < 10 || content.length > 500) {
+              setReviewError(t('reviews.contentLength'))
+              return
+            }
+            setReviewSubmitting(true)
+            setReviewError('')
+            try {
+              await submitReview({ ...reviewForm, tripName, content })
+              setReviewForm({ tripName: '', rating: 5, content: '' })
+            } catch (error) {
+              setReviewError(error.message || t('reviews.submitFailed'))
+            } finally {
+              setReviewSubmitting(false)
+            }
+          }}>
+            {reviewError && <p className="form-error">{reviewError}</p>}
+            <div className="review-form-fields">
+              <label>{t('reviews.chooseTrip')}<input required maxLength="190" placeholder={t('reviews.tripNamePlaceholder')} value={reviewForm.tripName} onChange={(event) => setReviewForm({ ...reviewForm, tripName: event.target.value })} /></label>
+              <label>{t('reviews.rating')}<select required value={reviewForm.rating} onChange={(event) => setReviewForm({ ...reviewForm, rating: Number(event.target.value) })}>
+                {[5, 4, 3, 2, 1].map((rating) => <option value={rating} key={rating}>{t('reviews.stars', { rating })}</option>)}
+              </select></label>
+              <label className="full">{t('reviews.content')}<textarea minLength="10" maxLength="500" required placeholder={t('reviews.contentPlaceholder')} value={reviewForm.content} onChange={(event) => setReviewForm({ ...reviewForm, content: event.target.value })} /><small>{t('reviews.characterCount', { count: reviewForm.content.length })}</small></label>
+            </div>
+            <button className="primary-btn" disabled={reviewSubmitting} type="submit">{reviewSubmitting ? t('reviews.submitting') : t('reviews.submit')}</button>
+          </form>
         </section>
 
         <div className="account-filter-tabs" role="tablist" aria-label="Jenis perjalanan">
