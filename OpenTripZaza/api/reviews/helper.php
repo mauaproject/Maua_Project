@@ -6,7 +6,7 @@ function mapReview(array $review): array
     return [
         'id' => (int) $review['id'],
         'userId' => (int) $review['user_id'],
-        'bookingId' => (int) $review['booking_id'],
+        'bookingId' => $review['booking_id'] === null ? null : (int) $review['booking_id'],
         'tripId' => (int) $review['trip_id'],
         'reviewerName' => $review['reviewer_name'],
         'reviewerEmail' => $review['reviewer_email'],

@@ -1959,7 +1959,7 @@ export function EmailVerificationPage({ path, navigate, verifyEmailOtp, resendVe
   )
 }
 
-export function CustomerAccountPage({ registrations, trips, jobs = [], userReviews = [], submitReview, navigate, session, logout, customerAccounts = [], updateCustomerProfile }) {
+export function CustomerAccountPage({ registrations, trips, reviewTrips = [], jobs = [], submitReview, navigate, session, logout, customerAccounts = [], updateCustomerProfile }) {
   const { t, lang, dateLocale, statusLabel } = useCustomerLanguage()
   const customerProfile = {
     ...(customerAccounts.find((item) => item.email === session?.email) || {}),
@@ -1972,7 +1972,7 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], userRevie
   const [profileForm, setProfileForm] = useState(() => getCustomerProfileForm(customerProfile))
   const [profileError, setProfileError] = useState('')
   const [profileSaving, setProfileSaving] = useState(false)
-  const [reviewForm, setReviewForm] = useState({ bookingId: '', rating: 5, content: '' })
+  const [reviewForm, setReviewForm] = useState({ tripId: '', rating: 5, content: '' })
   const [reviewError, setReviewError] = useState('')
   const [reviewSubmitting, setReviewSubmitting] = useState(false)
 
@@ -1992,11 +1992,9 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], userRevie
   const waitingCount = sectionRegistrations.filter((item) => item.status === 'Menunggu Approval').length
   const approvedCount = sectionRegistrations.filter((item) => item.status === 'Disetujui' || item.status === 'Selesai').length
   const rejectedCount = sectionRegistrations.filter((item) => item.status === 'Ditolak').length
-  const reviewedBookingIds = new Set(userReviews.map((review) => Number(review.bookingId)))
-  const reviewableBookings = historyRegistrations.filter((item) => (
-    (item.status === 'Disetujui' || item.status === 'Selesai')
-    && !reviewedBookingIds.has(Number(item.id))
-  ))
+  const reviewTripOptions = [...(reviewTrips.length ? reviewTrips : trips)]
+    .filter((trip) => trip?.id && trip?.name)
+    .sort((a, b) => String(a.name).localeCompare(String(b.name)))
   const filterOptions = [
     ['Semua', t('account.all'), sectionRegistrations.length],
     ['Menunggu', t('account.waiting'), waitingCount],
@@ -2100,11 +2098,11 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], userRevie
             <h2>{t('reviews.formTitle')}</h2>
             <p className="muted">{t('reviews.formHelp')}</p>
           </div>
-          {reviewableBookings.length ? (
+          {reviewTripOptions.length ? (
             <form onSubmit={async (event) => {
               event.preventDefault()
               const content = reviewForm.content.trim()
-              if (!reviewForm.bookingId || Number(reviewForm.rating) < 1 || Number(reviewForm.rating) > 5) {
+              if (!reviewForm.tripId || Number(reviewForm.rating) < 1 || Number(reviewForm.rating) > 5) {
                 setReviewError(t('reviews.selectRequired'))
                 return
               }
@@ -2116,7 +2114,7 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], userRevie
               setReviewError('')
               try {
                 await submitReview({ ...reviewForm, content })
-                setReviewForm({ bookingId: '', rating: 5, content: '' })
+                setReviewForm({ tripId: '', rating: 5, content: '' })
               } catch (error) {
                 setReviewError(error.message || t('reviews.submitFailed'))
               } finally {
@@ -2125,10 +2123,10 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], userRevie
             }}>
               {reviewError && <p className="form-error">{reviewError}</p>}
               <div className="review-form-fields">
-                <label>{t('reviews.chooseTrip')}<select required value={reviewForm.bookingId} onChange={(event) => setReviewForm({ ...reviewForm, bookingId: event.target.value })}>
+                <label>{t('reviews.chooseTrip')}<select required value={reviewForm.tripId} onChange={(event) => setReviewForm({ ...reviewForm, tripId: event.target.value })}>
                   <option value="">{t('reviews.chooseBooking')}</option>
-                  {reviewableBookings.map((booking) => (
-                    <option key={booking.id} value={booking.id}>{booking.tripName || tripName(trips, booking.tripId)} — MAUA-{booking.id}</option>
+                  {reviewTripOptions.map((trip) => (
+                    <option key={trip.id} value={trip.id}>{trip.name}</option>
                   ))}
                 </select></label>
                 <label>{t('reviews.rating')}<select required value={reviewForm.rating} onChange={(event) => setReviewForm({ ...reviewForm, rating: Number(event.target.value) })}>

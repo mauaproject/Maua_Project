@@ -799,7 +799,7 @@ INSERT INTO `reminder_logs` (`id`, `booking_id`, `reminder_type`, `sent_at`, `em
 CREATE TABLE `reviews` (
   `id` bigint(20) UNSIGNED NOT NULL,
   `user_id` bigint(20) UNSIGNED NOT NULL,
-  `booking_id` bigint(20) UNSIGNED NOT NULL,
+  `booking_id` bigint(20) UNSIGNED DEFAULT NULL,
   `trip_id` bigint(20) UNSIGNED NOT NULL,
   `reviewer_name` varchar(190) NOT NULL,
   `reviewer_email` varchar(190) NOT NULL,

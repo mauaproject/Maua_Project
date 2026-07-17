@@ -6,10 +6,14 @@ requireMethod('POST');
 
 runEndpoint(function (PDO $pdo): void {
     $data = jsonInput();
-    requiredFields($data, ['userId', 'bookingId', 'email', 'rating', 'content']);
-    $email = strtolower(trim((string) $data['email']));
-    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        throw new InvalidArgumentException('Email tidak valid.');
+    requiredFields($data, ['tripId', 'rating', 'content']);
+    $user = userFromSessionToken($pdo, bearerToken());
+    if (!$user || ($user['role'] ?? '') !== 'customer') {
+        jsonError('Akses customer diperlukan.', 403);
+    }
+    $tripId = (int) $data['tripId'];
+    if ($tripId <= 0) {
+        throw new InvalidArgumentException('Trip tidak valid.');
     }
     $rating = (int) $data['rating'];
     if ($rating < 1 || $rating > 5) {
@@ -17,36 +21,22 @@ runEndpoint(function (PDO $pdo): void {
     }
     $content = cleanReviewContent($data['content']);
 
-    $statement = $pdo->prepare(
-        "SELECT b.id, b.trip_id, b.user_id, u.name, u.email
-         FROM bookings b
-         INNER JOIN users u ON u.id=b.user_id
-         WHERE b.id=? AND b.user_id=? AND b.customer_email=? AND u.email=?
-           AND b.status IN ('Disetujui','Selesai')
-         LIMIT 1"
-    );
-    $statement->execute([(int) $data['bookingId'], (int) $data['userId'], $email, $email]);
-    $booking = $statement->fetch();
-    if (!$booking) {
-        throw new InvalidArgumentException('Booking tidak valid atau belum disetujui.');
-    }
-    $exists = $pdo->prepare('SELECT COUNT(*) FROM reviews WHERE booking_id=?');
-    $exists->execute([(int) $booking['id']]);
-    if ((int) $exists->fetchColumn() > 0) {
-        throw new InvalidArgumentException('Booking ini sudah memiliki review.');
+    $tripStatement = $pdo->prepare('SELECT id FROM trips WHERE id=? LIMIT 1');
+    $tripStatement->execute([$tripId]);
+    if (!$tripStatement->fetch()) {
+        throw new InvalidArgumentException('Trip tidak ditemukan.');
     }
 
     $insert = $pdo->prepare(
         "INSERT INTO reviews
          (user_id, booking_id, trip_id, reviewer_name, reviewer_email, rating, content, status)
-         VALUES (?,?,?,?,?,?,?,'approved')"
+         VALUES (?,NULL,?,?,?,?,?,'approved')"
     );
     $insert->execute([
-        (int) $booking['user_id'],
-        (int) $booking['id'],
-        (int) $booking['trip_id'],
-        trim((string) $booking['name']),
-        $email,
+        (int) $user['id'],
+        $tripId,
+        trim((string) $user['name']),
+        strtolower(trim((string) $user['email'])),
         $rating,
         $content,
     ]);
