@@ -16,12 +16,13 @@ runEndpoint(function (PDO $pdo): void {
     if (!in_array($status, ['approved', 'hidden', 'deleted'], true)) {
         throw new InvalidArgumentException('Status review tidak valid.');
     }
+    $deletedAt = $status === 'deleted' ? date('Y-m-d H:i:s') : null;
     $statement = $pdo->prepare(
         "UPDATE reviews
-         SET status=?, deleted_at=CASE WHEN ?='deleted' THEN NOW() ELSE NULL END, updated_at=CURRENT_TIMESTAMP
+         SET status=?, deleted_at=?, updated_at=CURRENT_TIMESTAMP
          WHERE id=?"
     );
-    $statement->execute([$status, $status, (int) $data['id']]);
+    $statement->execute([$status, $deletedAt, (int) $data['id']]);
     if ($statement->rowCount() === 0) {
         $exists = $pdo->prepare('SELECT id FROM reviews WHERE id=?');
         $exists->execute([(int) $data['id']]);
