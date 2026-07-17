@@ -1286,6 +1286,7 @@ button:disabled {
   font-weight: 700;
 }
 .review-toolbar select,
+.review-form-fields input,
 .review-form-fields select,
 .review-form-fields textarea {
   width: 100%;
@@ -1293,6 +1294,19 @@ button:disabled {
   border-radius: 14px;
   background: #ffffff;
   padding: 11px 12px;
+  color: var(--color-ink);
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.review-form-fields input::placeholder,
+.review-form-fields textarea::placeholder {
+  color: #7d7a75;
+}
+.review-form-fields input:focus,
+.review-form-fields select:focus,
+.review-form-fields textarea:focus {
+  border-color: rgba(166, 111, 20, 0.54);
+  box-shadow: 0 0 0 4px rgba(242, 199, 92, 0.18);
 }
 .account-review-form {
   display: grid;
