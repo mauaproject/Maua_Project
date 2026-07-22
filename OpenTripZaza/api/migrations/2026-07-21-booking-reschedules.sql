@@ -1,0 +1,38 @@
+-- Permintaan reschedule disimpan terpisah dari booking agar status booking dan
+-- pembayaran lama tetap utuh sampai admin mengambil keputusan.
+
+CREATE TABLE IF NOT EXISTS `booking_reschedule_requests` (
+  `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `booking_id` bigint(20) UNSIGNED NOT NULL,
+  `old_schedule_id` bigint(20) UNSIGNED DEFAULT NULL,
+  `old_session_id` bigint(20) UNSIGNED DEFAULT NULL,
+  `old_selected_date` date NOT NULL,
+  `old_start_time` time DEFAULT NULL,
+  `old_end_time` time DEFAULT NULL,
+  `requested_schedule_id` bigint(20) UNSIGNED DEFAULT NULL,
+  `requested_session_id` bigint(20) UNSIGNED DEFAULT NULL,
+  `requested_date` date NOT NULL,
+  `requested_start_time` time DEFAULT NULL,
+  `requested_end_time` time DEFAULT NULL,
+  `reason` text NOT NULL,
+  `status` enum('pending','approved','rejected','cancelled') NOT NULL DEFAULT 'pending',
+  `admin_note` text DEFAULT NULL,
+  `reviewed_by` bigint(20) UNSIGNED DEFAULT NULL,
+  `reviewed_at` datetime DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_reschedule_booking_status` (`booking_id`,`status`),
+  KEY `idx_reschedule_status_created` (`status`,`created_at`),
+  KEY `idx_reschedule_old_schedule` (`old_schedule_id`),
+  KEY `idx_reschedule_requested_schedule` (`requested_schedule_id`),
+  KEY `idx_reschedule_old_session` (`old_session_id`),
+  KEY `idx_reschedule_requested_session` (`requested_session_id`),
+  KEY `idx_reschedule_reviewer` (`reviewed_by`),
+  CONSTRAINT `fk_reschedule_booking` FOREIGN KEY (`booking_id`) REFERENCES `bookings` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_reschedule_old_schedule` FOREIGN KEY (`old_schedule_id`) REFERENCES `trip_schedules` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_reschedule_requested_schedule` FOREIGN KEY (`requested_schedule_id`) REFERENCES `trip_schedules` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_reschedule_old_session` FOREIGN KEY (`old_session_id`) REFERENCES `trip_sessions` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_reschedule_requested_session` FOREIGN KEY (`requested_session_id`) REFERENCES `trip_sessions` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_reschedule_reviewer` FOREIGN KEY (`reviewed_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

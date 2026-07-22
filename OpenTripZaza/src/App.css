@@ -3041,6 +3041,261 @@ button:disabled {
   justify-content: center;
   text-decoration: none;
 }
+.danger-text {
+  color: #9b2c2c !important;
+}
+.reschedule-pending-notice {
+  display: grid;
+  gap: 4px;
+  border: 1px solid #e6c56d;
+  border-radius: 16px;
+  background: #fff8dc;
+  color: #62470f;
+  padding: 14px 16px;
+}
+.reschedule-pending-notice span,
+.reschedule-pending-notice small {
+  line-height: 1.45;
+}
+.reschedule-result-notice {
+  display: grid;
+  gap: 4px;
+  border: 1px solid #b9d9ad;
+  border-radius: 16px;
+  background: #eef8e9;
+  color: #315f24;
+  padding: 14px 16px;
+}
+.reschedule-result-notice.is-rejected {
+  border-color: #efb3b3;
+  background: #fff0f0;
+  color: #8e2929;
+}
+.reschedule-modal {
+  width: min(820px, 100%);
+  border-radius: 24px;
+  background: #fffdf8;
+}
+.reschedule-warning {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  margin-top: 18px;
+  border: 1px solid #e0ad36;
+  border-radius: 18px;
+  background: #fff4cf;
+  color: #63450d;
+  padding: 16px;
+}
+.reschedule-warning p,
+.admin-reschedule-reason p,
+.admin-reschedule-note p {
+  margin: 0;
+  line-height: 1.55;
+}
+.reschedule-warning a {
+  display: inline-flex;
+  text-decoration: none;
+}
+.reschedule-form {
+  display: grid;
+  gap: 18px;
+  margin-top: 18px;
+}
+.reschedule-form > label,
+.admin-reschedule-modal > label {
+  display: grid;
+  gap: 8px;
+  color: #4d3a14;
+  font-weight: 800;
+}
+.reschedule-form textarea,
+.admin-reschedule-modal textarea {
+  width: 100%;
+  min-height: 110px;
+  box-sizing: border-box;
+  border: 1px solid #e6cfa8;
+  border-radius: 16px;
+  background: #fff;
+  color: #241a08;
+  padding: 12px 14px;
+  resize: vertical;
+  outline: 0;
+}
+.reschedule-form textarea:focus,
+.admin-reschedule-modal textarea:focus {
+  border-color: #c08a2e;
+}
+.reschedule-current-schedule {
+  display: grid;
+  gap: 4px;
+  border-left: 4px solid #b8872d;
+  border-radius: 12px;
+  background: #f7f1e8;
+  padding: 14px 16px;
+}
+.reschedule-current-schedule span,
+.reschedule-comparison section > span,
+.admin-reschedule-reason > span,
+.admin-reschedule-note > span {
+  color: #7a6534;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.reschedule-schedule-fieldset {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+.reschedule-schedule-fieldset legend {
+  margin-bottom: 10px;
+  color: #4d3a14;
+  font-weight: 800;
+}
+.reschedule-option-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.reschedule-option {
+  position: relative;
+  display: grid;
+  gap: 5px;
+  border: 1px solid #e6cfa8;
+  border-radius: 16px;
+  background: #fff;
+  padding: 14px 14px 14px 42px;
+  cursor: pointer;
+}
+.reschedule-option input {
+  position: absolute;
+  top: 17px;
+  left: 15px;
+}
+.reschedule-option.is-selected {
+  border-color: #a9741c;
+  background: #fff7dc;
+  box-shadow: 0 0 0 2px rgba(192, 138, 46, 0.14);
+}
+.reschedule-option.is-disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+.reschedule-private-fields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.reschedule-confirmation {
+  grid-template-columns: auto 1fr !important;
+  align-items: start;
+  font-weight: 600 !important;
+  line-height: 1.5;
+}
+.reschedule-confirmation input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+}
+.reschedule-actions,
+.reschedule-review-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.admin-reschedule-page,
+.admin-reschedule-list {
+  display: grid;
+  gap: 18px;
+}
+.reschedule-admin-hero {
+  align-items: center;
+}
+.reschedule-pending-metric {
+  max-width: 190px;
+  border: 1px solid #e3c477;
+  border-radius: 18px;
+  background: #fff7dc;
+}
+.admin-reschedule-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.admin-reschedule-card {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  border: 1px solid #e6cfa8;
+  border-radius: 22px;
+  background: #fffdf8;
+  padding: 18px;
+  box-shadow: 0 10px 26px rgba(36, 26, 8, 0.06);
+}
+.admin-reschedule-card-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.admin-reschedule-card-head h3 {
+  margin: 2px 0 5px;
+}
+.reschedule-comparison {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+.reschedule-comparison section {
+  display: grid;
+  gap: 5px;
+  border: 1px solid #ead9b9;
+  border-radius: 15px;
+  background: #fff;
+  padding: 13px;
+}
+.reschedule-arrow {
+  color: #a9741c;
+  font-size: 22px;
+  font-weight: 900;
+}
+.admin-reschedule-reason,
+.admin-reschedule-note {
+  display: grid;
+  gap: 6px;
+  border-radius: 14px;
+  background: #f7f1e8;
+  padding: 13px;
+}
+.admin-reschedule-note {
+  background: #eef7e9;
+}
+.admin-reschedule-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  color: #7a6534;
+  font-size: 12px;
+}
+.admin-reschedule-modal {
+  width: min(760px, 100%);
+  display: grid;
+  gap: 18px;
+  border-radius: 22px;
+  background: #fffdf8;
+}
+.badge-pending {
+  background: #fff2c4;
+  color: #7a5412;
+}
+.badge-rejected,
+.badge-cancelled {
+  background: #fee2e2;
+  color: #991b1b;
+}
 .account-empty-state {
   grid-column: 1 / -1;
   display: grid;
@@ -6615,6 +6870,9 @@ td {
   .account-detail-grid {
     grid-template-columns: 1fr;
   }
+  .admin-reschedule-list {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 760px) {
@@ -6712,6 +6970,26 @@ td {
   }
   .account-card-actions .outline-btn,
   .account-card-actions .text-link-btn {
+    width: 100%;
+  }
+  .reschedule-option-grid,
+  .reschedule-private-fields {
+    grid-template-columns: 1fr;
+  }
+  .reschedule-comparison {
+    grid-template-columns: 1fr;
+  }
+  .reschedule-arrow {
+    transform: rotate(90deg);
+    justify-self: center;
+  }
+  .reschedule-actions,
+  .reschedule-review-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .reschedule-actions button,
+  .reschedule-review-actions button {
     width: 100%;
   }
   .app-modal-backdrop {

@@ -178,9 +178,10 @@ const isActiveBookingForCalendar = (registration) => isSlotHoldingRegistration(r
 
 const countParticipants = (items) => items.reduce((sum, item) => sum + Number(item.participants || 0), 0)
 
-function AdminShell({ title, children, navigate, logout, path, registrations = [] }) {
+function AdminShell({ title, children, navigate, logout, path, registrations = [], rescheduleRequests = [] }) {
   const { t } = useTranslation()
   const pendingParticipants = countParticipants(registrations.filter((item) => !item.isCompleted).filter(isPendingRegistration))
+  const pendingReschedules = rescheduleRequests.filter((request) => request.status === 'pending').length
 
   return (
     <main className="app-shell">
@@ -189,6 +190,7 @@ function AdminShell({ title, children, navigate, logout, path, registrations = [
         ['/admin/open-trip', 'Paket Trip'],
         ['/admin/arsip-trip', 'Arsip Trip'],
         ['/admin/jadwal', 'Jadwal', pendingParticipants],
+        ['/admin/reschedule', 'Reschedule', pendingReschedules],
         ['/admin/kalender-booking', 'Kalender Booking'],
         ['/admin/reviews', t('reviews.admin.menu')],
         ['/admin/tim', 'Akun Tim'],
@@ -198,6 +200,152 @@ function AdminShell({ title, children, navigate, logout, path, registrations = [
         {children}
       </section>
     </main>
+  )
+}
+
+const rescheduleStatusLabel = (status) => ({
+  pending: 'Menunggu Persetujuan',
+  approved: 'Disetujui',
+  rejected: 'Ditolak',
+  cancelled: 'Dibatalkan Customer',
+}[status] || status)
+
+const rescheduleScheduleLabel = (request, type) => {
+  const date = type === 'old' ? request.oldDate : request.requestedDate
+  const session = type === 'old' ? request.oldSessionName : request.requestedSessionName
+  const start = type === 'old' ? request.oldStartTime : request.requestedStartTime
+  const end = type === 'old' ? request.oldEndTime : request.requestedEndTime
+  return {
+    date: formatDate(date),
+    details: [session, start && end ? `${start} - ${end} WIB` : start ? `${start} WIB` : ''].filter(Boolean).join(' · '),
+  }
+}
+
+export function AdminReschedules(props) {
+  const requests = props.rescheduleRequests || []
+  const [activeFilter, setActiveFilter] = useState('pending')
+  const [selectedRequest, setSelectedRequest] = useState(null)
+  const [adminNote, setAdminNote] = useState('')
+  const [actionError, setActionError] = useState('')
+  const [processing, setProcessing] = useState(false)
+  const counts = {
+    all: requests.length,
+    pending: requests.filter((request) => request.status === 'pending').length,
+    history: requests.filter((request) => request.status !== 'pending').length,
+  }
+  const visibleRequests = requests.filter((request) => {
+    if (activeFilter === 'all') return true
+    if (activeFilter === 'history') return request.status !== 'pending'
+    return request.status === 'pending'
+  })
+
+  const processRequest = async (decision) => {
+    if (!selectedRequest || processing) return
+    if (decision === 'rejected' && adminNote.trim().length < 3) {
+      setActionError('Tuliskan alasan penolakan minimal 3 karakter agar customer memahami keputusan admin.')
+      return
+    }
+    setProcessing(true)
+    setActionError('')
+    try {
+      await props.reviewReschedule(selectedRequest.id, decision, adminNote.trim())
+      setSelectedRequest(null)
+      setAdminNote('')
+    } catch (error) {
+      setActionError(error.message || 'Pengajuan reschedule gagal diproses.')
+    } finally {
+      setProcessing(false)
+    }
+  }
+
+  return (
+    <AdminShell title="Permintaan Reschedule" {...props}>
+      <section className="admin-reschedule-page">
+        <div className="dashboard-hero reschedule-admin-hero">
+          <div>
+            <p className="eyebrow">Perubahan jadwal customer</p>
+            <h2>Review jadwal lama dan jadwal tujuan sebelum mengambil keputusan.</h2>
+            <p className="muted">Persetujuan akan memindahkan booking dan kapasitas slot secara otomatis. Penolakan mempertahankan jadwal lama.</p>
+          </div>
+          <div className="metric reschedule-pending-metric"><span>Perlu diproses</span><strong>{counts.pending}</strong></div>
+        </div>
+
+        <div className="segmented-tabs" role="tablist" aria-label="Filter permintaan reschedule">
+          {[['pending', 'Menunggu', counts.pending], ['history', 'Riwayat', counts.history], ['all', 'Semua', counts.all]].map(([value, label, count]) => (
+            <button className={activeFilter === value ? 'is-active' : ''} key={value} type="button" onClick={() => setActiveFilter(value)}>{label}<span>{count}</span></button>
+          ))}
+        </div>
+
+        <div className="admin-reschedule-list">
+          {visibleRequests.length ? visibleRequests.map((request) => {
+            const oldSchedule = rescheduleScheduleLabel(request, 'old')
+            const requestedSchedule = rescheduleScheduleLabel(request, 'requested')
+            return (
+              <article className="admin-reschedule-card" key={request.id}>
+                <div className="admin-reschedule-card-head">
+                  <div>
+                    <p className="eyebrow">{request.bookingCode}</p>
+                    <h3>{request.tripName}</h3>
+                    <p className="muted">{request.customerName} · {request.participants} peserta</p>
+                  </div>
+                  <Badge status={request.status} label={rescheduleStatusLabel(request.status)} />
+                </div>
+                <div className="reschedule-comparison">
+                  <section>
+                    <span>Jadwal lama</span>
+                    <strong>{oldSchedule.date}</strong>
+                    <small>{oldSchedule.details || '-'}</small>
+                  </section>
+                  <span className="reschedule-arrow" aria-hidden="true">→</span>
+                  <section>
+                    <span>Jadwal yang diajukan</span>
+                    <strong>{requestedSchedule.date}</strong>
+                    <small>{requestedSchedule.details || '-'}</small>
+                  </section>
+                </div>
+                <div className="admin-reschedule-reason"><span>Alasan customer</span><p>{request.reason}</p></div>
+                {request.adminNote && <div className="admin-reschedule-note"><span>Catatan admin</span><p>{request.adminNote}</p></div>}
+                <div className="admin-reschedule-meta">
+                  <span>{request.customerWhatsapp || '-'}</span>
+                  <span>Diajukan {formatDate(request.createdAt)}</span>
+                </div>
+                {request.status === 'pending' && (
+                  <button className="primary-btn" type="button" onClick={() => { setSelectedRequest(request); setAdminNote(''); setActionError('') }}>Review Permintaan</button>
+                )}
+              </article>
+            )
+          }) : (
+            <div className="account-empty-state"><h2>Tidak ada permintaan</h2><p>Belum ada pengajuan reschedule pada filter ini.</p></div>
+          )}
+        </div>
+      </section>
+
+      {selectedRequest && (
+        <div className="modal-backdrop" role="presentation" onClick={() => !processing && setSelectedRequest(null)}>
+          <section className="modal-panel admin-reschedule-modal" role="dialog" aria-modal="true" aria-label="Review permintaan reschedule" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-head">
+              <div><p className="eyebrow">{selectedRequest.bookingCode}</p><h2>Review Reschedule</h2></div>
+              <button className="outline-btn" disabled={processing} type="button" onClick={() => setSelectedRequest(null)}>Tutup</button>
+            </div>
+            <div className="reschedule-comparison">
+              <section><span>Jadwal lama</span><strong>{rescheduleScheduleLabel(selectedRequest, 'old').date}</strong><small>{rescheduleScheduleLabel(selectedRequest, 'old').details}</small></section>
+              <span className="reschedule-arrow">→</span>
+              <section><span>Jadwal baru</span><strong>{rescheduleScheduleLabel(selectedRequest, 'requested').date}</strong><small>{rescheduleScheduleLabel(selectedRequest, 'requested').details}</small></section>
+            </div>
+            <div className="admin-reschedule-reason"><span>Alasan customer</span><p>{selectedRequest.reason}</p></div>
+            <label>Catatan untuk customer
+              <textarea maxLength="1000" placeholder="Wajib diisi jika pengajuan ditolak..." value={adminNote} onChange={(event) => setAdminNote(event.target.value)} />
+            </label>
+            <p className="muted">Ketersediaan slot tujuan akan diperiksa kembali ketika disetujui.</p>
+            {actionError && <p className="form-error">{actionError}</p>}
+            <div className="reschedule-review-actions">
+              <button className="outline-btn danger-text" disabled={processing} type="button" onClick={() => processRequest('rejected')}>{processing ? 'Memproses...' : 'Tolak'}</button>
+              <button className="primary-btn" disabled={processing} type="button" onClick={() => processRequest('approved')}>{processing ? 'Memproses...' : 'Setujui & Pindahkan Jadwal'}</button>
+            </div>
+          </section>
+        </div>
+      )}
+    </AdminShell>
   )
 }
 

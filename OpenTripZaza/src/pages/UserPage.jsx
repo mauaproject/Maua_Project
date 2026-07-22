@@ -1959,7 +1959,7 @@ export function EmailVerificationPage({ path, navigate, verifyEmailOtp, resendVe
   )
 }
 
-export function CustomerAccountPage({ registrations, trips, jobs = [], submitReview, navigate, session, logout, customerAccounts = [], updateCustomerProfile }) {
+export function CustomerAccountPage({ registrations, trips, jobs = [], rescheduleRequests = [], submitReschedule, cancelReschedule, getRescheduleOptions, submitReview, navigate, session, logout, customerAccounts = [], updateCustomerProfile }) {
   const { t, lang, dateLocale, statusLabel } = useCustomerLanguage()
   const customerProfile = {
     ...(customerAccounts.find((item) => item.email === session?.email) || {}),
@@ -1968,6 +1968,12 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], submitRev
   const [activeFilter, setActiveFilter] = useState('Semua')
   const [accountSection, setAccountSection] = useState('active')
   const [selectedOrder, setSelectedOrder] = useState(null)
+  const [rescheduleBooking, setRescheduleBooking] = useState(null)
+  const [rescheduleOptions, setRescheduleOptions] = useState(null)
+  const [rescheduleForm, setRescheduleForm] = useState({ requestedScheduleId: '', requestedDate: '', requestedSessionId: '', reason: '', adminContactConfirmed: false })
+  const [rescheduleError, setRescheduleError] = useState('')
+  const [rescheduleLoading, setRescheduleLoading] = useState(false)
+  const [rescheduleSubmitting, setRescheduleSubmitting] = useState(false)
   const [isProfileEditing, setIsProfileEditing] = useState(false)
   const [profileForm, setProfileForm] = useState(() => getCustomerProfileForm(customerProfile))
   const [profileError, setProfileError] = useState('')
@@ -2008,6 +2014,64 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], submitRev
   const selectedAddons = selectedOrder ? getSelectedAddons(selectedOrder) : []
   const selectedWorkResults = selectedOrder ? getRegistrationResultJobs(jobs, selectedOrder) : []
   const profileComplete = isCustomerTripProfileComplete(customerProfile)
+  const pendingRescheduleByBooking = Object.fromEntries(
+    rescheduleRequests.filter((request) => request.status === 'pending').map((request) => [Number(request.bookingId), request]),
+  )
+  const latestRescheduleByBooking = rescheduleRequests.reduce((result, request) => {
+    const bookingId = Number(request.bookingId)
+    if (!result[bookingId]) result[bookingId] = request
+    return result
+  }, {})
+
+  const openRescheduleModal = async (booking) => {
+    setRescheduleBooking(booking)
+    setSelectedOrder(null)
+    setRescheduleOptions(null)
+    setRescheduleError('')
+    setRescheduleForm({ requestedScheduleId: '', requestedDate: '', requestedSessionId: '', reason: '', adminContactConfirmed: false })
+    setRescheduleLoading(true)
+    try {
+      setRescheduleOptions(await getRescheduleOptions(booking.id))
+    } catch (error) {
+      setRescheduleError(error.message || 'Pilihan jadwal reschedule gagal dimuat.')
+    } finally {
+      setRescheduleLoading(false)
+    }
+  }
+
+  const closeRescheduleModal = () => {
+    if (rescheduleSubmitting) return
+    setRescheduleBooking(null)
+    setRescheduleOptions(null)
+    setRescheduleError('')
+  }
+
+  const sendRescheduleRequest = async (event) => {
+    event.preventDefault()
+    if (!rescheduleForm.adminContactConfirmed) {
+      setRescheduleError('Hubungi admin WhatsApp terlebih dahulu, lalu centang konfirmasi yang tersedia.')
+      return
+    }
+    setRescheduleSubmitting(true)
+    setRescheduleError('')
+    try {
+      await submitReschedule({
+        bookingId: rescheduleBooking.id,
+        requestedScheduleId: rescheduleForm.requestedScheduleId || undefined,
+        requestedDate: rescheduleForm.requestedDate || undefined,
+        requestedSessionId: rescheduleForm.requestedSessionId || undefined,
+        reason: rescheduleForm.reason,
+        adminContactConfirmed: rescheduleForm.adminContactConfirmed,
+      })
+      setRescheduleSubmitting(false)
+      closeRescheduleModal()
+      return
+    } catch (error) {
+      setRescheduleError(error.message || 'Pengajuan reschedule gagal dikirim.')
+    } finally {
+      setRescheduleSubmitting(false)
+    }
+  }
 
   const saveProfile = async (event) => {
     event.preventDefault()
@@ -2168,6 +2232,8 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], submitRev
             const totalPrice = Number(item.totalHarga ?? item.totalPrice ?? (trip ? Number(trip.price || 0) * Number(item.participants || 1) : 0))
             const registrationDate = getRegistrationDate(item)
             const workResults = getRegistrationResultJobs(jobs, item)
+            const pendingReschedule = pendingRescheduleByBooking[Number(item.id)]
+            const latestReschedule = latestRescheduleByBooking[Number(item.id)]
             return (
               <article className="account-registration-card" key={item.id}>
                 <div className="account-registration-head">
@@ -2190,9 +2256,43 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], submitRev
                   <div><dt>Status pembayaran</dt><dd>{getPaymentStatusLabel(item.paymentStatus)}</dd></div>
                   <div><dt>{t('common.bookingCode')}</dt><dd>MAUA-{item.id}</dd></div>
                 </dl>
+                {pendingReschedule && (
+                  <div className="reschedule-pending-notice">
+                    <strong>Reschedule menunggu persetujuan admin</strong>
+                    <span>{formatDate(pendingReschedule.oldDate, dateLocale)} → {formatDate(pendingReschedule.requestedDate, dateLocale)}</span>
+                    <small>Jadwal lama tetap aktif sampai admin menyetujui pengajuan.</small>
+                  </div>
+                )}
+                {!pendingReschedule && latestReschedule?.status === 'rejected' && (
+                  <div className="reschedule-result-notice is-rejected">
+                    <strong>Pengajuan reschedule ditolak</strong>
+                    <span>Jadwal tetap pada {formatDate(latestReschedule.oldDate, dateLocale)}.</span>
+                    {latestReschedule.adminNote && <small>Catatan admin: {latestReschedule.adminNote}</small>}
+                  </div>
+                )}
+                {!pendingReschedule && latestReschedule?.status === 'approved' && (
+                  <div className="reschedule-result-notice is-approved">
+                    <strong>Reschedule telah disetujui</strong>
+                    <span>Jadwal aktif dipindahkan ke {formatDate(latestReschedule.requestedDate, dateLocale)}.</span>
+                    {latestReschedule.adminNote && <small>Catatan admin: {latestReschedule.adminNote}</small>}
+                  </div>
+                )}
                 <CustomerWorkResults jobs={workResults} t={t} dateLocale={dateLocale} compact />
                 <div className="account-card-actions">
                   <button className="outline-btn" onClick={() => setSelectedOrder(item)} type="button">{t('account.viewDetail')}</button>
+                  {item.status === 'Disetujui' && !pendingReschedule && (
+                    <button className="outline-btn" onClick={() => openRescheduleModal(item)} type="button">Reschedule</button>
+                  )}
+                  {pendingReschedule && (
+                    <button className="text-link-btn danger-text" onClick={async () => {
+                      if (!window.confirm('Batalkan pengajuan reschedule ini?')) return
+                      try {
+                        await cancelReschedule(pendingReschedule.id)
+                      } catch (error) {
+                        window.alert(error.message || 'Pengajuan tidak dapat dibatalkan.')
+                      }
+                    }} type="button">Batalkan Reschedule</button>
+                  )}
                   <a className="outline-btn" href="https://wa.me/62882005881248" target="_blank" rel="noreferrer">{t('common.contactAdmin')}</a>
                   <button className="text-link-btn" onClick={() => navigate(`/open-trip/${item.tripId}`)} type="button">{t('common.viewTrip')}</button>
                 </div>
@@ -2284,6 +2384,100 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], submitRev
                 ))}
               </div>
             </section>
+          </section>
+        </div>
+      )}
+      {rescheduleBooking && (
+        <div className="modal-backdrop" role="presentation" onClick={closeRescheduleModal}>
+          <section className="modal-panel reschedule-modal" role="dialog" aria-modal="true" aria-label="Ajukan reschedule" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-head">
+              <div>
+                <p className="eyebrow">Perubahan Jadwal</p>
+                <h2>Ajukan Reschedule</h2>
+                <p className="muted">{rescheduleBooking.tripName || tripName(trips, rescheduleBooking.tripId)} · MAUA-{rescheduleBooking.id}</p>
+              </div>
+              <button className="outline-btn" disabled={rescheduleSubmitting} onClick={closeRescheduleModal} type="button">Tutup</button>
+            </div>
+
+            <div className="reschedule-warning" role="alert">
+              <strong>Hubungi admin terlebih dahulu</strong>
+              <p>Untuk reschedule jadwal, harap chat admin WhatsApp terlebih dahulu untuk persetujuan dan ketersediaan jadwal.</p>
+              <a className="outline-btn" href="https://wa.me/62882005881248" target="_blank" rel="noreferrer">Chat Admin WhatsApp</a>
+            </div>
+
+            {rescheduleLoading && <p className="muted">Memuat jadwal yang tersedia...</p>}
+            {rescheduleError && <p className="form-error">{rescheduleError}</p>}
+            {rescheduleOptions && (
+              <form className="reschedule-form" onSubmit={sendRescheduleRequest}>
+                <section className="reschedule-current-schedule">
+                  <span>Jadwal aktif saat ini</span>
+                  <strong>{formatDate(rescheduleOptions.current.date, dateLocale)}</strong>
+                  <small>{rescheduleOptions.current.startTime || '-'}{rescheduleOptions.current.endTime ? ` - ${rescheduleOptions.current.endTime} WIB` : ''}</small>
+                </section>
+
+                {rescheduleOptions.tripType === 'open' ? (
+                  <fieldset className="reschedule-schedule-fieldset">
+                    <legend>Pilih jadwal baru</legend>
+                    <div className="reschedule-option-grid">
+                      {(rescheduleOptions.schedules || []).map((schedule) => (
+                        <label className={`reschedule-option ${Number(rescheduleForm.requestedScheduleId) === schedule.id ? 'is-selected' : ''} ${!schedule.isSelectable ? 'is-disabled' : ''}`} key={schedule.id}>
+                          <input
+                            type="radio"
+                            name="requestedScheduleId"
+                            value={schedule.id}
+                            checked={Number(rescheduleForm.requestedScheduleId) === schedule.id}
+                            disabled={!schedule.isSelectable}
+                            onChange={(event) => setRescheduleForm({ ...rescheduleForm, requestedScheduleId: event.target.value })}
+                          />
+                          <strong>{formatDate(schedule.date, dateLocale)}</strong>
+                          <span>{schedule.name} · {schedule.startTime}{schedule.endTime ? ` - ${schedule.endTime}` : ''} WIB</span>
+                          <small>{schedule.isCurrent ? 'Jadwal saat ini' : schedule.remaining < rescheduleOptions.participants ? 'Slot tidak mencukupi' : `Sisa ${schedule.remaining} slot`}</small>
+                        </label>
+                      ))}
+                    </div>
+                    {!(rescheduleOptions.schedules || []).some((schedule) => schedule.isSelectable) && <p className="form-error">Belum ada jadwal lain dengan slot yang mencukupi.</p>}
+                  </fieldset>
+                ) : (
+                  <div className="registration-fields reschedule-private-fields">
+                    <label>Tanggal baru
+                      <input
+                        required
+                        type="date"
+                        min={rescheduleOptions.availableStartDate || getJakartaToday()}
+                        max={rescheduleOptions.availableEndDate || undefined}
+                        value={rescheduleForm.requestedDate}
+                        onChange={(event) => setRescheduleForm({ ...rescheduleForm, requestedDate: event.target.value, requestedSessionId: '' })}
+                      />
+                    </label>
+                    <label>Sesi baru
+                      <select required value={rescheduleForm.requestedSessionId} onChange={(event) => setRescheduleForm({ ...rescheduleForm, requestedSessionId: event.target.value })}>
+                        <option value="">Pilih sesi</option>
+                        {(rescheduleOptions.sessions || []).map((sessionItem) => {
+                          const blocked = rescheduleOptions.privateBookingMode !== 'shared'
+                            && (rescheduleOptions.blockedSlots || []).some((slot) => slot.date === rescheduleForm.requestedDate && Number(slot.sessionId) === sessionItem.id)
+                          const current = rescheduleForm.requestedDate === rescheduleOptions.current.date && sessionItem.id === Number(rescheduleOptions.current.sessionId)
+                          return <option disabled={blocked || current} value={sessionItem.id} key={sessionItem.id}>{sessionItem.name} ({sessionItem.startTime} - {sessionItem.endTime}){blocked ? ' · Sudah dipesan' : current ? ' · Jadwal saat ini' : ''}</option>
+                        })}
+                      </select>
+                    </label>
+                  </div>
+                )}
+
+                <label>Alasan reschedule
+                  <textarea required minLength="5" maxLength="1000" placeholder="Jelaskan alasan perubahan jadwal..." value={rescheduleForm.reason} onChange={(event) => setRescheduleForm({ ...rescheduleForm, reason: event.target.value })} />
+                </label>
+                <label className="reschedule-confirmation">
+                  <input required type="checkbox" checked={rescheduleForm.adminContactConfirmed} onChange={(event) => setRescheduleForm({ ...rescheduleForm, adminContactConfirmed: event.target.checked })} />
+                  <span>Saya sudah menghubungi admin WhatsApp dan memahami bahwa jadwal lama tetap aktif sampai pengajuan disetujui.</span>
+                </label>
+                <div className="reschedule-actions">
+                  <button className="outline-btn" disabled={rescheduleSubmitting} onClick={closeRescheduleModal} type="button">Batal</button>
+                  <button className="primary-btn" disabled={rescheduleSubmitting || (rescheduleOptions.tripType === 'open' ? !rescheduleForm.requestedScheduleId : !rescheduleForm.requestedDate || !rescheduleForm.requestedSessionId)} type="submit">
+                    {rescheduleSubmitting ? 'Mengirim...' : 'Ajukan Reschedule'}
+                  </button>
+                </div>
+              </form>
+            )}
           </section>
         </div>
       )}

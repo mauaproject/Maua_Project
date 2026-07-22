@@ -53,6 +53,12 @@ export const getUserBookings = (email, view = 'active') => request(`bookings/use
 export const getPrivateBookingAvailability = (tripId) => request(`bookings/availability.php?trip_id=${encodeURIComponent(tripId)}`)
 export const updateBookingStatus = (id, status) => jsonPost('bookings/update-status.php', { id, status })
 
+export const getRescheduleRequests = () => request('reschedules/index.php')
+export const getRescheduleOptions = (bookingId) => request(`reschedules/options.php?booking_id=${encodeURIComponent(bookingId)}`)
+export const createRescheduleRequest = (data) => jsonPost('reschedules/create.php', data)
+export const cancelRescheduleRequest = (id) => jsonPost('reschedules/cancel.php', { id })
+export const reviewRescheduleRequest = (id, decision, adminNote = '') => jsonPost('reschedules/review.php', { id, decision, adminNote })
+
 export const getReviews = (all = false, adminEmail = '') => request(`reviews/index.php${all ? `?all=1&admin_email=${encodeURIComponent(adminEmail)}` : ''}`)
 export const getUserReviews = (email, userId) => request(`reviews/index.php?mine=1&email=${encodeURIComponent(email)}&user_id=${encodeURIComponent(userId)}`)
 export const createReview = (data) => jsonPost('reviews/create.php', data)

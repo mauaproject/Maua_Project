@@ -98,6 +98,19 @@ atau:
 {"success":false,"message":"Pesan error"}
 ```
 
+## Migrasi reschedule booking
+
+Sebelum mengunggah frontend/API versi reschedule, jalankan migration berikut satu
+kali melalui phpMyAdmin:
+
+`api/migrations/2026-07-21-booking-reschedules.sql`
+
+Migration ini hanya menambah tabel `booking_reschedule_requests`; tabel dan data
+booking lama tidak diubah. Customer mengajukan perubahan jadwal dari halaman akun,
+sedangkan admin memprosesnya melalui menu **Reschedule**. Status booking dan
+pembayaran tetap sama selama pengajuan masih menunggu. Saat disetujui, perpindahan
+jadwal serta pembaruan kapasitas dijalankan dalam satu transaksi database.
+
 ## Catatan deployment Vite
 
 Jalankan `npm run build`, lalu unggah isi folder `dist` ke document root website.

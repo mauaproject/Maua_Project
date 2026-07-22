@@ -30,6 +30,7 @@ const loadWorkerPage = () => import('./pages/WorkerPage')
 const AdminDashboard = lazyNamed(loadAdminPage, 'AdminDashboard')
 const AdminBookingCalendar = lazyNamed(loadAdminPage, 'AdminBookingCalendar')
 const AdminReviews = lazyNamed(loadAdminPage, 'AdminReviews')
+const AdminReschedules = lazyNamed(loadAdminPage, 'AdminReschedules')
 const AdminSchedule = lazyNamed(loadAdminPage, 'AdminSchedule')
 const AdminTripArchive = lazyNamed(loadAdminPage, 'AdminTripArchive')
 const AdminTrips = lazyNamed(loadAdminPage, 'AdminTrips')
@@ -155,6 +156,7 @@ function App() {
   const [session, setSession] = useState(null)
   const [trips, setTrips] = useState([])
   const [registrations, setRegistrations] = useState([])
+  const [rescheduleRequests, setRescheduleRequests] = useState([])
   const [jobs, setJobs] = useState([])
   const [customerAccounts, setCustomerAccounts] = useState([])
   const [workerAccounts, setWorkerAccounts] = useState([])
@@ -188,13 +190,14 @@ function App() {
     const role = activeSession?.role
 
     if (role === 'admin') {
-      const [tripData, bookingData, taskData, customerData, workerData, reviewData] = await Promise.all([
+      const [tripData, bookingData, taskData, customerData, workerData, reviewData, rescheduleData] = await Promise.all([
         api.getTrips(true),
         api.getBookings('all'),
         api.getWorkerTasks(),
         api.getUsers('customer'),
         api.getUsers('worker'),
         api.getReviews(),
+        api.getRescheduleRequests(),
       ])
       setTrips(tripData)
       setRegistrations(bookingData)
@@ -202,6 +205,7 @@ function App() {
       setCustomerAccounts(customerData)
       setWorkerAccounts(workerData)
       setReviews(reviewData)
+      setRescheduleRequests(rescheduleData)
       return
     }
 
@@ -224,17 +228,19 @@ function App() {
     setTrips(tripData)
     setReviews(reviewData)
     if (role === 'customer') {
-      const [bookingData, taskData, userReviewData] = await Promise.all([
+      const [bookingData, taskData, userReviewData, rescheduleData] = await Promise.all([
         Promise.all([
           api.getUserBookings(activeSession.email, 'active'),
           api.getUserBookings(activeSession.email, 'history'),
         ]).then(([activeBookings, historyBookings]) => [...activeBookings, ...historyBookings]),
         api.getWorkerTasks(),
         api.getUserReviews(activeSession.email, activeSession.id),
+        api.getRescheduleRequests(),
       ])
       setRegistrations(bookingData)
       setJobs(taskData)
       setUserReviews(userReviewData)
+      setRescheduleRequests(rescheduleData)
     }
   }
 
@@ -320,7 +326,7 @@ function App() {
     try {
       const account = await api.loginUser(form.email, form.password, 'customer')
       setSession(account)
-      const [tripData, publicReviewData, bookingData, reviewData] = await Promise.all([
+      const [tripData, publicReviewData, bookingData, reviewData, rescheduleData] = await Promise.all([
         api.getTripSummaries(),
         api.getReviews(),
         Promise.all([
@@ -328,11 +334,13 @@ function App() {
           api.getUserBookings(account.email, 'history'),
         ]).then(([activeBookings, historyBookings]) => [...activeBookings, ...historyBookings]),
         api.getUserReviews(account.email, account.id),
+        api.getRescheduleRequests(),
       ])
       setTrips(tripData)
       setReviews(publicReviewData)
       setRegistrations(bookingData)
       setUserReviews(reviewData)
+      setRescheduleRequests(rescheduleData)
       navigate(redirectTo)
       return true
     } catch {
@@ -609,6 +617,24 @@ function App() {
     await refreshData()
   }
 
+  const submitReschedule = async (payload) => {
+    await api.createRescheduleRequest(payload)
+    await refreshData()
+    showToast('Pengajuan reschedule berhasil dikirim ke admin.')
+  }
+
+  const cancelReschedule = async (id) => {
+    await api.cancelRescheduleRequest(id)
+    await refreshData()
+    showToast('Pengajuan reschedule berhasil dibatalkan.')
+  }
+
+  const reviewReschedule = async (id, decision, adminNote = '') => {
+    await api.reviewRescheduleRequest(id, decision, adminNote)
+    await refreshData()
+    showToast(decision === 'approved' ? 'Reschedule berhasil disetujui.' : 'Reschedule telah ditolak.')
+  }
+
   const updateTripDriveLink = async (payload) => {
     await api.updateTripDriveLink(payload)
     await refreshData()
@@ -751,6 +777,7 @@ function App() {
     session,
     trips,
     registrations,
+    rescheduleRequests,
     jobs,
     customerAccounts,
     workerAccounts,
@@ -774,6 +801,10 @@ function App() {
     clearCheckoutDraft,
     submitRegistration,
     setRegistrationStatus,
+    submitReschedule,
+    cancelReschedule,
+    reviewReschedule,
+    getRescheduleOptions: api.getRescheduleOptions,
     updateTripDriveLink,
     submitReview,
     setReviewStatus,
@@ -840,6 +871,7 @@ function RouteRenderer(props) {
   if (path === '/admin') return <AdminDashboard {...props} />
   if (path === '/admin/dashboard') return <AdminDashboard {...props} />
   if (path === '/admin/reviews') return <AdminReviews {...props} />
+  if (path === '/admin/reschedule') return <AdminReschedules {...props} />
   if (path === '/admin/open-trip') return <AdminTrips {...props} />
   if (path === '/admin/arsip-trip') return <AdminTripArchive {...props} />
   if (path === '/admin/open-trip/tambah') return <TripForm {...props} />
