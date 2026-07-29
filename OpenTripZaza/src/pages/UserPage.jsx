@@ -1183,6 +1183,8 @@ export function RegistrationPage({
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false)
   const [verificationLoading, setVerificationLoading] = useState(false)
   const [verificationMessage, setVerificationMessage] = useState('')
+  const [checkoutStep, setCheckoutStep] = useState(1)
+  const checkoutFormRef = useRef(null)
   const selectedTrip = trips.find((item) => item.id === Number(form.tripId)) || trip
   const scheduleOptions = selectedTrip && !selectedTrip.isPrivateTrip ? getOpenTripScheduleOptions(selectedTrip, registrations) : []
   const selectedSchedule = scheduleOptions.find((schedule) => schedule.id === form.scheduleId)
@@ -1265,7 +1267,7 @@ export function RegistrationPage({
       return
     }
     if (!['dp', 'full'].includes(form.paymentType)) {
-      setError('Pilih pembayaran DP atau Lunas terlebih dahulu.')
+      showCheckoutError('Pilih pembayaran DP atau Lunas terlebih dahulu.', '[data-checkout-field="payment-type"]')
       return
     }
     if (isPrivateBooking && privatePackages.length > 0 && !selectedPackage) {
@@ -1418,6 +1420,96 @@ export function RegistrationPage({
     })
   }
 
+  const showCheckoutError = (message, selector) => {
+    setError(message)
+    window.requestAnimationFrame(() => {
+      const target = checkoutFormRef.current?.querySelector(selector)
+      target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      const control = target?.matches('input, select, textarea, button')
+        ? target
+        : target?.querySelector('input, select, textarea, button')
+      window.setTimeout(() => control?.focus({ preventScroll: true }), 350)
+    })
+  }
+
+  const validateParticipantStep = () => {
+    if (!isTripProfileComplete) {
+      showCheckoutError(t('profile.checkoutRequired'), '[data-checkout-field="profile"]')
+      return false
+    }
+    if (!form.name) {
+      showCheckoutError(t('error.checkoutRequired'), '[data-checkout-field="booker-name"]')
+      return false
+    }
+    if (!form.whatsapp) {
+      showCheckoutError(t('error.checkoutRequired'), '[data-checkout-field="booker-whatsapp"]')
+      return false
+    }
+    if (!form.email) {
+      showCheckoutError(t('error.checkoutRequired'), '[data-checkout-field="booker-email"]')
+      return false
+    }
+    if (isPrivateBooking && privatePackages.length > 0 && !selectedPackage) {
+      showCheckoutError('Pilih salah satu Paket Private Trip terlebih dahulu.', '[data-checkout-field="private-package"]')
+      return false
+    }
+    if (isPrivateBooking && !form.requestedDate) {
+      showCheckoutError(t('error.privateDateRequired'), '[data-checkout-field="private-date"]')
+      return false
+    }
+    if (isPrivateBooking && !isDateWithinPrivateRange(selectedTrip, form.requestedDate)) {
+      showCheckoutError(t('error.privateDateOutOfRange'), '[data-checkout-field="private-date"]')
+      return false
+    }
+    if (!isPrivateBooking && !selectedSchedule) {
+      showCheckoutError(t('error.scheduleRequired'), '[data-checkout-field="schedule"]')
+      return false
+    }
+    if (!isPrivateBooking && (!selectedSchedule.isSelectable || Number(form.participants) > selectedSchedule.remaining)) {
+      showCheckoutError(t('error.slotsExceeded'), '[data-checkout-field="schedule"]')
+      return false
+    }
+    if (isPrivateBooking && !selectedSession) {
+      showCheckoutError(t('error.sessionRequired'), '[data-checkout-field="private-session"]')
+      return false
+    }
+    if (isPrivateBooking && !selectedSession.isSelectable) {
+      showCheckoutError(t('error.sessionUnavailable'), '[data-checkout-field="private-session"]')
+      return false
+    }
+    if (isPrivateBooking && (participants < Number(selectedTrip.minParticipants || 1) || participants > Number(selectedTrip.maxParticipants || selectedTrip.quota || participants))) {
+      showCheckoutError(t('error.participantRange', {
+        min: selectedTrip.minParticipants || 1,
+        max: selectedTrip.maxParticipants || selectedTrip.quota || participants,
+      }), '[data-checkout-field="participant-count"]')
+      return false
+    }
+
+    const participantDetails = resizeParticipants(form.participantDetails, participants, {
+      ...customerProfile,
+      name: form.name,
+      email: form.email,
+      whatsapp: form.whatsapp,
+    })
+    const requiredParticipantFields = ['name', 'email', 'whatsapp', 'age', 'gender', 'address', 'bloodType', 'heightCm', 'weightKg', 'shoeSize', 'healthNotes']
+    for (let index = 0; index < participantDetails.length; index += 1) {
+      const participant = participantDetails[index]
+      const missingField = requiredParticipantFields.find((field) => !participant[field])
+      if (missingField || validateCustomerTripProfile(participant, { required: true })) {
+        showCheckoutError(t('error.checkoutRequired'), `[data-participant-index="${index}"]`)
+        return false
+      }
+    }
+    setError('')
+    return true
+  }
+
+  const continueToAddons = () => {
+    if (!validateParticipantStep()) return
+    setCheckoutStep(2)
+    window.scrollTo({ top: checkoutFormRef.current?.offsetTop ? checkoutFormRef.current.offsetTop - 100 : 0, behavior: 'smooth' })
+  }
+
   return (
     <main className="public-page">
       <PublicNav navigate={navigate} session={session} logout={logout} />
@@ -1455,7 +1547,15 @@ export function RegistrationPage({
             </div>
           </aside>
 
-          <form className="registration-form" onSubmit={onSubmit}>
+          <form className="registration-form" onSubmit={onSubmit} ref={checkoutFormRef}>
+            <nav className="checkout-stepper" aria-label="Tahapan checkout">
+              <button className={checkoutStep === 1 ? 'is-active' : 'is-complete'} type="button" onClick={() => setCheckoutStep(1)}><span>1</span><small>Jadwal & Peserta</small></button>
+              <i aria-hidden="true" />
+              <button className={checkoutStep === 2 ? 'is-active' : ''} type="button" onClick={() => checkoutStep === 2 || continueToAddons()}><span>2</span><small>Add-on</small></button>
+              <i aria-hidden="true" />
+              <button type="button" disabled><span>3</span><small>Pembayaran</small></button>
+            </nav>
+            {checkoutStep === 1 && <>
             <div className="form-section-head">
               <span>1</span>
               <div>
@@ -1465,7 +1565,7 @@ export function RegistrationPage({
             </div>
             {error && <p className="form-error">{error}</p>}
             {!isTripProfileComplete && (
-              <div className="profile-completion-notice">
+              <div className="profile-completion-notice" data-checkout-field="profile">
                 <div>
                   <strong>{t('profile.incompleteTitle')}</strong>
                   <p>{t('profile.checkoutRequired')}</p>
@@ -1474,9 +1574,9 @@ export function RegistrationPage({
               </div>
             )}
             <div className="registration-fields">
-              <label>{t('checkout.fullName')}<input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
-              <label>{t('checkout.whatsapp')}<input value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} /></label>
-              <label className="full">Email<input type="email" value={form.email} readOnly /></label>
+              <label data-checkout-field="booker-name">{t('checkout.fullName')}<input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
+              <label data-checkout-field="booker-whatsapp">{t('checkout.whatsapp')}<input value={form.whatsapp} onChange={(e) => setForm({ ...form, whatsapp: e.target.value })} /></label>
+              <label className="full" data-checkout-field="booker-email">Email<input type="email" value={form.email} readOnly /></label>
             </div>
 
             <div className="form-section-head">
@@ -1488,7 +1588,7 @@ export function RegistrationPage({
             </div>
             <div className="registration-fields">
               {!isPrivateBooking && (
-                <div className="full schedule-checkout-section">
+                <div className="full schedule-checkout-section" data-checkout-field="schedule">
                   <div className="field-like-label">{t('schedule.departureSchedule')}</div>
                   <ScheduleChoiceList
                     schedules={scheduleOptions}
@@ -1518,7 +1618,7 @@ export function RegistrationPage({
                     onChange={updateParticipantCount}
                     value={form.participants}
                   />
-                  {privatePackages.length > 0 && <div className="full private-package-checkout-section">
+                  {privatePackages.length > 0 && <div className="full private-package-checkout-section" data-checkout-field="private-package">
                     <h3>Pilih Paket Private Trip</h3>
                     <p>Paket menentukan rute, destinasi/aktivitas, dan harga. Pilihan sesi dilakukan setelahnya.</p>
                     {privatePackages.length ? (
@@ -1534,8 +1634,8 @@ export function RegistrationPage({
                       </div>
                     ) : null}
                   </div>}
-                  <label>{t('checkout.privateDate')}<input type="date" disabled={privatePackages.length > 0 && !selectedPackage} min={[privateRange.startDate, getJakartaToday()].filter(Boolean).sort().at(-1)} max={privateRange.endDate || undefined} value={form.requestedDate} onChange={(e) => setForm({ ...form, requestedDate: e.target.value, sessionId: '' })} />{(privateRange.startDate || privateRange.endDate) && <small>{t('schedule.availableRange')}: {privateRange.startDate ? formatDate(privateRange.startDate, dateLocale) : '-'} - {privateRange.endDate ? formatDate(privateRange.endDate, dateLocale) : '-'}</small>}</label>
-                  <label className="full">{t('schedule.session')}<select required value={form.sessionId} disabled={(privatePackages.length > 0 && !selectedPackage) || !form.requestedDate || !isPrivateDateInRange} onChange={(e) => setForm({ ...form, sessionId: e.target.value })}>
+                  <label data-checkout-field="private-date">{t('checkout.privateDate')}<input type="date" disabled={privatePackages.length > 0 && !selectedPackage} min={[privateRange.startDate, getJakartaToday()].filter(Boolean).sort().at(-1)} max={privateRange.endDate || undefined} value={form.requestedDate} onChange={(e) => setForm({ ...form, requestedDate: e.target.value, sessionId: '' })} />{(privateRange.startDate || privateRange.endDate) && <small>{t('schedule.availableRange')}: {privateRange.startDate ? formatDate(privateRange.startDate, dateLocale) : '-'} - {privateRange.endDate ? formatDate(privateRange.endDate, dateLocale) : '-'}</small>}</label>
+                  <label className="full" data-checkout-field="private-session">{t('schedule.session')}<select required value={form.sessionId} disabled={(privatePackages.length > 0 && !selectedPackage) || !form.requestedDate || !isPrivateDateInRange} onChange={(e) => setForm({ ...form, sessionId: e.target.value })}>
                     <option value="">{privatePackages.length > 0 && !selectedPackage ? 'Pilih paket terlebih dahulu' : !form.requestedDate ? t('schedule.chooseDateFirst') : !isPrivateDateInRange ? t('schedule.dateUnavailable') : t('schedule.chooseSession')}</option>
                     {sessionOptions.map((sessionItem) => (
                       <option disabled={!sessionItem.isSelectable} key={sessionItem.id} value={sessionItem.id}>{getSessionLabel(sessionItem, t)}</option>
@@ -1546,6 +1646,8 @@ export function RegistrationPage({
               <label className="full">{t('checkout.notes')}<textarea placeholder={t('checkout.notesPlaceholder')} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></label>
             </div>
 
+            </>}
+            {checkoutStep === 2 && <>
             <div className="form-section-head">
               <span>3</span>
               <div>
@@ -1581,7 +1683,7 @@ export function RegistrationPage({
                 <p>Pilih nominal yang akan dibayar pada langkah berikutnya.</p>
               </div>
             </div>
-            <section className="payment-choice-grid">
+            <section className="payment-choice-grid" data-checkout-field="payment-type">
               <label className={`payment-choice-card ${form.paymentType === 'dp' ? 'is-selected' : ''}`}>
                 <input type="radio" name="paymentType" value="dp" checked={form.paymentType === 'dp'} onChange={(event) => setForm({ ...form, paymentType: event.target.value })} />
                 <span><strong>DP terlebih dahulu</strong><small>Bayar {DP_PERCENTAGE * 100}% sekarang: {formatCurrency(getRequiredPaymentAmount(estimatedTotal, 'dp'))}</small></span>
@@ -1592,9 +1694,11 @@ export function RegistrationPage({
               </label>
             </section>
 
+            </>}
+            {checkoutStep === 1 && <>
             <div className="participant-form-list">
               {resizeParticipants(form.participantDetails, participants, { ...customerProfile, name: form.name, email: form.email, whatsapp: form.whatsapp }).map((participant, index) => (
-                <section className="participant-form-card" key={index}>
+                <section className="participant-form-card" data-participant-index={index} key={index}>
                   <div className="form-section-head compact-form-section-head">
                     <span>{index + 1}</span>
                     <div>
@@ -1620,12 +1724,22 @@ export function RegistrationPage({
             </div>
 
             <div className="registration-submit">
+              <div><span>Langkah berikutnya</span><strong>Pilih Add-on</strong></div>
+              <button className="primary-btn" type="button" onClick={continueToAddons}>Lanjut ke Add-on</button>
+            </div>
+            </>}
+
+            {checkoutStep === 2 && <div className="registration-submit">
               <div>
                 <span>{t('common.totalPrice')}</span>
                 <strong>{formatCurrency(estimatedTotal)}</strong>
               </div>
-              <button className="primary-btn" type="submit" disabled={!form.paymentType}>Lanjut ke Pembayaran</button>
+              <div className="checkout-submit-actions">
+                <button className="outline-btn" type="button" onClick={() => setCheckoutStep(1)}>Kembali</button>
+                <button className="primary-btn" type="submit">Lanjut ke Pembayaran</button>
+              </div>
             </div>
+            }
           </form>
         </div>
       </section>
@@ -1791,6 +1905,13 @@ export function PaymentConfirmationPage({
           </div>
           <button className="outline-btn" type="button" onClick={() => navigate(`/daftar/${checkoutDraft.tripId}`)}>Kembali ke Checkout</button>
         </div>
+        <nav className="checkout-stepper payment-stepper" aria-label="Tahapan checkout">
+          <button className="is-complete" type="button" onClick={() => navigate(`/daftar/${checkoutDraft.tripId}`)}><span>1</span><small>Jadwal & Peserta</small></button>
+          <i aria-hidden="true" />
+          <button className="is-complete" type="button" onClick={() => navigate(`/daftar/${checkoutDraft.tripId}`)}><span>2</span><small>Add-on</small></button>
+          <i aria-hidden="true" />
+          <button className="is-active" type="button"><span>3</span><small>Pembayaran</small></button>
+        </nav>
 
         <form className="payment-layout" onSubmit={requestSubmit}>
           <div className="payment-main-column">

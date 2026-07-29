@@ -2055,6 +2055,79 @@ button:disabled {
   gap: 20px;
   padding: clamp(18px, 3vw, 28px);
 }
+.checkout-stepper {
+  display: grid;
+  grid-template-columns: auto minmax(24px, 1fr) auto minmax(24px, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--color-line);
+  padding-bottom: 22px;
+}
+.checkout-stepper button {
+  display: grid;
+  min-width: 92px;
+  justify-items: center;
+  gap: 7px;
+  border: 0;
+  background: transparent;
+  color: var(--color-muted);
+  padding: 0;
+  font: inherit;
+}
+.checkout-stepper button:not(:disabled) {
+  cursor: pointer;
+}
+.checkout-stepper button > span {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--color-muted);
+  font-weight: 700;
+}
+.checkout-stepper button > small {
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+.checkout-stepper button.is-active,
+.checkout-stepper button.is-complete {
+  color: var(--color-ink);
+}
+.checkout-stepper button.is-active > span,
+.checkout-stepper button.is-complete > span {
+  border-color: var(--color-gold);
+  background: var(--color-gold);
+  color: var(--color-ink);
+}
+.checkout-stepper button.is-complete > span::after {
+  content: "✓";
+  position: absolute;
+}
+.checkout-stepper button.is-complete > span {
+  position: relative;
+  color: transparent;
+}
+.checkout-stepper > i {
+  height: 2px;
+  margin-top: 17px;
+  background: var(--color-line);
+}
+.checkout-submit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.payment-stepper {
+  width: min(760px, 100%);
+  margin: 0 auto;
+  border: 0;
+  padding: 4px 0 12px;
+}
 .form-section-head {
   display: grid;
   grid-template-columns: 38px minmax(0, 1fr);
@@ -2523,6 +2596,24 @@ button:disabled {
   width: min(1240px, calc(100% - 32px));
   margin: 0 auto;
   padding: clamp(112px, 11vw, 148px) 0 56px;
+}
+
+@media (max-width: 560px) {
+  .checkout-stepper {
+    gap: 5px;
+  }
+  .checkout-stepper button {
+    min-width: 62px;
+  }
+  .checkout-stepper button > small {
+    font-size: 10px;
+  }
+  .checkout-submit-actions {
+    width: 100%;
+  }
+  .checkout-submit-actions > button {
+    flex: 1;
+  }
 }
 .payment-empty-state {
   justify-items: start;
