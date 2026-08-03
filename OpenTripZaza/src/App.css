@@ -3979,6 +3979,26 @@ button:disabled {
   padding: 0;
 }
 
+.auth-text-link {
+  width: fit-content;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--green, #173f35);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.form-success {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #e8f4ee;
+  color: #175c43;
+}
+
 /* Admin and worker shell */
 .app-shell {
   display: grid;

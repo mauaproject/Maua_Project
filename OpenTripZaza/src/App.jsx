@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import './App.css'
 import i18n from './i18n'
-import { CustomerAccountPage, CustomerCatalog, CustomerLoginPage, CustomerSignupPage, DestinationPage, EmailVerificationPage, PaymentConfirmationPage, RegistrationPage, ReviewsPage, TripDetail } from './pages/UserPage'
+import { CustomerAccountPage, CustomerCatalog, CustomerLoginPage, CustomerSignupPage, DestinationPage, EmailVerificationPage, ForgotPasswordPage, PaymentConfirmationPage, RegistrationPage, ResetPasswordPage, ReviewsPage, TripDetail } from './pages/UserPage'
 import { LoginPage, NotFound } from './pages/shared'
 import * as api from './services/api'
 import { ABOVE_MAX_PAX_RULE, getPrivatePricePerPerson, normalizePricePerPersonTiers } from './utils/pricing'
@@ -95,7 +95,7 @@ const buildSeo = (path, trips) => {
   const parts = cleanPath.split('/').filter(Boolean)
   const tripId = parts[0] === 'open-trip' ? Number(parts[1]) : 0
   const trip = tripId ? trips.find((item) => Number(item.id) === tripId) : null
-  const privatePath = cleanPath.startsWith('/admin') || cleanPath.startsWith('/tim') || cleanPath.startsWith('/akun') || cleanPath.startsWith('/payment-confirmation') || cleanPath.startsWith('/daftar') || cleanPath.startsWith('/verify-email')
+  const privatePath = cleanPath.startsWith('/admin') || cleanPath.startsWith('/tim') || cleanPath.startsWith('/akun') || cleanPath.startsWith('/payment-confirmation') || cleanPath.startsWith('/daftar') || cleanPath.startsWith('/verify-email') || cleanPath.startsWith('/forgot-password') || cleanPath.startsWith('/reset-password')
 
   if (privatePath) {
     return {
@@ -402,6 +402,9 @@ function App() {
   const verifyEmailOtp = useCallback(async (email, otp) => {
     return api.verifyEmail(email, otp)
   }, [])
+
+  const requestPasswordReset = useCallback(async (email) => api.requestPasswordReset(email), [])
+  const resetCustomerPassword = useCallback(async (token, password) => api.resetPassword(token, password), [])
 
   const updateCustomerProfile = async (form) => {
     if (session?.role !== 'customer') return false
@@ -792,6 +795,8 @@ function App() {
     resendVerification,
     refreshEmailVerification,
     verifyEmailOtp,
+    requestPasswordReset,
+    resetCustomerPassword,
     createWorkerAccount,
     updateWorkerAccount,
     deleteWorkerAccount,
@@ -854,6 +859,8 @@ function RouteRenderer(props) {
   if (path === '/login' || path === '/customer/login') return <CustomerLoginPage {...props} />
   if (path === '/signup' || path === '/customer/signup') return <CustomerSignupPage {...props} />
   if (path.startsWith('/verify-email')) return <EmailVerificationPage {...props} />
+  if (path === '/forgot-password') return <ForgotPasswordPage {...props} />
+  if (path === '/reset-password') return <ResetPasswordPage {...props} />
   if (parts[0] === 'open-trip' && id) {
     if (!trips.some((trip) => trip.id === id && Array.isArray(trip.imageUrls))) return <div className="route-loading">Memuat detail trip...</div>
     return <TripDetail tripId={id} {...props} />

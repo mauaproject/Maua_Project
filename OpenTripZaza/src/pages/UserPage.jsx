@@ -2632,9 +2632,113 @@ export function CustomerLoginPage({ loginCustomer, navigate, afterLoginPath = '/
           {error && <p className="form-error">{error}</p>}
           <label>Email<input type="email" placeholder={t('auth.emailPlaceholder')} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></label>
           <label>Password<input type="password" placeholder={t('auth.passwordPlaceholder')} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></label>
+          <button className="auth-text-link" type="button" onClick={() => navigate('/forgot-password')}>Lupa password?</button>
           <button className="primary-btn" type="submit">{t('auth.loginButton')}</button>
         </form>
         <p className="auth-switch">{t('auth.noAccount')} <button onClick={() => navigate('/signup')}>{t('auth.createAccount')}</button></p>
+      </section>
+    </AuthShell>
+  )
+}
+
+export function ForgotPasswordPage({ requestPasswordReset, navigate }) {
+  const [email, setEmail] = useState('')
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const onSubmit = async (event) => {
+    event.preventDefault()
+    setError('')
+    setMessage('')
+    if (!email) {
+      setError('Email wajib diisi.')
+      return
+    }
+    setIsSubmitting(true)
+    try {
+      const result = await requestPasswordReset(email)
+      setMessage(result.message)
+    } catch (requestError) {
+      setError(requestError.message)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  return (
+    <AuthShell navigate={navigate}>
+      <section className="auth-panel">
+        <div className="auth-panel-head">
+          <p className="eyebrow">Pemulihan akun</p>
+          <h1>Lupa Password</h1>
+          <p className="muted">Masukkan email customer yang terdaftar. Kami akan mengirim tautan reset melalui Gmail.</p>
+        </div>
+        <form className="auth-form" onSubmit={onSubmit}>
+          {error && <p className="form-error">{error}</p>}
+          {message && <p className="form-success" role="status">{message}</p>}
+          <label>Email<input required type="email" autoComplete="email" placeholder="nama@email.com" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
+          <button className="primary-btn" disabled={isSubmitting} type="submit">{isSubmitting ? 'Mengirim...' : 'Kirim Tautan Reset'}</button>
+        </form>
+        <p className="auth-switch"><button onClick={() => navigate('/login')}>Kembali ke halaman login</button></p>
+      </section>
+    </AuthShell>
+  )
+}
+
+export function ResetPasswordPage({ resetCustomerPassword, navigate }) {
+  const token = new URLSearchParams(window.location.search).get('token') || ''
+  const [form, setForm] = useState({ password: '', confirmPassword: '' })
+  const [error, setError] = useState(token ? '' : 'Tautan reset tidak valid.')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isComplete, setIsComplete] = useState(false)
+
+  const onSubmit = async (event) => {
+    event.preventDefault()
+    setError('')
+    if (form.password.length < 8) {
+      setError('Password baru minimal 8 karakter.')
+      return
+    }
+    if (form.password !== form.confirmPassword) {
+      setError('Konfirmasi password tidak sama.')
+      return
+    }
+    setIsSubmitting(true)
+    try {
+      await resetCustomerPassword(token, form.password)
+      setIsComplete(true)
+    } catch (requestError) {
+      setError(requestError.message)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  return (
+    <AuthShell navigate={navigate}>
+      <section className="auth-panel">
+        <div className="auth-panel-head">
+          <p className="eyebrow">Pemulihan akun</p>
+          <h1>Buat Password Baru</h1>
+          <p className="muted">Gunakan minimal 8 karakter. Setelah berhasil, seluruh sesi login lama akan dikeluarkan.</p>
+        </div>
+        <form className="auth-form" onSubmit={onSubmit}>
+          {error && <p className="form-error">{error}</p>}
+          {isComplete ? (
+            <>
+              <p className="form-success" role="status">Password berhasil diperbarui. Silakan login dengan password baru.</p>
+              <button className="primary-btn" type="button" onClick={() => navigate('/login')}>Ke Halaman Login</button>
+            </>
+          ) : (
+            <>
+              <label>Password baru<input required minLength="8" type="password" autoComplete="new-password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} /></label>
+              <label>Konfirmasi password<input required minLength="8" type="password" autoComplete="new-password" value={form.confirmPassword} onChange={(event) => setForm({ ...form, confirmPassword: event.target.value })} /></label>
+              <button className="primary-btn" disabled={isSubmitting || !token} type="submit">{isSubmitting ? 'Menyimpan...' : 'Simpan Password Baru'}</button>
+            </>
+          )}
+        </form>
+        {!isComplete && <p className="auth-switch"><button onClick={() => navigate('/forgot-password')}>Minta tautan baru</button></p>}
       </section>
     </AuthShell>
   )

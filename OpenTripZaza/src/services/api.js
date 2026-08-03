@@ -110,6 +110,8 @@ export const loginUser = async (email, password, role) => {
 }
 export const getSessionUser = () => request('users/session.php')
 export const registerCustomer = (data) => jsonPost('auth/register.php', data)
+export const requestPasswordReset = (email) => jsonPost('auth/forgot-password.php', { email })
+export const resetPassword = (token, password) => jsonPost('auth/reset-password.php', { token, password })
 export const resendEmailVerification = (email) => jsonPost('auth/resend-verification.php', { email })
 export const verifyEmail = (email, otp) => jsonPost('auth/verify-email.php', { email, otp })
 export const getCurrentCustomer = (email) => request(`auth/me.php?email=${encodeURIComponent(email)}`)
