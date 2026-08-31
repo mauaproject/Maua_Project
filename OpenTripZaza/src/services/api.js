@@ -38,6 +38,10 @@ export const updateTrip = (data) => jsonPost('trips/update.php', data)
 export const updateTripDriveLink = (data) => jsonPost('trips/update-drive-link.php', data)
 export const deleteTrip = (id) => jsonPost('trips/delete.php', { id })
 export const permanentlyDeleteTrip = (id, confirmation, adminEmail) => jsonPost('trips/permanent-delete.php', { id, confirmation, adminEmail })
+export const getTripGenerationTemplates = ({ type = 'open', year, month } = {}) => request(
+  `trip-templates/index.php?type=${encodeURIComponent(type)}&year=${encodeURIComponent(year)}&month=${encodeURIComponent(month)}`,
+)
+export const generateTripFromTemplate = (data) => jsonPost('trip-templates/generate.php', data)
 
 export const createBooking = (data, paymentProof = null) => {
   if (paymentProof instanceof File) {

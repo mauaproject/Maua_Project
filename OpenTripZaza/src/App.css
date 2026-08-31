@@ -5443,6 +5443,235 @@ button:disabled {
   font-size: 28px;
   line-height: 1.12;
 }
+.trip-generator-backdrop {
+  z-index: 900;
+}
+.trip-generator-modal {
+  display: grid;
+  gap: 20px;
+  width: min(1120px, 100%);
+  max-height: min(860px, calc(100vh - 44px));
+  border-radius: 24px;
+  background: #fffdf8;
+  padding: clamp(20px, 3vw, 30px);
+}
+.trip-generator-modal .modal-head > div {
+  display: grid;
+  gap: 5px;
+}
+.trip-generator-modal .modal-head .eyebrow {
+  margin: 0;
+}
+.trip-generator-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+.trip-generator-choice {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-height: 220px;
+  border: 1px solid rgba(184, 132, 43, 0.24);
+  border-radius: 20px;
+  background: #ffffff;
+  color: #241a08;
+  padding: 22px;
+  text-align: left;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+.trip-generator-choice:hover,
+.trip-generator-choice:focus-visible {
+  border-color: #b8842b;
+  box-shadow: 0 14px 34px rgba(36, 26, 8, 0.11);
+  transform: translateY(-2px);
+}
+.trip-generator-choice > span {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 50%;
+  background: #f8ebc8;
+  color: #7a5418;
+  font-size: 13px;
+  font-weight: 900;
+}
+.trip-generator-choice.is-private > span {
+  background: #e8f2df;
+  color: #3d6b22;
+}
+.trip-generator-choice.is-manual > span {
+  background: #eee9df;
+  color: #5d5140;
+}
+.trip-generator-choice strong {
+  font-size: 22px;
+}
+.trip-generator-choice small {
+  color: #6f5b2c;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.trip-generator-body {
+  display: grid;
+  gap: 16px;
+}
+.trip-generator-fields {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) 180px 150px;
+  gap: 12px;
+}
+.trip-generator-fields label,
+.trip-generator-schedule label {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  color: #241a08;
+  font-size: 13px;
+  font-weight: 800;
+}
+.trip-generator-fields input,
+.trip-generator-fields select,
+.trip-generator-schedule input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  box-sizing: border-box;
+  border: 1px solid #e6cfa8;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #241a08;
+  padding: 9px 11px;
+  outline: 0;
+}
+.trip-generator-fields input:focus,
+.trip-generator-fields select:focus,
+.trip-generator-schedule input:focus {
+  border-color: #c08a2e;
+  box-shadow: 0 0 0 3px rgba(192, 138, 46, 0.16);
+}
+.trip-generator-loading {
+  margin: 0;
+  border-radius: 14px;
+  background: #fff7e3;
+  color: #7a5418;
+  padding: 16px;
+}
+.trip-generator-summary {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr 1fr;
+  gap: 10px;
+}
+.trip-generator-summary > div {
+  display: grid;
+  gap: 5px;
+  border: 1px solid rgba(184, 132, 43, 0.18);
+  border-radius: 14px;
+  background: #fffaf0;
+  padding: 13px 14px;
+}
+.trip-generator-summary span {
+  color: #806c3b;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.trip-generator-summary strong {
+  color: #241a08;
+  font-size: 14px;
+  line-height: 1.4;
+}
+.trip-generator-preview {
+  display: grid;
+  gap: 12px;
+  min-height: 0;
+  border: 1px solid rgba(184, 132, 43, 0.2);
+  border-radius: 18px;
+  background: #ffffff;
+  padding: 14px;
+}
+.trip-generator-preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+.trip-generator-preview-head > div {
+  display: grid;
+  gap: 3px;
+}
+.trip-generator-preview-head strong {
+  color: #241a08;
+  font-size: 16px;
+}
+.trip-generator-preview-head span {
+  color: #806c3b;
+  font-size: 13px;
+}
+.trip-generator-schedule-list {
+  display: grid;
+  gap: 8px;
+  max-height: 360px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.trip-generator-schedule {
+  display: grid;
+  grid-template-columns: 150px minmax(140px, 1fr) 112px 112px 90px auto;
+  align-items: end;
+  gap: 8px;
+  border-radius: 13px;
+  background: #fbf7ef;
+  padding: 10px;
+}
+.trip-generator-schedule .outline-btn {
+  min-height: 44px;
+  padding: 8px 11px;
+}
+.trip-generator-session-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.trip-generator-session-grid > div {
+  display: grid;
+  gap: 4px;
+  border-radius: 12px;
+  background: #f7f3e9;
+  padding: 12px;
+}
+.trip-generator-session-grid strong {
+  color: #241a08;
+}
+.trip-generator-session-grid span {
+  color: #806c3b;
+  font-size: 13px;
+}
+.trip-generator-warning {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #efd08b;
+  border-radius: 16px;
+  background: #fff6d9;
+  color: #63440f;
+  padding: 16px;
+}
+.trip-generator-warning p {
+  margin: 0;
+  line-height: 1.5;
+}
+.trip-generator-warning .outline-btn {
+  justify-self: start;
+}
+.trip-generator-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  border-top: 1px solid rgba(184, 132, 43, 0.18);
+  padding-top: 15px;
+}
 .app-modal-backdrop {
   z-index: 1000;
   overflow: hidden;
@@ -7130,6 +7359,23 @@ td {
 }
 
 @media (max-width: 820px) {
+  .trip-generator-choice-grid,
+  .trip-generator-summary,
+  .trip-generator-session-grid {
+    grid-template-columns: 1fr;
+  }
+  .trip-generator-choice {
+    min-height: 0;
+  }
+  .trip-generator-fields {
+    grid-template-columns: 1fr 1fr;
+  }
+  .trip-generator-fields label:first-child {
+    grid-column: 1 / -1;
+  }
+  .trip-generator-schedule {
+    grid-template-columns: 1fr 1fr;
+  }
   .admin-trip-page .admin-filter-groups {
     display: grid;
     grid-template-columns: minmax(0, 1fr) repeat(2, minmax(130px, 0.5fr));
@@ -7149,6 +7395,31 @@ td {
 }
 
 @media (max-width: 620px) {
+  .trip-generator-backdrop {
+    align-items: end;
+    padding: 0;
+  }
+  .trip-generator-modal {
+    max-height: 92vh;
+    border-radius: 24px 24px 0 0;
+    padding: 18px;
+  }
+  .trip-generator-fields,
+  .trip-generator-schedule {
+    grid-template-columns: 1fr;
+  }
+  .trip-generator-fields label:first-child {
+    grid-column: auto;
+  }
+  .trip-generator-preview-head,
+  .trip-generator-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .trip-generator-preview-head .outline-btn,
+  .trip-generator-actions button {
+    width: 100%;
+  }
   .admin-trip-page .admin-page-head {
     align-items: stretch;
     padding: 18px;

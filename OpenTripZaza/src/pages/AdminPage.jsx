@@ -89,6 +89,16 @@ const newTripAddon = (source = {}) => ({
   workerAction: source.workerAction === 'drive_link' ? 'drive_link' : 'none',
   status: isTripAddonActive(source) ? 'active' : 'inactive',
 })
+const tripMonthOptions = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+]
+const getDefaultTripPeriod = () => {
+  const nextMonth = new Date()
+  nextMonth.setDate(1)
+  nextMonth.setMonth(nextMonth.getMonth() + 1)
+  return { year: nextMonth.getFullYear(), month: nextMonth.getMonth() + 1 }
+}
 
 const getActivityText = (trip) => {
   if (trip?.activities) return localizedList(trip.activities, 'id').join('\n')
@@ -458,12 +468,252 @@ export function AdminReviews(props) {
   )
 }
 
+function TripCreationModal({ isOpen, navigate, loadTemplates, generateTrip, onClose }) {
+  const defaultPeriod = getDefaultTripPeriod()
+  const [mode, setMode] = useState('choice')
+  const [year, setYear] = useState(defaultPeriod.year)
+  const [month, setMonth] = useState(defaultPeriod.month)
+  const [templates, setTemplates] = useState([])
+  const [selectedTemplateId, setSelectedTemplateId] = useState('')
+  const [draftSchedules, setDraftSchedules] = useState([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [error, setError] = useState('')
+
+  const resetAndClose = () => {
+    if (isGenerating) return
+    setMode('choice')
+    setTemplates([])
+    setSelectedTemplateId('')
+    setDraftSchedules([])
+    setError('')
+    onClose()
+  }
+
+  useEffect(() => {
+    if (!isOpen || !['open', 'private'].includes(mode)) return undefined
+    let ignored = false
+    Promise.resolve()
+      .then(() => {
+        if (ignored) return null
+        setIsLoading(true)
+        setError('')
+        return loadTemplates({ type: mode, year, month })
+      })
+      .then((result) => {
+        if (ignored || !result) return
+        const nextTemplates = Array.isArray(result?.templates) ? result.templates : []
+        setTemplates(nextTemplates)
+        const available = nextTemplates.find((item) => !item.alreadyGenerated) || nextTemplates[0]
+        setSelectedTemplateId(available ? String(available.id) : '')
+        const schedules = available?.preview?.schedules
+        setDraftSchedules(Array.isArray(schedules) ? schedules.map((item) => ({ ...item })) : [])
+      })
+      .catch((requestError) => {
+        if (!ignored) {
+          setTemplates([])
+          setSelectedTemplateId('')
+          setError(requestError.message || 'Template trip gagal dimuat.')
+        }
+      })
+      .finally(() => {
+        if (!ignored) setIsLoading(false)
+      })
+    return () => { ignored = true }
+  }, [isOpen, loadTemplates, mode, month, year])
+
+  const selectedTemplate = templates.find((item) => String(item.id) === String(selectedTemplateId))
+
+  useEffect(() => {
+    if (!isOpen) return undefined
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape' && !isGenerating) resetAndClose()
+    }
+    window.addEventListener('keydown', closeOnEscape)
+    return () => window.removeEventListener('keydown', closeOnEscape)
+  })
+
+  if (!isOpen) return null
+
+  const updateSchedule = (index, field, value) => {
+    setDraftSchedules((current) => current.map((schedule, itemIndex) => (
+      itemIndex === index ? { ...schedule, [field]: value } : schedule
+    )))
+  }
+  const addSchedule = () => {
+    const previous = draftSchedules.at(-1)
+    setDraftSchedules((current) => [...current, {
+      id: `preview_${Date.now()}`,
+      sessionCode: `SESI${current.length + 1}`,
+      name: `Sesi ${current.length + 1}`,
+      date: previous?.date || `${year}-${String(month).padStart(2, '0')}-01`,
+      startTime: previous?.startTime || '08:00',
+      endTime: previous?.endTime || '12:00',
+      quota: previous?.quota || 5,
+    }])
+  }
+  const removeSchedule = (index) => {
+    setDraftSchedules((current) => current.filter((_, itemIndex) => itemIndex !== index))
+  }
+  const submitGeneration = async () => {
+    if (!selectedTemplate || isGenerating || selectedTemplate.alreadyGenerated) return
+    setError('')
+    setIsGenerating(true)
+    try {
+      await generateTrip({
+        templateId: selectedTemplate.id,
+        year: Number(year),
+        month: Number(month),
+        ...(mode === 'open' ? { schedules: draftSchedules } : {}),
+      })
+      setIsGenerating(false)
+      setMode('choice')
+      setTemplates([])
+      setSelectedTemplateId('')
+      setDraftSchedules([])
+      setError('')
+      onClose()
+    } catch (generationError) {
+      setError(generationError.message || 'Paket trip gagal dibuat.')
+      setIsGenerating(false)
+    }
+  }
+  const openManualForm = () => {
+    resetAndClose()
+    navigate('/admin/open-trip/tambah')
+  }
+
+  return (
+    <div className="modal-backdrop trip-generator-backdrop" role="presentation" onClick={resetAndClose}>
+      <section className="modal-panel trip-generator-modal" role="dialog" aria-modal="true" aria-labelledby="trip-generator-title" onClick={(event) => event.stopPropagation()}>
+        <div className="modal-head">
+          <div>
+            <p className="eyebrow">Tambah paket</p>
+            <h2 id="trip-generator-title">{mode === 'choice' ? 'Pilih cara membuat paket' : mode === 'open' ? 'Buat Open Trip bulanan' : 'Buat Private Trip bulanan'}</h2>
+          </div>
+          <button className="icon-btn" type="button" aria-label="Tutup modal" disabled={isGenerating} onClick={resetAndClose}>x</button>
+        </div>
+
+        {mode === 'choice' ? (
+          <div className="trip-generator-choice-grid">
+            <button className="trip-generator-choice is-open" type="button" onClick={() => setMode('open')}>
+              <span>01</span>
+              <strong>Open Trip</strong>
+              <small>Pilih template, bulan, dan tahun. Tanggal serta sesi dibuat otomatis mengikuti pola SQL.</small>
+            </button>
+            <button className="trip-generator-choice is-private" type="button" onClick={() => setMode('private')}>
+              <span>02</span>
+              <strong>Private Trip</strong>
+              <small>Salin sesi, harga pax, add-on, dan paket untuk satu bulan tanpa menyentuh bulan sebelumnya.</small>
+            </button>
+            <button className="trip-generator-choice is-manual" type="button" onClick={openManualForm}>
+              <span>03</span>
+              <strong>Buat Baru</strong>
+              <small>Buka form lengkap untuk membuat destinasi atau paket secara manual seperti sebelumnya.</small>
+            </button>
+          </div>
+        ) : (
+          <div className="trip-generator-body">
+            <div className="trip-generator-fields">
+              <label>Template trip
+                <select disabled={isLoading || isGenerating} value={selectedTemplateId} onChange={(event) => {
+                  const nextId = event.target.value
+                  const nextTemplate = templates.find((item) => String(item.id) === String(nextId))
+                  setSelectedTemplateId(nextId)
+                  const schedules = nextTemplate?.preview?.schedules
+                  setDraftSchedules(Array.isArray(schedules) ? schedules.map((item) => ({ ...item })) : [])
+                }}>
+                  {!templates.length && <option value="">Belum ada template</option>}
+                  {templates.map((template) => (
+                    <option value={template.id} key={template.id}>{template.name}{template.alreadyGenerated ? ' - sudah dibuat' : ''}</option>
+                  ))}
+                </select>
+              </label>
+              <label>Bulan
+                <select disabled={isGenerating} value={month} onChange={(event) => setMonth(Number(event.target.value))}>
+                  {tripMonthOptions.map((label, index) => <option value={index + 1} key={label}>{label}</option>)}
+                </select>
+              </label>
+              <label>Tahun
+                <input disabled={isGenerating} type="number" min="2020" max="2100" value={year} onChange={(event) => setYear(Number(event.target.value))} />
+              </label>
+            </div>
+
+            {isLoading && <p className="trip-generator-loading">Menghitung pola dan menyiapkan preview...</p>}
+            {!isLoading && selectedTemplate && (
+              <>
+                <div className="trip-generator-summary">
+                  <div><span>Nama paket baru</span><strong>{selectedTemplate.targetName}</strong></div>
+                  <div><span>Pola</span><strong>{selectedTemplate.patternLabel}</strong></div>
+                  <div><span>Data yang disalin</span><strong>{selectedTemplate.copySummary?.addons || 0} add-on, {selectedTemplate.copySummary?.images || 0} gambar{mode === 'private' ? `, ${selectedTemplate.copySummary?.sessions || 0} sesi, ${selectedTemplate.copySummary?.packages || 0} paket` : ''}</strong></div>
+                </div>
+
+                {selectedTemplate.alreadyGenerated ? (
+                  <div className="trip-generator-warning">
+                    <strong>Paket periode ini sudah ada.</strong>
+                    <p>{selectedTemplate.generatedTripName} tidak akan dibuat ulang agar booking dan data lama tetap aman.</p>
+                    <button className="outline-btn" type="button" onClick={() => {
+                      resetAndClose()
+                      navigate(`/admin/open-trip/edit/${selectedTemplate.generatedTripId}`)
+                    }}>Buka paket yang sudah ada</button>
+                  </div>
+                ) : mode === 'open' ? (
+                  <div className="trip-generator-preview">
+                    <div className="trip-generator-preview-head">
+                      <div><strong>Preview jadwal</strong><span>{draftSchedules.length} sesi akan dibuat. Admin dapat menyesuaikan pengecualian sebelum menyimpan.</span></div>
+                      <button className="outline-btn" type="button" disabled={isGenerating} onClick={addSchedule}>+ Tambah jadwal</button>
+                    </div>
+                    <div className="trip-generator-schedule-list">
+                      {draftSchedules.map((schedule, index) => (
+                        <article className="trip-generator-schedule" key={`${schedule.id}-${index}`}>
+                          <label>Tanggal<input disabled={isGenerating} type="date" value={schedule.date} onChange={(event) => updateSchedule(index, 'date', event.target.value)} /></label>
+                          <label>Nama sesi<input disabled={isGenerating} value={schedule.name} onChange={(event) => updateSchedule(index, 'name', event.target.value)} /></label>
+                          <label>Mulai<input disabled={isGenerating} type="time" value={schedule.startTime} onChange={(event) => updateSchedule(index, 'startTime', event.target.value)} /></label>
+                          <label>Selesai<input disabled={isGenerating} type="time" value={schedule.endTime} onChange={(event) => updateSchedule(index, 'endTime', event.target.value)} /></label>
+                          <label>Kuota<input disabled={isGenerating} type="number" min="1" value={schedule.quota} onChange={(event) => updateSchedule(index, 'quota', event.target.value)} /></label>
+                          <button className="outline-btn danger-btn" type="button" disabled={isGenerating || draftSchedules.length <= 1} onClick={() => removeSchedule(index)}>Hapus</button>
+                        </article>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="trip-generator-preview private-preview">
+                    <div className="trip-generator-preview-head">
+                      <div><strong>Periode dan sesi</strong><span>{formatDate(selectedTemplate.preview?.startDate)} sampai {formatDate(selectedTemplate.preview?.endDate)}</span></div>
+                    </div>
+                    <div className="trip-generator-session-grid">
+                      {(selectedTemplate.preview?.sessions || []).map((session) => (
+                        <div key={session.code || `${session.name}-${session.startTime}`}><strong>{session.name}</strong><span>{session.startTime} - {session.endTime} WIB</span></div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+            {error && <p className="form-error">{error}</p>}
+            <div className="trip-generator-actions">
+              <button className="outline-btn" type="button" disabled={isGenerating} onClick={() => {
+                setMode('choice')
+                setError('')
+              }}>Kembali</button>
+              <button className="primary-btn" type="button" disabled={isLoading || isGenerating || !selectedTemplate || selectedTemplate.alreadyGenerated || (mode === 'open' && !draftSchedules.length)} onClick={submitGeneration}>
+                {isGenerating ? 'Membuat paket...' : `Buat ${mode === 'open' ? 'Open Trip' : 'Private Trip'}`}
+              </button>
+            </div>
+          </div>
+        )}
+      </section>
+    </div>
+  )
+}
+
 export function AdminTrips(props) {
   const [activeType, setActiveType] = useState('all')
   const [activeCategory, setActiveCategory] = useState('all')
   const [activeStatus, setActiveStatus] = useState('all')
   const [search, setSearch] = useState('')
   const [tripToDelete, setTripToDelete] = useState(null)
+  const [isTripGeneratorOpen, setIsTripGeneratorOpen] = useState(false)
   const searchTerm = search.trim().toLowerCase()
   const activeTrips = props.trips.filter((trip) => !trip.isArchived && trip.status !== 'Ditutup')
   const filteredTrips = props.trips
@@ -513,7 +763,7 @@ export function AdminTrips(props) {
             <h2>Paket Trip</h2>
             <p className="muted">Kelola paket Open Trip dan Private Trip yang tampil untuk customer.</p>
           </div>
-          <button className="primary-btn admin-add-trip-btn" onClick={() => props.navigate('/admin/open-trip/tambah')}>
+          <button className="primary-btn admin-add-trip-btn" onClick={() => setIsTripGeneratorOpen(true)}>
             <span aria-hidden="true">+</span>
             Tambah Paket
           </button>
@@ -609,6 +859,13 @@ export function AdminTrips(props) {
           variant="danger"
           onConfirm={confirmDeleteTrip}
           onCancel={() => setTripToDelete(null)}
+        />
+        <TripCreationModal
+          isOpen={isTripGeneratorOpen}
+          navigate={props.navigate}
+          loadTemplates={props.loadTripGenerationTemplates}
+          generateTrip={props.generateTripFromTemplate}
+          onClose={() => setIsTripGeneratorOpen(false)}
         />
       </section>
     </AdminShell>

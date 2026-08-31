@@ -743,6 +743,13 @@ function App() {
     navigate('/admin/open-trip')
   }
 
+  const generateTripFromTemplate = async (payload) => {
+    const savedTrip = await api.generateTripFromTemplate(payload)
+    await refreshData()
+    showToast(`${savedTrip.name} berhasil dibuat tanpa mengubah paket bulan sebelumnya.`)
+    return savedTrip
+  }
+
   const deleteTrip = async (id) => {
     await api.deleteTrip(id)
     await refreshData()
@@ -814,6 +821,8 @@ function App() {
     submitReview,
     setReviewStatus,
     saveTrip,
+    loadTripGenerationTemplates: api.getTripGenerationTemplates,
+    generateTripFromTemplate,
     deleteTrip,
     permanentlyDeleteTrip,
     takeJob,

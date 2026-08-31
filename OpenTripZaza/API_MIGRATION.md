@@ -111,6 +111,24 @@ sedangkan admin memprosesnya melalui menu **Reschedule**. Status booking dan
 pembayaran tetap sama selama pengajuan masih menunggu. Saat disetujui, perpindahan
 jadwal serta pembaruan kapasitas dijalankan dalam satu transaksi database.
 
+## Generator paket trip bulanan
+
+Sebelum memakai pilihan **Open Trip** atau **Private Trip** pada modal
+**Tambah Paket**, jalankan migration berikut satu kali melalui phpMyAdmin:
+
+`api/migrations/2026-08-31-trip-generation-templates.sql`
+
+Migration ini membuat template pola jadwal dari trip sumber yang digunakan oleh
+migration Agustus serta mencatat kombinasi template, bulan, dan tahun yang sudah
+dibuat. Paket Agustus 2026 yang sudah ada ikut dicatat sehingga tidak dapat
+terduplikasi. Pembuatan bulan baru menghasilkan `trip_id` baru dan tidak mengubah
+trip, jadwal, booking, harga, add-on, maupun paket pada bulan sebelumnya.
+
+Endpoint admin yang digunakan:
+
+- `GET /api/trip-templates/index.php?type=open&year=2026&month=9`
+- `POST /api/trip-templates/generate.php`
+
 ## Catatan deployment Vite
 
 Jalankan `npm run build`, lalu unggah isi folder `dist` ke document root website.

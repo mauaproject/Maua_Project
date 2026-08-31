@@ -381,10 +381,19 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
             $imageStatement->execute([$tripId, $url, $thumbnailByImageUrl[$url] ?? null, $index]);
         }
         foreach (array_diff($existingImageUrls, $imageUrls) as $removedUrl) {
-            deleteStoredUpload((string) $removedUrl, 'trips');
+            $imageStillUsed = $pdo->prepare(
+                'SELECT COUNT(*) FROM trip_images WHERE image_url = ? OR thumbnail_url = ?'
+            );
+            $imageStillUsed->execute([$removedUrl, $removedUrl]);
+            if ((int) $imageStillUsed->fetchColumn() === 0) {
+                deleteStoredUpload((string) $removedUrl, 'trips');
+            }
             $removedThumbnail = $thumbnailByImageUrl[$removedUrl] ?? null;
             if ($removedThumbnail) {
-                deleteStoredUpload((string) $removedThumbnail, 'trips');
+                $imageStillUsed->execute([$removedThumbnail, $removedThumbnail]);
+                if ((int) $imageStillUsed->fetchColumn() === 0) {
+                    deleteStoredUpload((string) $removedThumbnail, 'trips');
+                }
             }
         }
     }

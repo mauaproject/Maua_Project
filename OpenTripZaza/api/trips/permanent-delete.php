@@ -48,6 +48,18 @@ runEndpoint(function (PDO $pdo): void {
             "Trip belum melewati masa retensi arsip 30 hari. Hapus permanen tersedia pada {$availableAt} WIB."
         );
     }
+    if (tableHasColumn($pdo, 'trip_generation_templates', 'source_trip_id')) {
+        $templateSource = $pdo->prepare(
+            "SELECT name FROM trip_generation_templates WHERE source_trip_id=? AND status='active' LIMIT 1"
+        );
+        $templateSource->execute([$tripId]);
+        $templateName = $templateSource->fetchColumn();
+        if ($templateName) {
+            throw new InvalidArgumentException(
+                "Trip ini masih menjadi sumber template {$templateName}. Nonaktifkan atau pindahkan sumber template sebelum menghapus permanen."
+            );
+        }
+    }
 
     $tripImageStatement = $pdo->prepare(
         'SELECT image_url, thumbnail_url FROM trip_images WHERE trip_id=?'
@@ -100,9 +112,19 @@ runEndpoint(function (PDO $pdo): void {
         throw $exception;
     }
 
+    $tripImageStillUsed = $pdo->prepare(
+        'SELECT COUNT(*) FROM trip_images WHERE image_url = ? OR thumbnail_url = ?'
+    );
     foreach ($tripImages as $image) {
-        deleteStoredUpload((string) ($image['image_url'] ?? ''), 'trips');
-        deleteStoredUpload((string) ($image['thumbnail_url'] ?? ''), 'trips');
+        foreach ([$image['image_url'] ?? '', $image['thumbnail_url'] ?? ''] as $imageUrl) {
+            if (!$imageUrl) {
+                continue;
+            }
+            $tripImageStillUsed->execute([$imageUrl, $imageUrl]);
+            if ((int) $tripImageStillUsed->fetchColumn() === 0) {
+                deleteStoredUpload((string) $imageUrl, 'trips');
+            }
+        }
     }
     foreach ($paymentFiles as $payment) {
         deleteStoredUpload((string) ($payment['payment_proof_url'] ?? ''), 'payment-proofs');
