@@ -33,6 +33,13 @@ const getTripDescription = (trip, lang) => localizedText(trip?.description, lang
 const getTripActivities = (trip, lang) => localizedList(trip?.activities ?? trip?.activity ?? trip?.itinerary ?? trip?.itineraryDays, lang)
 const getTripFacilities = (trip, lang) => localizedList(trip?.facilities, lang)
 const isCustomExperience = (trip) => trip?.experienceType === 'custom'
+const isPlainLeftClick = (event) => event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey
+const navigateWithLink = (event, navigate, target, beforeNavigate) => {
+  if (!isPlainLeftClick(event)) return
+  event.preventDefault()
+  beforeNavigate?.()
+  navigate(target)
+}
 const getTripTypeLabel = (trip, registration, t) => {
   const isPrivate = trip?.isPrivateTrip || registration?.isPrivateTrip || registration?.isPrivateTour || registration?.tripType === 'private'
   const isCustom = trip?.experienceType === 'custom' || registration?.experienceType === 'custom'
@@ -269,14 +276,15 @@ export function PublicNav({ navigate, session, logout }) {
         />
       )}
       <header className={`public-nav ${isScrolled ? 'is-scrolled' : ''} ${isMenuOpen ? 'is-menu-open' : ''}`}>
-        <button className="public-nav-logo" type="button" onClick={() => goToPage('/')} aria-label="MAUA home">
+        <a className="public-nav-logo" href="/" onClick={(event) => navigateWithLink(event, navigate, '/', () => setIsMenuOpen(false))} aria-label="MAUA Project - beranda">
           <img src={horizontalLogo} alt="MAUA" width="600" height="180" decoding="async" />
-        </button>
+        </a>
 
         <nav className="public-nav-menu" aria-label={t('nav.main')}>
-          <button type="button" onClick={() => goToPage('/destinasi')}>{t('nav.trip')}</button>
-          <button type="button" onClick={() => goToPage('/')}>{t('nav.home')}</button>
-          <button type="button" onClick={() => goToPage('/review')}>{t('nav.review')}</button>
+          <a href="/destinasi" onClick={(event) => navigateWithLink(event, navigate, '/destinasi')}>{t('nav.trip')}</a>
+          <a href="/open-trip-jogja" onClick={(event) => navigateWithLink(event, navigate, '/open-trip-jogja')}>{t('nav.openTripJogja')}</a>
+          <a href="/" onClick={(event) => navigateWithLink(event, navigate, '/')}>{t('nav.home')}</a>
+          <a href="/reviews" onClick={(event) => navigateWithLink(event, navigate, '/reviews')}>{t('nav.review')}</a>
         </nav>
 
         <div className="public-nav-actions">
@@ -319,9 +327,10 @@ export function PublicNav({ navigate, session, logout }) {
             <button className={lang === 'id' ? 'is-active' : ''} type="button" aria-pressed={lang === 'id'} onClick={() => changeLanguage('id')}>ID</button>
             <button className={lang === 'en' ? 'is-active' : ''} type="button" aria-pressed={lang === 'en'} onClick={() => changeLanguage('en')}>EN</button>
           </div>
-          <button type="button" onClick={() => goToPage('/destinasi')}>{t('nav.trip')}</button>
-          <button type="button" onClick={() => goToPage('/')}>{t('nav.home')}</button>
-          <button type="button" onClick={() => goToPage('/review')}>{t('nav.review')}</button>
+          <a href="/destinasi" onClick={(event) => navigateWithLink(event, navigate, '/destinasi', () => setIsMenuOpen(false))}>{t('nav.trip')}</a>
+          <a href="/open-trip-jogja" onClick={(event) => navigateWithLink(event, navigate, '/open-trip-jogja', () => setIsMenuOpen(false))}>{t('nav.openTripJogja')}</a>
+          <a href="/" onClick={(event) => navigateWithLink(event, navigate, '/', () => setIsMenuOpen(false))}>{t('nav.home')}</a>
+          <a href="/reviews" onClick={(event) => navigateWithLink(event, navigate, '/reviews', () => setIsMenuOpen(false))}>{t('nav.review')}</a>
           {isLoggedIn ? (
             <>
               <button className="mobile-account-link" type="button" onClick={goToAccount}>{t('nav.account')}</button>
@@ -540,6 +549,15 @@ export function CustomerCatalog({ trips, reviews = [], navigate, session, logout
         <DestinationCarousel trips={featuredTrips} navigate={navigate} />
       </section>
 
+      <section className="home-seo-intro reveal-on-scroll">
+        <p className="eyebrow">{t('seoIntro.eyebrow')}</p>
+        <div>
+          <h2>{t('seoIntro.title')}</h2>
+          <p>{t('seoIntro.copy')}</p>
+          <a className="text-link-btn" href="/open-trip-jogja" onClick={(event) => navigateWithLink(event, navigate, '/open-trip-jogja')}>{t('seoIntro.cta')} <span aria-hidden="true">&rarr;</span></a>
+        </div>
+      </section>
+
       <div className="catalog-section-list">
         {openCaveTrips.length > 0 && (
           <section className="catalog-trip-section" id="open-trip-list">
@@ -602,7 +620,7 @@ export function CustomerCatalog({ trips, reviews = [], navigate, session, logout
             {featuredReviews.map((review) => <ReviewCard review={review} dateLocale={dateLocale} compact key={review.id} />)}
           </div>
         ) : <p className="review-empty-state">{t('reviews.empty')}</p>}
-        <button className="outline-btn review-all-button" type="button" onClick={() => navigate('/review')}>{t('reviews.viewAll')}</button>
+        <a className="outline-btn review-all-button" href="/reviews" onClick={(event) => navigateWithLink(event, navigate, '/reviews')}>{t('reviews.viewAll')}</a>
       </section>
 
       <section className="faq-section" id="faq-list">
@@ -629,6 +647,82 @@ export function CustomerCatalog({ trips, reviews = [], navigate, session, logout
           <a href="https://www.instagram.com/mauaproject/" target="_blank" rel="noreferrer">Instagram</a>
           <a href="https://wa.me/62882005881248" target="_blank" rel="noreferrer">0882005881248</a>
         </div>
+      </footer>
+    </main>
+  )
+}
+
+export function OpenTripJogjaPage({ trips, navigate, session, logout }) {
+  const { t } = useCustomerLanguage()
+  const activeTrips = trips.filter((trip) => !trip.isArchived && (trip.status === 'Tersedia' || trip.status === 'Penuh'))
+  const caveTrips = activeTrips.filter((trip) => !isCustomExperience(trip))
+  const faqs = t('faqs', { returnObjects: true })
+
+  useEffect(() => {
+    const elements = document.querySelectorAll('.reveal-on-scroll')
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-visible')
+          observer.unobserve(entry.target)
+        }
+      })
+    }, { threshold: 0.12 })
+    elements.forEach((element) => observer.observe(element))
+    return () => observer.disconnect()
+  }, [caveTrips.length])
+
+  return (
+    <main className="public-page open-trip-landing-page">
+      <PublicNav navigate={navigate} session={session} logout={logout} />
+      <section className="open-trip-landing-hero">
+        <p className="eyebrow">{t('seoLanding.eyebrow')}</p>
+        <h1>{t('seoLanding.title')}</h1>
+        <p>{t('seoLanding.subtitle')}</p>
+        <div className="open-trip-landing-actions">
+          <a className="primary-btn" href="/destinasi" onClick={(event) => navigateWithLink(event, navigate, '/destinasi')}>{t('seoLanding.primaryCta')}</a>
+          <a className="outline-btn" href="https://wa.me/62882005881248" target="_blank" rel="noreferrer">{t('seoLanding.secondaryCta')}</a>
+        </div>
+      </section>
+
+      <section className="open-trip-benefits reveal-on-scroll">
+        <div className="section-head compact-section-head">
+          <div><p className="eyebrow">{t('seoLanding.chooseEyebrow')}</p><h2>{t('seoLanding.chooseTitle')}</h2></div>
+        </div>
+        <div className="open-trip-benefit-grid">
+          {t('seoLanding.benefits', { returnObjects: true }).map(([title, copy]) => (
+            <article key={title}><h3>{title}</h3><p>{copy}</p></article>
+          ))}
+        </div>
+      </section>
+
+      <section className="catalog-trip-section open-trip-landing-catalog" id="jadwal-open-trip">
+        <div className="section-head compact-section-head">
+          <div><p className="eyebrow">{t('seoLanding.scheduleEyebrow')}</p><h2>{t('seoLanding.scheduleTitle')}</h2><p>{t('seoLanding.scheduleCopy')}</p></div>
+          <span>{caveTrips.length} {t('catalog.packageCount')}</span>
+        </div>
+        <div className="trip-grid catalog-trip-grid">
+          {caveTrips.length ? caveTrips.map((trip) => <TripCard key={trip.id} trip={trip} navigate={navigate} />) : <p className="empty-state">{t('catalog.openEmpty')}</p>}
+        </div>
+      </section>
+
+      <section className="open-trip-how reveal-on-scroll">
+        <div><p className="eyebrow">{t('seoLanding.howEyebrow')}</p><h2>{t('seoLanding.howTitle')}</h2></div>
+        <ol>
+          {t('seoLanding.steps', { returnObjects: true }).map((step, index) => <li key={step}><span>{index + 1}</span><p>{step}</p></li>)}
+        </ol>
+      </section>
+
+      <section className="faq-section" id="faq-open-trip">
+        <div className="faq-head"><p className="eyebrow">{t('catalog.faqEyebrow')}</p><h2>{t('seoLanding.faqTitle')}</h2></div>
+        <div className="faq-list">
+          {faqs.map(([question, answer]) => <details className="faq-item reveal-on-scroll" key={question}><summary>{question}</summary><p>{answer}</p></details>)}
+        </div>
+      </section>
+
+      <footer className="public-footer reveal-on-scroll">
+        <div><h2>{t('catalog.footerTitle')}</h2><p>{t('catalog.footerCopy')}</p></div>
+        <div className="footer-contact"><a href="https://www.instagram.com/mauaproject/" target="_blank" rel="noreferrer">Instagram</a><a href="https://wa.me/62882005881248" target="_blank" rel="noreferrer">0882005881248</a></div>
       </footer>
     </main>
   )
@@ -710,7 +804,7 @@ function TripCard({ trip, navigate }) {
         </dl>
         <div className="trip-card-footer">
           <div className="trip-start-price"><span>{t('common.from')}</span><strong>{formatCurrency(getTripStartingPrice(trip))}</strong></div>
-          <button className="text-link-btn" onClick={() => navigate(`/open-trip/${trip.id}`)}>{t('common.details')} <span aria-hidden="true">&rarr;</span></button>
+          <a className="text-link-btn" href={`/open-trip/${trip.id}`} onClick={(event) => navigateWithLink(event, navigate, `/open-trip/${trip.id}`)}>{t('common.details')} <span aria-hidden="true">&rarr;</span></a>
         </div>
       </div>
     </article>
@@ -731,8 +825,8 @@ function TripVisual({ trip, large, priority = false }) {
   const [firstImage] = getTripThumbnailImages(trip)
 
   return (
-    <div className={large ? 'trip-visual trip-visual-large' : 'trip-visual'} role="img" aria-label={trip?.name || 'Open trip goa'}>
-      {firstImage && <img src={firstImage} alt="" width="800" height="600" loading={priority ? 'eager' : 'lazy'} fetchPriority={priority ? 'high' : 'auto'} decoding="async" />}
+    <div className={large ? 'trip-visual trip-visual-large' : 'trip-visual'}>
+      {firstImage && <img src={firstImage} alt={`${trip?.name || 'Open trip goa'} bersama MAUA Project`} width="800" height="600" loading={priority ? 'eager' : 'lazy'} fetchPriority={priority ? 'high' : 'auto'} decoding="async" />}
       {!firstImage && <span>{trip?.name || 'Open Trip Goa'}</span>}
     </div>
   )

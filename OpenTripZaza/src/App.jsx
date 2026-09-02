@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import './App.css'
 import i18n from './i18n'
-import { CustomerAccountPage, CustomerCatalog, CustomerLoginPage, CustomerSignupPage, DestinationPage, EmailVerificationPage, ForgotPasswordPage, PaymentConfirmationPage, RegistrationPage, ResetPasswordPage, ReviewsPage, TripDetail } from './pages/UserPage'
+import { CustomerAccountPage, CustomerCatalog, CustomerLoginPage, CustomerSignupPage, DestinationPage, EmailVerificationPage, ForgotPasswordPage, OpenTripJogjaPage, PaymentConfirmationPage, RegistrationPage, ResetPasswordPage, ReviewsPage, TripDetail } from './pages/UserPage'
 import { LoginPage, NotFound } from './pages/shared'
 import * as api from './services/api'
 import { ABOVE_MAX_PAX_RULE, getPrivatePricePerPerson, normalizePricePerPersonTiers } from './utils/pricing'
@@ -20,8 +20,8 @@ import {
 const CHECKOUT_DRAFT_KEY = 'mauaCheckoutDraft'
 const SITE_URL = (import.meta.env.VITE_SITE_URL || 'https://mauaproject.com').replace(/\/$/, '')
 const DEFAULT_SEO = {
-  title: 'MAUA Project | Open Trip Goa Yogyakarta',
-  description: 'MAUA Project menyediakan open trip goa dan private cave tour di Yogyakarta dengan jadwal fleksibel, booking mudah, dan pengalaman jelajah goa yang tertata.',
+  title: 'Open Cave Trip Jogja & Wisata Goa | MAUA Project',
+  description: 'Temukan open trip Jogja, wisata goa Gunungkidul, dan private cave tour bersama MAUA Project. Cek jadwal, harga, kuota, fasilitas, lalu booking online.',
   robots: 'index, follow',
 }
 const lazyNamed = (loader, name) => lazy(() => loader().then((module) => ({ default: module[name] })))
@@ -90,6 +90,99 @@ const upsertLinkTag = (selector, attributes) => {
   Object.entries(attributes).forEach(([key, value]) => element.setAttribute(key, value))
 }
 
+const compactSeoText = (value, maxLength = 158) => {
+  const text = String(value || '').replace(/\s+/g, ' ').trim()
+  if (text.length <= maxLength) return text
+  return `${text.slice(0, maxLength - 1).replace(/\s+\S*$/, '').replace(/[\s.,;:-]+$/, '')}…`
+}
+
+const upsertStructuredData = (data) => {
+  let element = document.head.querySelector('#maua-structured-data')
+  if (!element) {
+    element = document.createElement('script')
+    element.id = 'maua-structured-data'
+    element.type = 'application/ld+json'
+    document.head.appendChild(element)
+  }
+  element.textContent = JSON.stringify(data).replace(/</g, '\\u003c')
+}
+
+const buildStructuredData = (path, trips) => {
+  const cleanPath = path.split('?')[0] || '/'
+  const canonicalPath = cleanPath === '/open-trip' ? '/' : cleanPath === '/review' ? '/reviews' : cleanPath
+  const canonicalUrl = `${SITE_URL}${canonicalPath === '/' ? '/' : canonicalPath}`
+  const tripMatch = cleanPath.match(/^\/open-trip\/(\d+)$/)
+  const trip = tripMatch ? trips.find((item) => Number(item.id) === Number(tripMatch[1])) : null
+  const seo = buildSeo(path, trips)
+  const graph = [
+    {
+      '@type': 'Organization',
+      '@id': `${SITE_URL}/#organization`,
+      name: 'MAUA Project',
+      url: `${SITE_URL}/`,
+      logo: `${SITE_URL}/favicon.svg`,
+      description: 'Penyedia open cave trip, wisata goa, dan private cave tour di Yogyakarta.',
+      telephone: '+62882005881248',
+      sameAs: ['https://www.instagram.com/mauaproject/'],
+      areaServed: [
+        { '@type': 'AdministrativeArea', name: 'Daerah Istimewa Yogyakarta' },
+        { '@type': 'AdministrativeArea', name: 'Gunungkidul' },
+      ],
+    },
+    {
+      '@type': 'WebSite',
+      '@id': `${SITE_URL}/#website`,
+      url: `${SITE_URL}/`,
+      name: 'MAUA Project',
+      inLanguage: 'id-ID',
+      publisher: { '@id': `${SITE_URL}/#organization` },
+    },
+    {
+      '@type': 'WebPage',
+      '@id': `${canonicalUrl}#webpage`,
+      url: canonicalUrl,
+      name: seo.title,
+      description: seo.description,
+      inLanguage: 'id-ID',
+      isPartOf: { '@id': `${SITE_URL}/#website` },
+      about: { '@id': `${SITE_URL}/#organization` },
+    },
+  ]
+
+  if (trip) {
+    const destination = localizedText(trip.destination, 'id') || 'Yogyakarta'
+    const description = compactSeoText(localizedText(trip.description, 'id') || `Paket ${trip.name} di ${destination}.`, 500)
+    graph.push(
+      {
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Beranda', item: `${SITE_URL}/` },
+          { '@type': 'ListItem', position: 2, name: 'Destinasi', item: `${SITE_URL}/destinasi` },
+          { '@type': 'ListItem', position: 3, name: trip.name, item: canonicalUrl },
+        ],
+      },
+      {
+        '@type': 'Product',
+        '@id': `${canonicalUrl}#trip`,
+        name: trip.name,
+        description,
+        image: [...new Set([...(trip.imageUrls || []), trip.imageUrl].filter(Boolean))],
+        category: trip.isPrivateTrip ? 'Private Cave Tour' : 'Open Cave Trip',
+        brand: { '@id': `${SITE_URL}/#organization` },
+        offers: {
+          '@type': 'Offer',
+          url: canonicalUrl,
+          priceCurrency: 'IDR',
+          price: Number(trip.price || 0),
+          availability: trip.status === 'Tersedia' ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+        },
+      },
+    )
+  }
+
+  return { '@context': 'https://schema.org', '@graph': graph }
+}
+
 const buildSeo = (path, trips) => {
   const cleanPath = path.split('?')[0] || '/'
   const parts = cleanPath.split('/').filter(Boolean)
@@ -109,18 +202,28 @@ const buildSeo = (path, trips) => {
 
   if (trip) {
     const destination = localizedText(trip.destination, 'id') || trip.destination || 'Yogyakarta'
+    const tripDescription = compactSeoText(localizedText(trip.description, 'id'), 155)
     return {
       title: `${trip.name} | MAUA Project`,
-      description: `Lihat detail ${trip.name} di ${destination}, termasuk jadwal, harga, kuota, dan informasi booking open trip atau private trip goa.`,
+      description: tripDescription || `Cek jadwal, harga, fasilitas, dan booking ${trip.name} di ${destination} bersama MAUA Project.`,
       robots: 'index, follow',
       canonicalPath: `/open-trip/${trip.id}`,
     }
   }
 
+  if (cleanPath === '/open-trip-jogja') {
+    return {
+      title: 'Open Trip Jogja & Cave Trip Gunungkidul | MAUA Project',
+      description: 'Cari open trip Jogja, open cave trip, wisata goa Gunungkidul, dan private cave tour. Bandingkan jadwal, harga, kuota, fasilitas, lalu booking online.',
+      robots: 'index, follow',
+      canonicalPath: '/open-trip-jogja',
+    }
+  }
+
   if (cleanPath.startsWith('/destinasi')) {
     return {
-      title: 'Destinasi Open Trip Goa | MAUA Project',
-      description: 'Jelajahi daftar destinasi wisata goa, open trip, private tour, jadwal, dan pilihan paket pengalaman bersama MAUA Project.',
+      title: 'Paket Open Trip Jogja & Wisata Goa | MAUA Project',
+      description: 'Lihat paket open trip Jogja, wisata goa, cave tubing, dan private cave tour di Yogyakarta beserta jadwal, harga, fasilitas, dan ketersediaannya.',
       robots: 'index, follow',
       canonicalPath: '/destinasi',
     }
@@ -128,8 +231,8 @@ const buildSeo = (path, trips) => {
 
   if (cleanPath === '/reviews' || cleanPath === '/review') {
     return {
-      title: 'Review Peserta | MAUA Project',
-      description: 'Baca pengalaman peserta yang sudah mengikuti open trip goa dan private cave tour bersama MAUA Project.',
+      title: 'Review Open Trip & Cave Tour | MAUA Project',
+      description: 'Baca ulasan dan pengalaman peserta open trip, wisata goa, dan private cave tour bersama MAUA Project di Yogyakarta.',
       robots: 'index, follow',
       canonicalPath: '/reviews',
     }
@@ -140,6 +243,16 @@ const buildSeo = (path, trips) => {
       ...DEFAULT_SEO,
       title: 'Masuk atau Daftar | MAUA Project',
       description: 'Masuk atau daftar akun pelanggan MAUA Project.',
+      robots: 'noindex, follow',
+      canonicalPath: '/',
+    }
+  }
+
+  if (cleanPath !== '/' && cleanPath !== '/open-trip') {
+    return {
+      ...DEFAULT_SEO,
+      title: 'Halaman Tidak Ditemukan | MAUA Project',
+      description: 'Halaman yang kamu cari tidak ditemukan.',
       robots: 'noindex, follow',
       canonicalPath: '/',
     }
@@ -307,6 +420,7 @@ function App() {
     upsertMetaTag('meta[property="og:url"]', { property: 'og:url', content: canonicalUrl })
     upsertMetaTag('meta[name="twitter:title"]', { name: 'twitter:title', content: seo.title })
     upsertMetaTag('meta[name="twitter:description"]', { name: 'twitter:description', content: seo.description })
+    upsertStructuredData(buildStructuredData(path, trips))
   }, [path, trips])
 
   const login = async (role, form) => {
@@ -859,6 +973,7 @@ function RouteRenderer(props) {
   }
 
   if (path === '/' || path === '/open-trip') return <CustomerCatalog {...props} />
+  if (path === '/open-trip-jogja') return <OpenTripJogjaPage {...props} />
   if (path === '/review' || path === '/reviews') return <ReviewsPage {...props} />
   if (path.startsWith('/destinasi')) return <DestinationPage {...props} />
   if (path === '/akun') {

@@ -169,8 +169,10 @@ button:disabled {
   justify-self: center;
 }
 .public-nav-menu button,
+.public-nav-menu a,
 .public-login-btn,
-.public-mobile-menu button {
+.public-mobile-menu button,
+.public-mobile-menu a {
   position: relative;
   border: 0;
   background: transparent;
@@ -178,8 +180,10 @@ button:disabled {
   padding: 10px 14px;
   font-size: 15px;
   font-weight: 700;
+  text-decoration: none;
 }
-.public-nav-menu button::after {
+.public-nav-menu button::after,
+.public-nav-menu a::after {
   position: absolute;
   right: 14px;
   bottom: 7px;
@@ -196,15 +200,21 @@ button:disabled {
 }
 .public-nav-menu button:hover,
 .public-nav-menu button:focus-visible,
+.public-nav-menu a:hover,
+.public-nav-menu a:focus-visible,
 .public-login-btn:hover,
 .public-login-btn:focus-visible,
 .public-mobile-menu button:hover,
-.public-mobile-menu button:focus-visible {
+.public-mobile-menu button:focus-visible,
+.public-mobile-menu a:hover,
+.public-mobile-menu a:focus-visible {
   color: #9a6418;
   outline: 0;
 }
 .public-nav-menu button:hover::after,
-.public-nav-menu button:focus-visible::after {
+.public-nav-menu button:focus-visible::after,
+.public-nav-menu a:hover::after,
+.public-nav-menu a:focus-visible::after {
   opacity: 1;
   transform: scaleX(1);
 }
@@ -346,15 +356,19 @@ button:disabled {
   pointer-events: auto;
   transform: translateY(0) scale(1);
 }
-.public-mobile-menu button {
+.public-mobile-menu button,
+.public-mobile-menu a {
   width: 100%;
   min-height: 44px;
   border-radius: 13px;
   padding: 11px 14px;
   text-align: left;
+  box-sizing: border-box;
 }
 .public-mobile-menu > button:hover,
-.public-mobile-menu > button:focus-visible {
+.public-mobile-menu > button:focus-visible,
+.public-mobile-menu > a:hover,
+.public-mobile-menu > a:focus-visible {
   background: #f8efd9;
 }
 .public-mobile-menu .mobile-signup-link,
@@ -404,6 +418,7 @@ button:disabled {
   font-weight: 500;
   min-height: 42px;
   box-shadow: 0 1px 2px rgba(36, 26, 8, 0.06);
+  text-decoration: none;
 }
 .outline-btn:hover,
 .logout-btn:hover {
@@ -454,6 +469,9 @@ button:disabled {
 
 /* Global buttons and layout helpers */
 .primary-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid #b8842b;
   border-radius: 999px;
   background: linear-gradient(135deg, #f4d98d, #c08a2e);
@@ -462,6 +480,7 @@ button:disabled {
   font-weight: 600;
   letter-spacing: 0;
   box-shadow: 0 12px 24px rgba(184, 132, 43, 0.18);
+  text-decoration: none;
 }
 .primary-btn:hover {
   background: linear-gradient(135deg, #ffe5a1, #ae751f);
@@ -1399,6 +1418,142 @@ button:disabled {
   padding-top: clamp(36px, 6vw, 72px);
   scroll-margin-top: 110px;
 }
+.home-seo-intro {
+  display: grid;
+  grid-template-columns: minmax(210px, 0.4fr) minmax(0, 1fr);
+  gap: clamp(24px, 6vw, 80px);
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: clamp(56px, 8vw, 92px) clamp(24px, 6vw, 72px) 24px;
+}
+.home-seo-intro h2 {
+  max-width: 760px;
+  margin: 0 0 16px;
+  color: var(--color-ink);
+  font-size: clamp(30px, 4vw, 48px);
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+}
+.home-seo-intro > div > p {
+  max-width: 760px;
+  margin: 0 0 18px;
+  color: var(--color-muted);
+  line-height: 1.75;
+}
+
+/* SEO landing page: open trip Jogja */
+.open-trip-landing-hero {
+  display: grid;
+  align-content: center;
+  min-height: 72vh;
+  padding: 148px clamp(24px, 8vw, 120px) 72px;
+  background:
+    linear-gradient(120deg, rgba(255, 248, 230, 0.98), rgba(243, 240, 238, 0.78)),
+    url("./assets/backgroundlandingpageuser.webp") center / cover;
+}
+.open-trip-landing-hero h1 {
+  max-width: 900px;
+  margin: 8px 0 20px;
+  color: var(--color-ink);
+  font-size: clamp(48px, 7vw, 88px);
+  line-height: 0.98;
+  letter-spacing: -0.055em;
+}
+.open-trip-landing-hero > p:not(.eyebrow) {
+  max-width: 760px;
+  margin: 0;
+  color: #584b39;
+  font-size: clamp(17px, 2vw, 21px);
+  line-height: 1.7;
+}
+.open-trip-landing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 28px;
+}
+.open-trip-landing-actions .outline-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.open-trip-benefits,
+.open-trip-how {
+  padding: clamp(64px, 9vw, 112px) clamp(24px, 6vw, 112px);
+}
+.open-trip-benefit-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 28px;
+}
+.open-trip-benefit-grid article {
+  border: 1px solid var(--color-line);
+  border-radius: 28px;
+  background: rgba(255, 253, 248, 0.92);
+  padding: clamp(24px, 3vw, 36px);
+  box-shadow: var(--shadow-soft);
+}
+.open-trip-benefit-grid h3 {
+  margin: 0 0 10px;
+  color: var(--color-ink);
+  font-size: 22px;
+}
+.open-trip-benefit-grid p,
+.open-trip-landing-catalog .section-head p,
+.open-trip-how p {
+  color: var(--color-muted);
+  line-height: 1.7;
+}
+.open-trip-landing-catalog {
+  padding-top: 32px;
+  padding-bottom: clamp(64px, 9vw, 112px);
+}
+.open-trip-how {
+  display: grid;
+  grid-template-columns: minmax(230px, 0.5fr) minmax(0, 1fr);
+  gap: clamp(28px, 6vw, 80px);
+  background: #241a08;
+  color: #fff8e9;
+}
+.open-trip-how h2 {
+  margin: 0;
+  color: #ffffff;
+  font-size: clamp(32px, 4vw, 52px);
+  line-height: 1.06;
+}
+.open-trip-how .eyebrow {
+  color: #e6c36f;
+}
+.open-trip-how ol {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.open-trip-how li {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 12px 0 20px;
+}
+.open-trip-how li > span {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 999px;
+  background: #e6c36f;
+  color: #241a08;
+  font-weight: 800;
+}
+.open-trip-how li p {
+  margin: 0;
+  color: #f4ead4;
+}
 .faq-head h2 {
   margin: 0;
   color: var(--color-ink);
@@ -1688,6 +1843,7 @@ button:disabled {
   padding: 0;
   font-weight: 600;
   white-space: nowrap;
+  text-decoration: none;
 }
 .text-link-btn span {
   display: inline-block;
@@ -6797,6 +6953,20 @@ td {
   }
 }
 @media (max-width: 760px) {
+  .home-seo-intro,
+  .open-trip-how {
+    grid-template-columns: 1fr;
+  }
+  .open-trip-benefit-grid {
+    grid-template-columns: 1fr;
+  }
+  .open-trip-landing-hero {
+    min-height: 78svh;
+    padding: 144px 20px 56px;
+  }
+  .open-trip-landing-hero h1 {
+    font-size: clamp(42px, 13vw, 62px);
+  }
   .floating-whatsapp-btn {
     width: 52px;
     height: 52px;

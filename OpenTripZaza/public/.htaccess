@@ -25,14 +25,32 @@ Options -Indexes -MultiViews
 
 RewriteEngine On
 
+# Satukan semua sinyal SEO ke domain utama tanpa www.
+RewriteCond %{HTTP_HOST} ^www\.mauaproject\.com$ [NC]
+RewriteRule ^ https://mauaproject.com%{REQUEST_URI} [R=301,L]
+
+# Hindari duplikasi URL lama yang menampilkan konten sama.
+RewriteRule ^open-trip/?$ / [R=301,L]
+RewriteRule ^review/?$ /reviews [R=301,L]
+
 # Jangan arahkan endpoint PHP dan file upload ke React.
 RewriteRule ^api(?:/|$) - [L]
 RewriteRule ^uploads(?:/|$) - [L]
+
+# Sitemap selalu dibentuk dari trip publik terbaru di database.
+RewriteRule ^sitemap\.xml$ sitemap.php [L]
+
+# HTML publik dirender di server agar judul, deskripsi, schema, dan isi utama
+# sudah tersedia sebelum JavaScript React berjalan.
+RewriteRule ^$ seo-render.php [L,QSA]
+RewriteRule ^(?:destinasi|reviews|open-trip-jogja)/?$ seo-render.php [L,QSA]
+RewriteRule ^open-trip/[0-9]+/?$ seo-render.php [L,QSA]
 
 # Layani file/folder asli secara langsung.
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
 
-# Fallback routing React untuk URL seperti /admin dan /open-trip/123.
-RewriteRule ^ index.html [L]
+# Fallback routing React. Renderer juga memberi noindex pada halaman akun/admin
+# dan status 404 asli untuk URL publik yang tidak dikenal.
+RewriteRule ^ seo-render.php [L,QSA]

@@ -1,10 +1,10 @@
 User-agent: *
 Allow: /
-Disallow: /admin
-Disallow: /tim
-Disallow: /akun
-Disallow: /payment-confirmation
-Disallow: /daftar
-Disallow: /verify-email
+Disallow: /api/
+Allow: /api/trips/index.php
+Allow: /api/trips/detail.php
+Allow: /api/reviews/index.php
+Disallow: /uploads/payment-proofs/
+Disallow: /uploads/worker-proofs/
 
 Sitemap: https://mauaproject.com/sitemap.xml
