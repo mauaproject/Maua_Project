@@ -549,15 +549,6 @@ export function CustomerCatalog({ trips, reviews = [], navigate, session, logout
         <DestinationCarousel trips={featuredTrips} navigate={navigate} />
       </section>
 
-      <section className="home-seo-intro reveal-on-scroll">
-        <p className="eyebrow">{t('seoIntro.eyebrow')}</p>
-        <div>
-          <h2>{t('seoIntro.title')}</h2>
-          <p>{t('seoIntro.copy')}</p>
-          <a className="text-link-btn" href="/open-trip-jogja" onClick={(event) => navigateWithLink(event, navigate, '/open-trip-jogja')}>{t('seoIntro.cta')} <span aria-hidden="true">&rarr;</span></a>
-        </div>
-      </section>
-
       <div className="catalog-section-list">
         {openCaveTrips.length > 0 && (
           <section className="catalog-trip-section" id="open-trip-list">
@@ -607,6 +598,15 @@ export function CustomerCatalog({ trips, reviews = [], navigate, session, logout
           </section>
         )}
       </div>
+
+      <section className="home-seo-intro reveal-on-scroll">
+        <p className="eyebrow">{t('seoIntro.eyebrow')}</p>
+        <div>
+          <h2>{t('seoIntro.title')}</h2>
+          <p>{t('seoIntro.copy')}</p>
+          <a className="text-link-btn" href="/open-trip-jogja" onClick={(event) => navigateWithLink(event, navigate, '/open-trip-jogja')}>{t('seoIntro.cta')} <span aria-hidden="true">&rarr;</span></a>
+        </div>
+      </section>
 
       <section className="visitor-review-preview">
         <div className="section-head compact-section-head">
