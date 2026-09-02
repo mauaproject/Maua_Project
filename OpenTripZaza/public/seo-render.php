@@ -164,12 +164,12 @@ function seoTripCards(array $trips, int $limit = 12): string
 function seoFaqs(): array
 {
     return [
-        ['Apa itu open cave trip?', 'Open cave trip adalah perjalanan jelajah goa dengan jadwal dan kuota yang sudah ditentukan. Peserta dapat mendaftar sendiri atau bersama teman lalu bergabung dengan peserta lain.'],
+        ['Apa itu vertical caving?', 'Vertical caving adalah kegiatan penelusuran goa dengan akses vertikal menggunakan perlengkapan keselamatan dan pendampingan pemandu sesuai prosedur paket.'],
         ['Apa perbedaan open trip dan private trip?', 'Open trip berbagi jadwal kegiatan dengan peserta lain. Private trip ditujukan untuk rombongan sendiri dan pilihan tanggalnya mengikuti ketersediaan paket.'],
-        ['Apakah cave trip cocok untuk pemula?', 'Tingkat kesulitan setiap goa berbeda. Periksa deskripsi paket, ikuti briefing dan arahan pemandu, serta sampaikan kondisi kesehatan sebelum memesan.'],
+        ['Apakah vertical caving cocok untuk pemula?', 'Tingkat kesulitan setiap goa berbeda. Periksa deskripsi paket, ikuti briefing dan arahan pemandu, serta sampaikan kondisi kesehatan sebelum memesan.'],
         ['Apa saja yang termasuk dalam harga trip?', 'Fasilitas berbeda pada setiap paket. Rincian pemandu, perlengkapan keselamatan, konsumsi, dokumentasi, transportasi lokal, dan add-on tercantum pada halaman masing-masing trip.'],
-        ['Bagaimana cara memesan open trip Jogja?', 'Pilih trip dan jadwal yang tersedia, buat akun, lengkapi data peserta, lalu kirim pembayaran sesuai petunjuk. Tim MAUA Project akan memeriksa dan mengonfirmasi pesanan.'],
-        ['Di mana lokasi kegiatan dan meeting point?', 'Sebagian besar program cave trip berada di kawasan Gunungkidul, Yogyakarta. Lokasi dan meeting point spesifik mengikuti detail serta informasi teknis pada paket yang dipilih.'],
+        ['Bagaimana cara memesan vertical caving Jogja?', 'Pilih trip dan jadwal yang tersedia, buat akun, lengkapi data peserta, lalu kirim pembayaran sesuai petunjuk. Tim MAUA Project akan memeriksa dan mengonfirmasi pesanan.'],
+        ['Di mana lokasi kegiatan dan meeting point?', 'Pilihan destinasi meliputi Goa Jomblang, Goa Ngeleng, Goa Sumitro, dan Goa Macan Mati. Lokasi dan meeting point spesifik mengikuti detail serta informasi teknis paket yang dipilih.'],
     ];
 }
 
@@ -179,7 +179,7 @@ function seoFaqMarkup(): string
     foreach (seoFaqs() as [$question, $answer]) {
         $items .= '<details><summary>' . seoEscape($question) . '</summary><p>' . seoEscape($answer) . '</p></details>';
     }
-    return '<section class="seo-section"><h2>Pertanyaan tentang open cave trip</h2><div class="seo-faq">' . $items . '</div></section>';
+    return '<section class="seo-section"><h2>Pertanyaan tentang vertical caving Jogja</h2><div class="seo-faq">' . $items . '</div></section>';
 }
 
 function seoOrganizationSchema(): array
@@ -190,12 +190,11 @@ function seoOrganizationSchema(): array
         'name' => SEO_SITE_NAME,
         'url' => SEO_SITE_URL . '/',
         'logo' => SEO_SITE_URL . '/favicon.svg',
-        'description' => 'Penyedia open cave trip, wisata goa, dan private cave tour di Yogyakarta.',
+        'description' => 'Penyedia vertical caving Jogja, open trip goa, dan private cave tour di Yogyakarta.',
         'telephone' => '+62882005881248',
         'sameAs' => [SEO_INSTAGRAM],
         'areaServed' => [
             ['@type' => 'AdministrativeArea', 'name' => 'Daerah Istimewa Yogyakarta'],
-            ['@type' => 'AdministrativeArea', 'name' => 'Gunungkidul'],
         ],
         'contactPoint' => [[
             '@type' => 'ContactPoint',
@@ -277,19 +276,19 @@ function seoPageHtml(string $path, array $trips, array $reviews, ?array $trip): 
     }
 
     if ($path === '/open-trip-jogja') {
-        $content = '<main><section class="seo-hero"><p class="seo-kicker">Open trip & private trip Yogyakarta</p><h1>Open Trip Jogja untuk Petualangan Goa Gunungkidul</h1>';
-        $content .= '<p class="seo-lead">Temukan jadwal open cave trip, wisata goa vertikal, cave tubing, dan private cave tour di Yogyakarta. Bandingkan tujuan, harga, kuota, serta fasilitas sebelum memesan.</p>';
+        $content = '<main><section class="seo-hero"><p class="seo-kicker">Open trip & private vertical caving</p><h1>Vertical Caving Jogja</h1>';
+        $content .= '<p class="seo-lead">Jelajahi Goa Jomblang, Goa Ngeleng, Goa Sumitro, dan Goa Macan Mati melalui open trip atau private trip. Bandingkan jadwal, harga, kuota, serta fasilitas sebelum memesan.</p>';
         $content .= '<p><a class="seo-button" href="/destinasi">Lihat semua paket trip</a></p></section>';
-        $content .= '<section class="seo-section"><h2>Pilih open trip atau private trip Jogja</h2><div class="seo-columns"><article><h3>Open cave trip</h3><p>Cocok untuk peserta individu atau kelompok kecil yang ingin bergabung pada jadwal dan kuota yang telah tersedia.</p></article><article><h3>Private cave tour</h3><p>Cocok untuk rombongan sendiri yang membutuhkan pilihan tanggal sesuai rentang ketersediaan paket.</p></article><article><h3>Informasi transparan</h3><p>Setiap halaman paket menampilkan tujuan, aktivitas, fasilitas, harga, jadwal, dan slot yang dapat dipilih.</p></article></div></section>';
-        $content .= '<section class="seo-section"><h2>Jadwal open trip Jogja yang tersedia</h2>' . seoTripCards($trips) . '</section>';
-        $content .= '<section class="seo-section"><h2>Cara booking trip</h2><ol><li>Pilih destinasi dan jenis trip.</li><li>Periksa tingkat aktivitas, fasilitas, jadwal, dan harga.</li><li>Buat akun lalu lengkapi data peserta.</li><li>Kirim pembayaran dan tunggu konfirmasi tim.</li></ol></section>';
+        $content .= '<section class="seo-section"><h2>Pilih open trip atau private vertical caving</h2><div class="seo-columns"><article><h3>Open trip vertical caving</h3><p>Cocok untuk peserta individu atau kelompok kecil yang ingin bergabung pada jadwal dan kuota yang telah tersedia.</p></article><article><h3>Private vertical caving</h3><p>Cocok untuk rombongan sendiri yang membutuhkan pilihan tanggal sesuai rentang ketersediaan paket.</p></article><article><h3>Informasi transparan</h3><p>Setiap halaman paket menampilkan tujuan, aktivitas, fasilitas, harga, jadwal, dan slot yang dapat dipilih.</p></article></div></section>';
+        $content .= '<section class="seo-section"><h2>Jadwal vertical caving Jogja yang tersedia</h2>' . seoTripCards($trips) . '</section>';
+        $content .= '<section class="seo-section"><h2>Cara booking vertical caving Jogja</h2><ol><li>Pilih destinasi dan jenis trip.</li><li>Periksa tingkat aktivitas, fasilitas, jadwal, dan harga.</li><li>Buat akun lalu lengkapi data peserta.</li><li>Kirim pembayaran dan tunggu konfirmasi tim.</li></ol></section>';
         $content .= seoFaqMarkup() . '</main>';
         return '<div class="seo-prerender">' . $nav . $content . '</div>';
     }
 
     if ($path === '/destinasi') {
-        $content = '<main><section class="seo-hero"><p class="seo-kicker">Paket wisata Yogyakarta</p><h1>Paket Open Trip Jogja, Wisata Goa, dan Private Tour</h1>';
-        $content .= '<p class="seo-lead">Jelajahi paket aktif MAUA Project di Gunungkidul dan Yogyakarta. Buka detail trip untuk memeriksa aktivitas, fasilitas, harga, jadwal, dan ketersediaan peserta.</p></section>';
+        $content = '<main><section class="seo-hero"><p class="seo-kicker">Paket vertical caving Jogja</p><h1>Paket Vertical Caving dan Open Trip Goa Jogja</h1>';
+        $content .= '<p class="seo-lead">Jelajahi Goa Jomblang, Goa Ngeleng, Goa Sumitro, dan Goa Macan Mati. Buka detail trip untuk memeriksa aktivitas, fasilitas, harga, jadwal, dan ketersediaan peserta.</p></section>';
         $content .= '<section class="seo-section"><h2>Destinasi dan aktivitas yang tersedia</h2>' . seoTripCards($trips, 16) . '</section></main>';
         return '<div class="seo-prerender">' . $nav . $content . '</div>';
     }
@@ -305,10 +304,10 @@ function seoPageHtml(string $path, array $trips, array $reviews, ?array $trip): 
         return '<div class="seo-prerender">' . $nav . $content . '</div>';
     }
 
-    $content = '<main><section class="seo-hero"><p class="seo-kicker">Cave tour Yogyakarta</p><h1>Open Cave Trip Jogja & Wisata Goa Yogyakarta</h1>';
-    $content .= '<p class="seo-lead">MAUA Project membantu kamu menemukan open trip Jogja, wisata goa Gunungkidul, dan private cave tour. Cek tujuan, jadwal, harga, kuota, serta fasilitas sebelum booking.</p>';
-    $content .= '<p><a class="seo-button" href="/open-trip-jogja">Cari open trip Jogja</a></p></section>';
-    $content .= '<section class="seo-section"><h2>Open cave trip dan private cave tour terbaru</h2><p>Pilih trip sesuai pengalaman yang kamu cari, mulai dari jelajah goa vertikal hingga kegiatan air. Detail setiap paket menjelaskan aktivitas, fasilitas, dan persiapan peserta.</p>' . seoTripCards($trips) . '</section>';
+    $content = '<main><section class="seo-hero"><p class="seo-kicker">Open trip & private vertical caving</p><h1>Vertical Caving Jogja</h1>';
+    $content .= '<p class="seo-lead">Jelajahi Goa Jomblang, Goa Ngeleng, Goa Sumitro, dan Goa Macan Mati melalui open trip atau private trip. Cek jadwal, harga, kuota, serta fasilitas sebelum booking.</p>';
+    $content .= '<p><a class="seo-button" href="/open-trip-jogja">Cari vertical caving Jogja</a></p></section>';
+    $content .= '<section class="seo-section"><h2>Open trip dan private vertical caving terbaru</h2><p>Pilih trip sesuai pengalaman yang kamu cari. Detail setiap paket menjelaskan destinasi, aktivitas, fasilitas, dan persiapan peserta.</p>' . seoTripCards($trips) . '</section>';
     $content .= seoFaqMarkup() . '</main>';
     return '<div class="seo-prerender">' . $nav . $content . '</div>';
 }
@@ -335,8 +334,8 @@ foreach ($privatePrefixes as $prefix) {
     }
 }
 
-$title = 'Open Cave Trip Jogja & Wisata Goa | MAUA Project';
-$description = 'Temukan open trip Jogja, wisata goa Gunungkidul, dan private cave tour bersama MAUA Project. Cek jadwal, harga, kuota, fasilitas, lalu booking online.';
+$title = 'Vertical Caving Jogja & Open Trip Goa | MAUA Project';
+$description = 'Vertical caving Jogja ke Goa Jomblang, Goa Ngeleng, Goa Sumitro, dan Goa Macan Mati. Cek jadwal open trip, harga, fasilitas, dan booking.';
 $canonicalPath = $path;
 $robots = 'index, follow';
 $statusCode = 200;
@@ -360,11 +359,11 @@ try {
 }
 
 if ($path === '/open-trip-jogja') {
-    $title = 'Open Trip Jogja & Cave Trip Gunungkidul | MAUA Project';
-    $description = 'Cari open trip Jogja, open cave trip, wisata goa Gunungkidul, dan private cave tour. Bandingkan jadwal, harga, kuota, fasilitas, lalu booking online.';
+    $title = 'Vertical Caving Jogja & Open Trip Goa | MAUA Project';
+    $description = 'Vertical caving Jogja ke Goa Jomblang, Goa Ngeleng, Goa Sumitro, dan Goa Macan Mati. Pilih jadwal open trip atau private trip.';
 } elseif ($path === '/destinasi') {
-    $title = 'Paket Open Trip Jogja & Wisata Goa | MAUA Project';
-    $description = 'Lihat paket open trip Jogja, wisata goa, cave tubing, dan private cave tour di Yogyakarta beserta jadwal, harga, fasilitas, dan ketersediaannya.';
+    $title = 'Paket Vertical Caving Jogja & Open Trip Goa | MAUA Project';
+    $description = 'Lihat paket vertical caving Jogja untuk Goa Jomblang, Goa Ngeleng, Goa Sumitro, dan Goa Macan Mati beserta jadwal, harga, dan fasilitas.';
 } elseif ($path === '/reviews') {
     $title = 'Review Open Trip & Cave Tour | MAUA Project';
     $description = 'Baca ulasan dan pengalaman peserta open trip, wisata goa, dan private cave tour bersama MAUA Project di Yogyakarta.';

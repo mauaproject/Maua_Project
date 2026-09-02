@@ -20,8 +20,8 @@ import {
 const CHECKOUT_DRAFT_KEY = 'mauaCheckoutDraft'
 const SITE_URL = (import.meta.env.VITE_SITE_URL || 'https://mauaproject.com').replace(/\/$/, '')
 const DEFAULT_SEO = {
-  title: 'Open Cave Trip Jogja & Wisata Goa | MAUA Project',
-  description: 'Temukan open trip Jogja, wisata goa Gunungkidul, dan private cave tour bersama MAUA Project. Cek jadwal, harga, kuota, fasilitas, lalu booking online.',
+  title: 'Vertical Caving Jogja & Open Trip Goa | MAUA Project',
+  description: 'Vertical caving Jogja ke Goa Jomblang, Goa Ngeleng, Goa Sumitro, dan Goa Macan Mati. Cek jadwal open trip, harga, fasilitas, dan booking.',
   robots: 'index, follow',
 }
 const lazyNamed = (loader, name) => lazy(() => loader().then((module) => ({ default: module[name] })))
@@ -121,12 +121,11 @@ const buildStructuredData = (path, trips) => {
       name: 'MAUA Project',
       url: `${SITE_URL}/`,
       logo: `${SITE_URL}/favicon.svg`,
-      description: 'Penyedia open cave trip, wisata goa, dan private cave tour di Yogyakarta.',
+      description: 'Penyedia vertical caving Jogja, open trip goa, dan private cave tour di Yogyakarta.',
       telephone: '+62882005881248',
       sameAs: ['https://www.instagram.com/mauaproject/'],
       areaServed: [
         { '@type': 'AdministrativeArea', name: 'Daerah Istimewa Yogyakarta' },
-        { '@type': 'AdministrativeArea', name: 'Gunungkidul' },
       ],
     },
     {
@@ -213,8 +212,8 @@ const buildSeo = (path, trips) => {
 
   if (cleanPath === '/open-trip-jogja') {
     return {
-      title: 'Open Trip Jogja & Cave Trip Gunungkidul | MAUA Project',
-      description: 'Cari open trip Jogja, open cave trip, wisata goa Gunungkidul, dan private cave tour. Bandingkan jadwal, harga, kuota, fasilitas, lalu booking online.',
+      title: 'Vertical Caving Jogja & Open Trip Goa | MAUA Project',
+      description: 'Vertical caving Jogja ke Goa Jomblang, Goa Ngeleng, Goa Sumitro, dan Goa Macan Mati. Pilih jadwal open trip atau private trip.',
       robots: 'index, follow',
       canonicalPath: '/open-trip-jogja',
     }
@@ -222,8 +221,8 @@ const buildSeo = (path, trips) => {
 
   if (cleanPath.startsWith('/destinasi')) {
     return {
-      title: 'Paket Open Trip Jogja & Wisata Goa | MAUA Project',
-      description: 'Lihat paket open trip Jogja, wisata goa, cave tubing, dan private cave tour di Yogyakarta beserta jadwal, harga, fasilitas, dan ketersediaannya.',
+      title: 'Paket Vertical Caving Jogja & Open Trip Goa | MAUA Project',
+      description: 'Lihat paket vertical caving Jogja untuk Goa Jomblang, Goa Ngeleng, Goa Sumitro, dan Goa Macan Mati beserta jadwal, harga, dan fasilitas.',
       robots: 'index, follow',
       canonicalPath: '/destinasi',
     }
