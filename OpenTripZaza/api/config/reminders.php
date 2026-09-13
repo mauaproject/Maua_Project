@@ -348,8 +348,7 @@ function runDailyReminders(PDO $pdo): array
             $today->modify('+7 days')->format('Y-m-d'),
         ],
         'H1' => [
-            // Include the trip day as a fallback when the H-1 cron did not run or failed.
-            $today->format('Y-m-d'),
+            $today->modify('+1 day')->format('Y-m-d'),
             $today->modify('+1 day')->format('Y-m-d'),
         ],
         // Log key kept for reminder_logs enum compatibility; review email is sent on H+2.
