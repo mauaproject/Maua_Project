@@ -45,6 +45,22 @@ runEndpoint(function (PDO $pdo): void {
         $pdo->prepare('UPDATE payments SET payment_status = ? WHERE booking_id = ?')
             ->execute([$paymentStatus, $bookingId]);
 
+        if ($data['status'] !== 'Disetujui') {
+            $heldStatement = $pdo->prepare(
+                "SELECT requested_schedule_id FROM booking_reschedule_requests
+                 WHERE booking_id = ? AND status IN ('awaiting_payment','pending') FOR UPDATE"
+            );
+            $heldStatement->execute([$bookingId]);
+            $heldSchedules = array_filter(array_column($heldStatement->fetchAll(), 'requested_schedule_id'));
+            $pdo->prepare(
+                "UPDATE booking_reschedule_requests SET status = 'cancelled'
+                 WHERE booking_id = ? AND status IN ('awaiting_payment','pending')"
+            )->execute([$bookingId]);
+            foreach (array_unique($heldSchedules) as $heldScheduleId) {
+                syncOpenTripAvailability($pdo, (int) $heldScheduleId, (int) $booking['trip_id']);
+            }
+        }
+
         if ($booking['schedule_id']) {
             syncOpenTripAvailability($pdo, (int) $booking['schedule_id'], (int) $booking['trip_id']);
         }

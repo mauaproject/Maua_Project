@@ -111,6 +111,17 @@ sedangkan admin memprosesnya melalui menu **Reschedule**. Status booking dan
 pembayaran tetap sama selama pengajuan masih menunggu. Saat disetujui, perpindahan
 jadwal serta pembaruan kapasitas dijalankan dalam satu transaksi database.
 
+Untuk biaya reschedule H-7 dan penahanan slot, jalankan migration berikut **setelah**
+migration reschedule di atas dan **sebelum** mengunggah frontend/API terbaru:
+
+`api/migrations/2026-09-17-reschedule-fees-and-reservations.sql`
+
+Pengajuan pada H-7 sampai H-1 dikenakan 20% dari `bookings.total_price`. Slot
+tujuan langsung ditahan sesuai jumlah peserta. Pengajuan berbayar yang belum
+mengunggah bukti transfer kedaluwarsa setelah satu jam; kedaluwarsa diproses
+ketika API trip, booking, atau reschedule diakses. Bukti disimpan di
+`uploads/payment-proofs` dan status pembayaran booking awal tidak diubah.
+
 ## Generator paket trip bulanan
 
 Sebelum memakai pilihan **Open Trip** atau **Private Trip** pada modal

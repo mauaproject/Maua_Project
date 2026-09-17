@@ -282,7 +282,6 @@ export function PublicNav({ navigate, session, logout }) {
 
         <nav className="public-nav-menu" aria-label={t('nav.main')}>
           <a href="/destinasi" onClick={(event) => navigateWithLink(event, navigate, '/destinasi')}>{t('nav.trip')}</a>
-          <a href="/open-trip-jogja" onClick={(event) => navigateWithLink(event, navigate, '/open-trip-jogja')}>{t('nav.openTripJogja')}</a>
           <a href="/" onClick={(event) => navigateWithLink(event, navigate, '/')}>{t('nav.home')}</a>
           <a href="/reviews" onClick={(event) => navigateWithLink(event, navigate, '/reviews')}>{t('nav.review')}</a>
         </nav>
@@ -328,7 +327,6 @@ export function PublicNav({ navigate, session, logout }) {
             <button className={lang === 'en' ? 'is-active' : ''} type="button" aria-pressed={lang === 'en'} onClick={() => changeLanguage('en')}>EN</button>
           </div>
           <a href="/destinasi" onClick={(event) => navigateWithLink(event, navigate, '/destinasi', () => setIsMenuOpen(false))}>{t('nav.trip')}</a>
-          <a href="/open-trip-jogja" onClick={(event) => navigateWithLink(event, navigate, '/open-trip-jogja', () => setIsMenuOpen(false))}>{t('nav.openTripJogja')}</a>
           <a href="/" onClick={(event) => navigateWithLink(event, navigate, '/', () => setIsMenuOpen(false))}>{t('nav.home')}</a>
           <a href="/reviews" onClick={(event) => navigateWithLink(event, navigate, '/reviews', () => setIsMenuOpen(false))}>{t('nav.review')}</a>
           {isLoggedIn ? (
@@ -2174,7 +2172,7 @@ export function EmailVerificationPage({ path, navigate, verifyEmailOtp, resendVe
   )
 }
 
-export function CustomerAccountPage({ registrations, trips, jobs = [], rescheduleRequests = [], submitReschedule, cancelReschedule, getRescheduleOptions, submitReview, navigate, session, logout, customerAccounts = [], updateCustomerProfile }) {
+export function CustomerAccountPage({ registrations, trips, jobs = [], rescheduleRequests = [], submitReschedule, submitReschedulePayment, cancelReschedule, getRescheduleOptions, submitReview, navigate, session, logout, customerAccounts = [], updateCustomerProfile }) {
   const { t, lang, dateLocale, statusLabel } = useCustomerLanguage()
   const customerProfile = {
     ...(customerAccounts.find((item) => item.email === session?.email) || {}),
@@ -2189,6 +2187,11 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], reschedul
   const [rescheduleError, setRescheduleError] = useState('')
   const [rescheduleLoading, setRescheduleLoading] = useState(false)
   const [rescheduleSubmitting, setRescheduleSubmitting] = useState(false)
+  const [reschedulePaymentRequest, setReschedulePaymentRequest] = useState(null)
+  const [reschedulePaymentProof, setReschedulePaymentProof] = useState(null)
+  const [reschedulePaymentPreview, setReschedulePaymentPreview] = useState('')
+  const [reschedulePaymentError, setReschedulePaymentError] = useState('')
+  const [reschedulePaymentSubmitting, setReschedulePaymentSubmitting] = useState(false)
   const [isProfileEditing, setIsProfileEditing] = useState(false)
   const [profileForm, setProfileForm] = useState(() => getCustomerProfileForm(customerProfile))
   const [profileError, setProfileError] = useState('')
@@ -2196,6 +2199,10 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], reschedul
   const [reviewForm, setReviewForm] = useState({ tripName: '', rating: 5, content: '' })
   const [reviewError, setReviewError] = useState('')
   const [reviewSubmitting, setReviewSubmitting] = useState(false)
+
+  useEffect(() => () => {
+    if (reschedulePaymentPreview) URL.revokeObjectURL(reschedulePaymentPreview)
+  }, [reschedulePaymentPreview])
 
   if (session?.role !== 'customer') {
     navigate('/login')
@@ -2230,7 +2237,7 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], reschedul
   const selectedWorkResults = selectedOrder ? getRegistrationResultJobs(jobs, selectedOrder) : []
   const profileComplete = isCustomerTripProfileComplete(customerProfile)
   const pendingRescheduleByBooking = Object.fromEntries(
-    rescheduleRequests.filter((request) => request.status === 'pending').map((request) => [Number(request.bookingId), request]),
+    rescheduleRequests.filter((request) => ['awaiting_payment', 'pending'].includes(request.status)).map((request) => [Number(request.bookingId), request]),
   )
   const latestRescheduleByBooking = rescheduleRequests.reduce((result, request) => {
     const bookingId = Number(request.bookingId)
@@ -2261,6 +2268,49 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], reschedul
     setRescheduleError('')
   }
 
+  const closeReschedulePayment = () => {
+    if (reschedulePaymentSubmitting) return
+    setReschedulePaymentRequest(null)
+    setReschedulePaymentProof(null)
+    setReschedulePaymentPreview('')
+    setReschedulePaymentError('')
+  }
+
+  const handleReschedulePaymentProof = (event) => {
+    const file = event.target.files?.[0] || null
+    const error = validatePaymentProof(file)
+    if (error) {
+      setReschedulePaymentProof(null)
+      setReschedulePaymentPreview('')
+      setReschedulePaymentError(error)
+      event.target.value = ''
+      return
+    }
+    setReschedulePaymentProof(file)
+    setReschedulePaymentPreview(URL.createObjectURL(file))
+    setReschedulePaymentError('')
+  }
+
+  const sendReschedulePayment = async (event) => {
+    event.preventDefault()
+    const error = validatePaymentProof(reschedulePaymentProof)
+    if (error) {
+      setReschedulePaymentError(error)
+      return
+    }
+    setReschedulePaymentSubmitting(true)
+    setReschedulePaymentError('')
+    try {
+      await submitReschedulePayment(reschedulePaymentRequest.id, reschedulePaymentProof)
+      setReschedulePaymentSubmitting(false)
+      closeReschedulePayment()
+    } catch (submitError) {
+      setReschedulePaymentError(submitError.message || 'Bukti transfer gagal dikirim.')
+    } finally {
+      setReschedulePaymentSubmitting(false)
+    }
+  }
+
   const sendRescheduleRequest = async (event) => {
     event.preventDefault()
     if (!rescheduleForm.adminContactConfirmed) {
@@ -2270,7 +2320,7 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], reschedul
     setRescheduleSubmitting(true)
     setRescheduleError('')
     try {
-      await submitReschedule({
+      const request = await submitReschedule({
         bookingId: rescheduleBooking.id,
         requestedScheduleId: rescheduleForm.requestedScheduleId || undefined,
         requestedDate: rescheduleForm.requestedDate || undefined,
@@ -2280,6 +2330,7 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], reschedul
       })
       setRescheduleSubmitting(false)
       closeRescheduleModal()
+      if (request.status === 'awaiting_payment') setReschedulePaymentRequest(request)
       return
     } catch (error) {
       setRescheduleError(error.message || 'Pengajuan reschedule gagal dikirim.')
@@ -2473,9 +2524,17 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], reschedul
                 </dl>
                 {pendingReschedule && (
                   <div className="reschedule-pending-notice">
-                    <strong>Reschedule menunggu persetujuan admin</strong>
+                    <strong>{pendingReschedule.status === 'awaiting_payment' ? 'Slot jadwal baru ditahan, menunggu pembayaran' : 'Reschedule menunggu persetujuan admin'}</strong>
                     <span>{formatDate(pendingReschedule.oldDate, dateLocale)} → {formatDate(pendingReschedule.requestedDate, dateLocale)}</span>
+                    {pendingReschedule.feeAmount > 0 && <small>Biaya reschedule: {formatCurrency(pendingReschedule.feeAmount)}</small>}
+                    {pendingReschedule.status === 'awaiting_payment' && <small>Unggah bukti transfer sebelum {formatDate(pendingReschedule.paymentExpiresAt, dateLocale)} {pendingReschedule.paymentExpiresAt?.slice(11, 16)} WIB agar slot tujuan tidak dilepas.</small>}
                     <small>Jadwal lama tetap aktif sampai admin menyetujui pengajuan.</small>
+                  </div>
+                )}
+                {!pendingReschedule && latestReschedule?.status === 'expired' && (
+                  <div className="reschedule-result-notice is-rejected">
+                    <strong>Waktu pembayaran reschedule habis</strong>
+                    <span>Slot tujuan telah dilepas. Kamu bisa membuat pengajuan baru.</span>
                   </div>
                 )}
                 {!pendingReschedule && latestReschedule?.status === 'rejected' && (
@@ -2499,14 +2558,21 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], reschedul
                     <button className="outline-btn" onClick={() => openRescheduleModal(item)} type="button">Reschedule</button>
                   )}
                   {pendingReschedule && (
-                    <button className="text-link-btn danger-text" onClick={async () => {
-                      if (!window.confirm('Batalkan pengajuan reschedule ini?')) return
-                      try {
-                        await cancelReschedule(pendingReschedule.id)
-                      } catch (error) {
-                        window.alert(error.message || 'Pengajuan tidak dapat dibatalkan.')
-                      }
-                    }} type="button">Batalkan Reschedule</button>
+                    <>
+                      {pendingReschedule.status === 'awaiting_payment' && (
+                        <button className="primary-btn" onClick={() => { setReschedulePaymentRequest(pendingReschedule); setReschedulePaymentError('') }} type="button">Bayar Reschedule</button>
+                      )}
+                      {(pendingReschedule.status === 'awaiting_payment' || pendingReschedule.feeAmount === 0) && (
+                        <button className="text-link-btn danger-text" onClick={async () => {
+                          if (!window.confirm('Batalkan pengajuan reschedule ini?')) return
+                          try {
+                            await cancelReschedule(pendingReschedule.id)
+                          } catch (error) {
+                            window.alert(error.message || 'Pengajuan tidak dapat dibatalkan.')
+                          }
+                        }} type="button">Batalkan Reschedule</button>
+                      )}
+                    </>
                   )}
                   <a className="outline-btn" href="https://wa.me/62882005881248" target="_blank" rel="noreferrer">{t('common.contactAdmin')}</a>
                   <button className="text-link-btn" onClick={() => navigate(`/open-trip/${item.tripId}`)} type="button">{t('common.viewTrip')}</button>
@@ -2630,6 +2696,14 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], reschedul
                   <small>{rescheduleOptions.current.startTime || '-'}{rescheduleOptions.current.endTime ? ` - ${rescheduleOptions.current.endTime} WIB` : ''}</small>
                 </section>
 
+                <section className="reschedule-fee-summary">
+                  <span>Biaya perubahan jadwal</span>
+                  <strong>{rescheduleOptions.feeAmount > 0 ? formatCurrency(rescheduleOptions.feeAmount) : 'Gratis'}</strong>
+                  <small>{rescheduleOptions.feeAmount > 0
+                    ? `20% dari total harga booking ${formatCurrency(rescheduleOptions.feeBaseAmount)}. Slot tujuan ditahan selama 1 jam untuk pembayaran.`
+                    : 'Pengajuan dibuat lebih dari 7 hari sebelum tanggal trip.'}</small>
+                </section>
+
                 {rescheduleOptions.tripType === 'open' ? (
                   <fieldset className="reschedule-schedule-fieldset">
                     <legend>Pilih jadwal baru</legend>
@@ -2688,11 +2762,50 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], reschedul
                 <div className="reschedule-actions">
                   <button className="outline-btn" disabled={rescheduleSubmitting} onClick={closeRescheduleModal} type="button">Batal</button>
                   <button className="primary-btn" disabled={rescheduleSubmitting || (rescheduleOptions.tripType === 'open' ? !rescheduleForm.requestedScheduleId : !rescheduleForm.requestedDate || !rescheduleForm.requestedSessionId)} type="submit">
-                    {rescheduleSubmitting ? 'Mengirim...' : 'Ajukan Reschedule'}
+                    {rescheduleSubmitting ? 'Mengirim...' : rescheduleOptions.feeAmount > 0 ? 'Tahan Slot & Lanjut Bayar' : 'Ajukan Reschedule'}
                   </button>
                 </div>
               </form>
             )}
+          </section>
+        </div>
+      )}
+      {reschedulePaymentRequest && (
+        <div className="modal-backdrop" role="presentation" onClick={closeReschedulePayment}>
+          <section className="modal-panel reschedule-modal" role="dialog" aria-modal="true" aria-label="Pembayaran reschedule" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-head">
+              <div><p className="eyebrow">Pembayaran Reschedule</p><h2>Selesaikan Pembayaran</h2></div>
+              <button className="outline-btn" disabled={reschedulePaymentSubmitting} onClick={closeReschedulePayment} type="button">Tutup</button>
+            </div>
+            <form className="reschedule-form" onSubmit={sendReschedulePayment}>
+              <section className="reschedule-fee-summary">
+                <span>{reschedulePaymentRequest.tripName} · {reschedulePaymentRequest.bookingCode}</span>
+                <strong>{formatCurrency(reschedulePaymentRequest.feeAmount)}</strong>
+                <small>20% dari total booking {formatCurrency(reschedulePaymentRequest.feeBaseAmount)}. Transfer sesuai nominal di atas.</small>
+                <small>Slot jadwal baru ditahan sampai {formatDate(reschedulePaymentRequest.paymentExpiresAt, dateLocale)} {reschedulePaymentRequest.paymentExpiresAt?.slice(11, 16)} WIB.</small>
+              </section>
+              <div className="bank-payment-panel">
+                <span>Transfer Bank BCA</span>
+                <strong>{import.meta.env.VITE_BCA_ACCOUNT_NUMBER || '4561504789'}</strong>
+                <p>a.n. {import.meta.env.VITE_BCA_ACCOUNT_NAME || 'Zakkiatuz Zahrolazizah'}</p>
+              </div>
+              <label className="payment-proof-field">
+                <span>Unggah bukti transfer reschedule</span>
+                <input type="file" required accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" onChange={handleReschedulePaymentProof} />
+                <small>Format JPG, JPEG, PNG, atau WebP. Maksimal 5MB.</small>
+              </label>
+              {reschedulePaymentPreview && (
+                <div className="payment-proof-preview">
+                  <img src={reschedulePaymentPreview} alt="Pratinjau bukti transfer reschedule" width="800" height="600" />
+                  <div><strong>{reschedulePaymentProof?.name}</strong></div>
+                </div>
+              )}
+              {reschedulePaymentError && <p className="form-error">{reschedulePaymentError}</p>}
+              <div className="reschedule-actions">
+                <button className="outline-btn" disabled={reschedulePaymentSubmitting} onClick={closeReschedulePayment} type="button">Nanti</button>
+                <button className="primary-btn" disabled={!reschedulePaymentProof || reschedulePaymentSubmitting} type="submit">{reschedulePaymentSubmitting ? 'Mengirim...' : 'Kirim Bukti Transfer'}</button>
+              </div>
+            </form>
           </section>
         </div>
       )}

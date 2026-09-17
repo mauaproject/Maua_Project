@@ -214,10 +214,12 @@ function AdminShell({ title, children, navigate, logout, path, registrations = [
 }
 
 const rescheduleStatusLabel = (status) => ({
+  awaiting_payment: 'Menunggu Pembayaran',
   pending: 'Menunggu Persetujuan',
   approved: 'Disetujui',
   rejected: 'Ditolak',
   cancelled: 'Dibatalkan Customer',
+  expired: 'Waktu Pembayaran Habis',
 }[status] || status)
 
 const rescheduleScheduleLabel = (request, type) => {
@@ -241,11 +243,13 @@ export function AdminReschedules(props) {
   const counts = {
     all: requests.length,
     pending: requests.filter((request) => request.status === 'pending').length,
-    history: requests.filter((request) => request.status !== 'pending').length,
+    awaiting_payment: requests.filter((request) => request.status === 'awaiting_payment').length,
+    history: requests.filter((request) => !['pending', 'awaiting_payment'].includes(request.status)).length,
   }
   const visibleRequests = requests.filter((request) => {
     if (activeFilter === 'all') return true
-    if (activeFilter === 'history') return request.status !== 'pending'
+    if (activeFilter === 'awaiting_payment') return request.status === 'awaiting_payment'
+    if (activeFilter === 'history') return !['pending', 'awaiting_payment'].includes(request.status)
     return request.status === 'pending'
   })
 
@@ -281,7 +285,7 @@ export function AdminReschedules(props) {
         </div>
 
         <div className="segmented-tabs" role="tablist" aria-label="Filter permintaan reschedule">
-          {[['pending', 'Menunggu', counts.pending], ['history', 'Riwayat', counts.history], ['all', 'Semua', counts.all]].map(([value, label, count]) => (
+          {[['pending', 'Menunggu', counts.pending], ['awaiting_payment', 'Menunggu Bayar', counts.awaiting_payment], ['history', 'Riwayat', counts.history], ['all', 'Semua', counts.all]].map(([value, label, count]) => (
             <button className={activeFilter === value ? 'is-active' : ''} key={value} type="button" onClick={() => setActiveFilter(value)}>{label}<span>{count}</span></button>
           ))}
         </div>
@@ -314,6 +318,15 @@ export function AdminReschedules(props) {
                   </section>
                 </div>
                 <div className="admin-reschedule-reason"><span>Alasan customer</span><p>{request.reason}</p></div>
+                {request.feeAmount > 0 && (
+                  <div className="reschedule-fee-summary">
+                    <span>Biaya reschedule · 20% dari {formatCurrency(request.feeBaseAmount)}</span>
+                    <strong>{formatCurrency(request.feeAmount)}</strong>
+                    {request.paymentProofUrl
+                      ? <a className="outline-btn" href={request.paymentProofUrl} target="_blank" rel="noreferrer">Lihat Bukti Transfer</a>
+                      : <small>Menunggu bukti transfer sampai {formatDate(request.paymentExpiresAt)} {request.paymentExpiresAt?.slice(11, 16)} WIB.</small>}
+                  </div>
+                )}
                 {request.adminNote && <div className="admin-reschedule-note"><span>Catatan admin</span><p>{request.adminNote}</p></div>}
                 <div className="admin-reschedule-meta">
                   <span>{request.customerWhatsapp || '-'}</span>
@@ -343,6 +356,13 @@ export function AdminReschedules(props) {
               <section><span>Jadwal baru</span><strong>{rescheduleScheduleLabel(selectedRequest, 'requested').date}</strong><small>{rescheduleScheduleLabel(selectedRequest, 'requested').details}</small></section>
             </div>
             <div className="admin-reschedule-reason"><span>Alasan customer</span><p>{selectedRequest.reason}</p></div>
+            {selectedRequest.feeAmount > 0 && (
+              <div className="reschedule-fee-summary">
+                <span>Biaya reschedule · 20% dari {formatCurrency(selectedRequest.feeBaseAmount)}</span>
+                <strong>{formatCurrency(selectedRequest.feeAmount)}</strong>
+                {selectedRequest.paymentProofUrl && <a className="outline-btn" href={selectedRequest.paymentProofUrl} target="_blank" rel="noreferrer">Lihat Bukti Transfer</a>}
+              </div>
+            )}
             <label>Catatan untuk customer
               <textarea maxLength="1000" placeholder="Wajib diisi jika pengajuan ditolak..." value={adminNote} onChange={(event) => setAdminNote(event.target.value)} />
             </label>

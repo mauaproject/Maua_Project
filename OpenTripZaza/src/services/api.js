@@ -60,6 +60,12 @@ export const updateBookingStatus = (id, status) => jsonPost('bookings/update-sta
 export const getRescheduleRequests = () => request('reschedules/index.php')
 export const getRescheduleOptions = (bookingId) => request(`reschedules/options.php?booking_id=${encodeURIComponent(bookingId)}`)
 export const createRescheduleRequest = (data) => jsonPost('reschedules/create.php', data)
+export const submitReschedulePayment = (id, file) => {
+  const form = new FormData()
+  form.append('id', id)
+  form.append('proof', file)
+  return request('reschedules/submit-payment.php', { method: 'POST', body: form })
+}
 export const cancelRescheduleRequest = (id) => jsonPost('reschedules/cancel.php', { id })
 export const reviewRescheduleRequest = (id, decision, adminNote = '') => jsonPost('reschedules/review.php', { id, decision, adminNote })
 

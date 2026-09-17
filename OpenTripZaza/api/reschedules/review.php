@@ -5,6 +5,7 @@ requireMethod('POST');
 
 runEndpoint(function (PDO $pdo): void {
     $admin = requireRescheduleUser($pdo, 'admin');
+    expireUnpaidReschedules($pdo);
     $data = jsonInput();
     requiredFields($data, ['id', 'decision']);
     $decision = trim((string) $data['decision']);
@@ -28,6 +29,9 @@ runEndpoint(function (PDO $pdo): void {
         if ($request['status'] !== 'pending') {
             throw new InvalidArgumentException('Pengajuan ini sudah diproses.');
         }
+        if ((float) $request['fee_amount'] > 0 && empty($request['payment_proof_url'])) {
+            throw new InvalidArgumentException('Bukti pembayaran reschedule belum dikirim customer.');
+        }
         $bookingStatement = $pdo->prepare('SELECT * FROM bookings WHERE id = ? FOR UPDATE');
         $bookingStatement->execute([(int) $request['booking_id']]);
         $booking = $bookingStatement->fetch();
@@ -50,11 +54,13 @@ runEndpoint(function (PDO $pdo): void {
                 $targetStatement = $pdo->prepare('SELECT * FROM trip_schedules WHERE id = ? AND trip_id = ? FOR UPDATE');
                 $targetStatement->execute([$targetId, (int) $booking['trip_id']]);
                 $target = $targetStatement->fetch();
-                if (!$target) {
-                    throw new InvalidArgumentException('Jadwal tujuan tidak ditemukan.');
+                if (!$target || $target['schedule_date'] !== $request['requested_date']) {
+                    throw new InvalidArgumentException('Jadwal tujuan sudah berubah. Hubungi customer sebelum memproses pengajuan.');
                 }
-                $remaining = (int) $target['quota'] - getOpenTripReservedParticipants($pdo, $targetId);
-                if ($target['status'] !== 'active' || !empty($target['archived_at']) || scheduleLifecycleStatus($target) !== 'upcoming' || $remaining < (int) $booking['participants']) {
+                $reserved = getOpenTripReservedParticipants($pdo, $targetId);
+                if (!in_array($target['status'], ['active', 'full'], true)
+                    || !empty($target['archived_at']) || scheduleLifecycleStatus($target) !== 'upcoming'
+                    || $reserved > (int) $target['quota']) {
                     throw new InvalidArgumentException('Jadwal tujuan sudah tidak tersedia atau slotnya tidak mencukupi.');
                 }
                 $oldScheduleId = nullableInt($booking['schedule_id']);
@@ -65,7 +71,6 @@ runEndpoint(function (PDO $pdo): void {
                 if ($oldScheduleId !== null && $oldScheduleId !== $targetId) {
                     syncOpenTripAvailability($pdo, $oldScheduleId, (int) $booking['trip_id']);
                 }
-                syncOpenTripAvailability($pdo, $targetId, (int) $booking['trip_id']);
             } else {
                 $targetSessionId = (int) $request['requested_session_id'];
                 $targetDate = $request['requested_date'];
@@ -82,12 +87,7 @@ runEndpoint(function (PDO $pdo): void {
                     throw new InvalidArgumentException('Jadwal tujuan sudah tidak tersedia.');
                 }
                 if (($trip['private_booking_mode'] ?? 'exclusive') !== 'shared') {
-                    $collision = $pdo->prepare(
-                        "SELECT id FROM bookings WHERE trip_id = ? AND session_id = ? AND selected_date = ? AND id <> ?
-                         AND status IN ('Menunggu Approval','Disetujui','Selesai') FOR UPDATE"
-                    );
-                    $collision->execute([(int) $booking['trip_id'], $targetSessionId, $targetDate, (int) $booking['id']]);
-                    if ($collision->fetch()) {
+                    if (privateRescheduleSlotTaken($pdo, (int) $booking['trip_id'], $targetSessionId, $targetDate, (int) $booking['id'], (int) $request['id'])) {
                         throw new InvalidArgumentException('Sesi tujuan sudah dipesan customer lain.');
                     }
                 }
@@ -106,6 +106,9 @@ runEndpoint(function (PDO $pdo): void {
              SET status = ?, admin_note = ?, reviewed_by = ?, reviewed_at = NOW(), updated_at = CURRENT_TIMESTAMP
              WHERE id = ?'
         )->execute([$decision, $adminNote !== '' ? $adminNote : null, (int) $admin['id'], (int) $request['id']]);
+        if ($request['requested_schedule_id'] !== null) {
+            syncOpenTripAvailability($pdo, (int) $request['requested_schedule_id'], (int) $booking['trip_id']);
+        }
         $pdo->commit();
         jsonSuccess(['id' => (int) $request['id'], 'bookingId' => (int) $booking['id'], 'status' => $decision]);
     } catch (Throwable $exception) {

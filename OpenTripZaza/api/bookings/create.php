@@ -4,6 +4,7 @@ require_once dirname(__DIR__) . '/config/helpers.php';
 requireMethod('POST');
 
 runEndpoint(function (PDO $pdo): void {
+    expireUnpaidReschedules($pdo);
     $isMultipart = isset($_POST['booking_data']);
     if ($isMultipart) {
         $data = json_decode((string) $_POST['booking_data'], true);
@@ -211,7 +212,7 @@ runEndpoint(function (PDO $pdo): void {
             ) {
                 throw new InvalidArgumentException('Tanggal private trip tidak tersedia.');
             }
-            $sessionStatement = $pdo->prepare('SELECT id, start_time, end_time FROM trip_sessions WHERE trip_id = ? AND (session_code = ? OR id = ?) AND status = "active"');
+            $sessionStatement = $pdo->prepare('SELECT id, start_time, end_time FROM trip_sessions WHERE trip_id = ? AND (session_code = ? OR id = ?) AND status = "active" FOR UPDATE');
             $sessionStatement->execute([(int) $data['tripId'], $data['sessionId'] ?? '', nullableInt($data['sessionId'] ?? null)]);
             $selectedSession = $sessionStatement->fetch();
             if (!$selectedSession) {
@@ -231,6 +232,17 @@ runEndpoint(function (PDO $pdo): void {
                 $collision->execute([(int) $data['tripId'], $sessionId, $selectedDate]);
                 if ((int) $collision->fetchColumn() > 0) {
                     throw new InvalidArgumentException('Sesi pada tanggal tersebut sudah dipesan.');
+                }
+                $held = $pdo->prepare(
+                    "SELECT COUNT(*) FROM booking_reschedule_requests r
+                     INNER JOIN bookings b ON b.id = r.booking_id
+                     WHERE b.trip_id = ? AND r.requested_session_id = ? AND r.requested_date = ?
+                       AND b.status = 'Disetujui'
+                       AND (r.status = 'pending' OR (r.status = 'awaiting_payment' AND r.payment_expires_at > NOW()))"
+                );
+                $held->execute([(int) $data['tripId'], $sessionId, $selectedDate]);
+                if ((int) $held->fetchColumn() > 0) {
+                    throw new InvalidArgumentException('Sesi pada tanggal tersebut sedang ditahan untuk reschedule.');
                 }
             }
         }

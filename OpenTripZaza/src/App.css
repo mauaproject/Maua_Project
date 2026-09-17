@@ -3388,6 +3388,22 @@ button:disabled {
   background: #f7f1e8;
   padding: 14px 16px;
 }
+.reschedule-fee-summary {
+  display: grid;
+  gap: 6px;
+  border: 1px solid #dfc79b;
+  border-radius: 16px;
+  background: #fff8ea;
+  padding: 16px;
+}
+.reschedule-fee-summary strong {
+  font-size: 24px;
+  color: #51370f;
+}
+.reschedule-fee-summary small {
+  line-height: 1.5;
+  color: #675639;
+}
 .reschedule-current-schedule span,
 .reschedule-comparison section > span,
 .admin-reschedule-reason > span,

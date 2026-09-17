@@ -734,9 +734,17 @@ function App() {
   }
 
   const submitReschedule = async (payload) => {
-    await api.createRescheduleRequest(payload)
+    const request = await api.createRescheduleRequest(payload)
     await refreshData()
-    showToast('Pengajuan reschedule berhasil dikirim ke admin.')
+    showToast(request.status === 'awaiting_payment' ? 'Slot jadwal baru ditahan. Selesaikan pembayaran reschedule.' : 'Pengajuan reschedule berhasil dikirim ke admin.')
+    return request
+  }
+
+  const submitReschedulePayment = async (id, file) => {
+    const request = await api.submitReschedulePayment(id, file)
+    await refreshData()
+    showToast('Bukti transfer reschedule terkirim. Tunggu persetujuan admin.')
+    return request
   }
 
   const cancelReschedule = async (id) => {
@@ -927,6 +935,7 @@ function App() {
     submitRegistration,
     setRegistrationStatus,
     submitReschedule,
+    submitReschedulePayment,
     cancelReschedule,
     reviewReschedule,
     getRescheduleOptions: api.getRescheduleOptions,

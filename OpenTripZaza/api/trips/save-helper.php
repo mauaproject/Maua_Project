@@ -138,6 +138,13 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
         }
         $scheduleKeys[$scheduleKey] = true;
         $retainedScheduleCodes[] = $code;
+        $reservedParticipants = isset($existingSchedules[$code])
+            ? getOpenTripReservedParticipants($pdo, $existingSchedules[$code])
+            : 0;
+        if ((int) $schedule['quota'] < $reservedParticipants) {
+            throw new InvalidArgumentException('Kuota sesi tidak boleh lebih kecil dari peserta booking dan reschedule yang sedang menahan slot.');
+        }
+        $requestedStatus = ($schedule['status'] ?? 'active') === 'inactive' ? 'inactive' : 'active';
         $values = [
             $code,
             $scheduleName,
@@ -147,8 +154,8 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
             nullableUrl($schedule['driveLinkUrl'] ?? null, 'Link drive jadwal harus berupa URL yang valid.'),
             $scheduleDate,
             (int) ($schedule['quota'] ?? 0),
-            (int) ($schedule['bookedCount'] ?? 0),
-            in_array($schedule['status'] ?? 'active', ['active', 'full', 'inactive'], true) ? $schedule['status'] : 'active',
+            $reservedParticipants,
+            $requestedStatus === 'inactive' ? 'inactive' : ((int) $schedule['quota'] <= $reservedParticipants ? 'full' : 'active'),
         ];
         if (isset($existingSchedules[$code])) {
             $scheduleUpdate->execute([...$values, $existingSchedules[$code], $tripId]);
@@ -165,8 +172,24 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
     }
     foreach ($existingSchedules as $code => $databaseId) {
         if (!in_array($code, $retainedScheduleCodes, true)) {
+            $held = $pdo->prepare(
+                "SELECT COUNT(*) FROM booking_reschedule_requests
+                 WHERE requested_schedule_id = ? AND status IN ('awaiting_payment','pending')"
+            );
+            $held->execute([$databaseId]);
+            if ((int) $held->fetchColumn() > 0) {
+                throw new InvalidArgumentException('Sesi dengan pengajuan reschedule aktif tidak dapat dihapus.');
+            }
             $delete = $pdo->prepare('DELETE FROM trip_schedules WHERE id=? AND NOT EXISTS (SELECT 1 FROM bookings WHERE schedule_id=?)');
             $delete->execute([$databaseId, $databaseId]);
+        }
+    }
+
+    if ($type === 'open') {
+        $scheduleIds = $pdo->prepare('SELECT id FROM trip_schedules WHERE trip_id = ?');
+        $scheduleIds->execute([$tripId]);
+        foreach ($scheduleIds->fetchAll(PDO::FETCH_COLUMN) as $scheduleId) {
+            syncOpenTripAvailability($pdo, (int) $scheduleId, $tripId);
         }
     }
 
@@ -200,6 +223,14 @@ function saveTripRecord(PDO $pdo, array $data, ?int $tripId = null): int
     }
     foreach ($existingSessions as $code => $databaseId) {
         if (!in_array($code, $retainedSessionCodes, true)) {
+            $held = $pdo->prepare(
+                "SELECT COUNT(*) FROM booking_reschedule_requests
+                 WHERE requested_session_id = ? AND status IN ('awaiting_payment','pending')"
+            );
+            $held->execute([$databaseId]);
+            if ((int) $held->fetchColumn() > 0) {
+                throw new InvalidArgumentException('Sesi dengan pengajuan reschedule aktif tidak dapat dihapus.');
+            }
             $delete = $pdo->prepare('DELETE FROM trip_sessions WHERE id=? AND NOT EXISTS (SELECT 1 FROM bookings WHERE session_id=?)');
             $delete->execute([$databaseId, $databaseId]);
             if ($delete->rowCount() === 0) {

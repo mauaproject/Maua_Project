@@ -196,11 +196,53 @@ function bookingHoldsOpenTripSlot(mixed $status): bool
 function getOpenTripReservedParticipants(PDO $pdo, int $scheduleId): int
 {
     $countStatement = $pdo->prepare(
-        "SELECT COALESCE(SUM(participants), 0) FROM bookings
-         WHERE schedule_id = ? AND status IN ('Menunggu Approval','Disetujui','Selesai')"
+        "SELECT
+            (SELECT COALESCE(SUM(participants), 0) FROM bookings
+             WHERE schedule_id = ? AND status IN ('Menunggu Approval','Disetujui','Selesai'))
+            +
+            (SELECT COALESCE(SUM(b.participants), 0)
+             FROM booking_reschedule_requests r
+             INNER JOIN bookings b ON b.id = r.booking_id
+             WHERE r.requested_schedule_id = ?
+               AND b.status = 'Disetujui'
+               AND (r.status = 'pending'
+                    OR (r.status = 'awaiting_payment' AND r.payment_expires_at > NOW())))"
     );
-    $countStatement->execute([$scheduleId]);
+    $countStatement->execute([$scheduleId, $scheduleId]);
     return (int) $countStatement->fetchColumn();
+}
+
+function expireUnpaidReschedules(PDO $pdo): void
+{
+    $stale = $pdo->query(
+        "SELECT id FROM booking_reschedule_requests
+         WHERE status = 'awaiting_payment' AND payment_expires_at <= NOW()"
+    )->fetchAll(PDO::FETCH_COLUMN);
+    foreach ($stale as $id) {
+        $pdo->beginTransaction();
+        try {
+            $statement = $pdo->prepare(
+                "SELECT r.requested_schedule_id, b.trip_id
+                 FROM booking_reschedule_requests r
+                 INNER JOIN bookings b ON b.id = r.booking_id
+                 WHERE r.id = ? AND r.status = 'awaiting_payment'
+                   AND r.payment_expires_at <= NOW() FOR UPDATE"
+            );
+            $statement->execute([(int) $id]);
+            $request = $statement->fetch();
+            if ($request) {
+                $pdo->prepare("UPDATE booking_reschedule_requests SET status = 'expired' WHERE id = ?")
+                    ->execute([(int) $id]);
+                if ($request['requested_schedule_id'] !== null) {
+                    syncOpenTripAvailability($pdo, (int) $request['requested_schedule_id'], (int) $request['trip_id']);
+                }
+            }
+            $pdo->commit();
+        } catch (Throwable $exception) {
+            $pdo->rollBack();
+            throw $exception;
+        }
+    }
 }
 
 function syncOpenTripAvailability(PDO $pdo, int $scheduleId, int $tripId): void

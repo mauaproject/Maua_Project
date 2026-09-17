@@ -5,6 +5,7 @@ requireMethod('POST');
 
 runEndpoint(function (PDO $pdo): void {
     $user = requireRescheduleUser($pdo, 'customer');
+    expireUnpaidReschedules($pdo);
     $data = jsonInput();
     requiredFields($data, ['bookingId', 'reason']);
     if (!filter_var($data['adminContactConfirmed'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
@@ -32,7 +33,8 @@ runEndpoint(function (PDO $pdo): void {
         if (empty($booking['selected_date']) || $booking['status'] !== 'Disetujui' || scheduledEndAt((string) $booking['selected_date'], $booking['end_time']) <= appNow()) {
             throw new InvalidArgumentException('Hanya booking aktif yang sudah disetujui yang dapat di-reschedule.');
         }
-        $pending = $pdo->prepare("SELECT id FROM booking_reschedule_requests WHERE booking_id = ? AND status = 'pending' FOR UPDATE");
+        $fee = rescheduleFee($booking);
+        $pending = $pdo->prepare("SELECT id FROM booking_reschedule_requests WHERE booking_id = ? AND status IN ('awaiting_payment','pending') FOR UPDATE");
         $pending->execute([$bookingId]);
         if ($pending->fetch()) {
             throw new InvalidArgumentException('Booking ini sudah memiliki pengajuan reschedule yang menunggu persetujuan.');
@@ -82,12 +84,7 @@ runEndpoint(function (PDO $pdo): void {
                 throw new InvalidArgumentException('Jadwal baru harus berbeda dari jadwal saat ini.');
             }
             if (($booking['private_booking_mode'] ?? 'exclusive') !== 'shared') {
-                $collision = $pdo->prepare(
-                    "SELECT id FROM bookings WHERE trip_id = ? AND session_id = ? AND selected_date = ? AND id <> ?
-                     AND status IN ('Menunggu Approval','Disetujui','Selesai') FOR UPDATE"
-                );
-                $collision->execute([(int) $booking['trip_id'], $targetSessionId, $targetDate, $bookingId]);
-                if ($collision->fetch()) {
+                if (privateRescheduleSlotTaken($pdo, (int) $booking['trip_id'], $targetSessionId, $targetDate, $bookingId)) {
                     throw new InvalidArgumentException('Sesi pada tanggal tersebut sudah dipesan.');
                 }
             }
@@ -98,15 +95,21 @@ runEndpoint(function (PDO $pdo): void {
         $insert = $pdo->prepare(
             "INSERT INTO booking_reschedule_requests
              (booking_id, old_schedule_id, old_session_id, old_selected_date, old_start_time, old_end_time,
-              requested_schedule_id, requested_session_id, requested_date, requested_start_time, requested_end_time, reason)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?)"
+              requested_schedule_id, requested_session_id, requested_date, requested_start_time, requested_end_time, reason,
+              fee_base_amount, fee_amount, status, payment_expires_at)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
         );
         $insert->execute([
             $bookingId, nullableInt($booking['schedule_id']), nullableInt($booking['session_id']),
             $booking['selected_date'], $booking['start_time'], $booking['end_time'],
             $targetScheduleId, $targetSessionId, $targetDate, $targetStart, $targetEnd, $reason,
+            $fee['baseAmount'], $fee['amount'], $fee['amount'] > 0 ? 'awaiting_payment' : 'pending',
+            $fee['amount'] > 0 ? appNow()->modify('+1 hour')->format('Y-m-d H:i:s') : null,
         ]);
         $requestId = (int) $pdo->lastInsertId();
+        if ($targetScheduleId !== null) {
+            syncOpenTripAvailability($pdo, $targetScheduleId, (int) $booking['trip_id']);
+        }
         $pdo->commit();
 
         $result = $pdo->prepare(rescheduleSelectSql() . ' WHERE r.id = ?');

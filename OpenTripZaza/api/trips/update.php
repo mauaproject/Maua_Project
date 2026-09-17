@@ -5,6 +5,7 @@ require_once __DIR__ . '/save-helper.php';
 requireMethod('POST');
 
 runEndpoint(function (PDO $pdo): void {
+    expireUnpaidReschedules($pdo);
     $data = jsonInput();
     requiredFields($data, ['id']);
     $pdo->beginTransaction();

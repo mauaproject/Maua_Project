@@ -4,6 +4,7 @@ require_once dirname(__DIR__) . '/config/helpers.php';
 requireMethod('GET');
 
 runEndpoint(function (PDO $pdo): void {
+    expireUnpaidReschedules($pdo);
     $tripId = filter_input(INPUT_GET, 'trip_id', FILTER_VALIDATE_INT);
     if (!$tripId) {
         throw new InvalidArgumentException('ID trip tidak valid.');
@@ -21,6 +22,20 @@ runEndpoint(function (PDO $pdo): void {
     foreach ($sessions->fetchAll() as $session) {
         $sessionCodes[(int) $session['id']] = $session['session_code'] ?: (string) $session['id'];
     }
+    $bookings = $statement->fetchAll();
+    $held = $pdo->prepare(
+        "SELECT r.id, b.trip_id, r.requested_session_id session_id, r.requested_date selected_date
+         FROM booking_reschedule_requests r
+         INNER JOIN bookings b ON b.id = r.booking_id
+         WHERE b.trip_id = ? AND b.status = 'Disetujui'
+           AND (r.status = 'pending' OR (r.status = 'awaiting_payment' AND r.payment_expires_at > NOW()))"
+    );
+    $held->execute([$tripId]);
+    foreach ($held->fetchAll() as $request) {
+        $request['id'] = -(int) $request['id'];
+        $request['status'] = 'Menunggu Approval';
+        $bookings[] = $request;
+    }
     jsonSuccess(array_map(static fn(array $booking): array => [
         'id' => (int) $booking['id'],
         'tripId' => (int) $booking['trip_id'],
@@ -30,5 +45,5 @@ runEndpoint(function (PDO $pdo): void {
         'selectedDate' => $booking['selected_date'],
         'requestedDate' => $booking['selected_date'],
         'status' => $booking['status'],
-    ], $statement->fetchAll()));
+    ], $bookings));
 });

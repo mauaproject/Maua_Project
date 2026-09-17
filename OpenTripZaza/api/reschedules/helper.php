@@ -29,6 +29,48 @@ function rescheduleTextLength(string $value): int
     return function_exists('mb_strlen') ? mb_strlen($value, 'UTF-8') : strlen($value);
 }
 
+function rescheduleFee(array $booking): array
+{
+    $today = appNow()->format('Y-m-d');
+    $date = new DateTimeImmutable((string) $booking['selected_date']);
+    $daysUntilTrip = (int) (new DateTimeImmutable($today))->diff($date)->format('%r%a');
+    if ($daysUntilTrip <= 0) {
+        throw new InvalidArgumentException('Reschedule hanya dapat diajukan sebelum tanggal trip.');
+    }
+    $base = (float) $booking['total_price'];
+    return [
+        'baseAmount' => $base,
+        'amount' => $daysUntilTrip <= 7 ? round($base * 0.2) : 0,
+        'daysUntilTrip' => $daysUntilTrip,
+    ];
+}
+
+function privateRescheduleSlotTaken(PDO $pdo, int $tripId, int $sessionId, string $date, int $bookingId, ?int $requestId = null): bool
+{
+    $statement = $pdo->prepare(
+        "SELECT COUNT(*) FROM bookings
+         WHERE trip_id = ? AND session_id = ? AND selected_date = ? AND id <> ?
+           AND status IN ('Menunggu Approval','Disetujui','Selesai')"
+    );
+    $statement->execute([$tripId, $sessionId, $date, $bookingId]);
+    if ((int) $statement->fetchColumn() > 0) {
+        return true;
+    }
+    $sql = "SELECT COUNT(*) FROM booking_reschedule_requests r
+            INNER JOIN bookings b ON b.id = r.booking_id
+            WHERE b.trip_id = ? AND r.requested_session_id = ? AND r.requested_date = ?
+              AND b.id <> ? AND b.status = 'Disetujui'
+              AND (r.status = 'pending' OR (r.status = 'awaiting_payment' AND r.payment_expires_at > NOW()))";
+    $params = [$tripId, $sessionId, $date, $bookingId];
+    if ($requestId !== null) {
+        $sql .= ' AND r.id <> ?';
+        $params[] = $requestId;
+    }
+    $statement = $pdo->prepare($sql);
+    $statement->execute($params);
+    return (int) $statement->fetchColumn() > 0;
+}
+
 function mapRescheduleRows(array $rows): array
 {
     return array_map(static fn(array $row): array => [
@@ -55,6 +97,11 @@ function mapRescheduleRows(array $rows): array
         'requestedEndTime' => rescheduleTime($row['requested_end_time'] ?? ''),
         'requestedSessionName' => $row['requested_session_name'] ?? '',
         'reason' => $row['reason'],
+        'feeBaseAmount' => (float) ($row['fee_base_amount'] ?? 0),
+        'feeAmount' => (float) ($row['fee_amount'] ?? 0),
+        'paymentProofUrl' => $row['payment_proof_url'] ?? '',
+        'paymentSubmittedAt' => $row['payment_submitted_at'] ?? null,
+        'paymentExpiresAt' => $row['payment_expires_at'] ?? null,
         'status' => $row['status'],
         'adminNote' => $row['admin_note'] ?? '',
         'reviewedByName' => $row['reviewed_by_name'] ?? '',

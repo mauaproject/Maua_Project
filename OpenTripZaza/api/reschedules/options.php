@@ -5,6 +5,7 @@ requireMethod('GET');
 
 runEndpoint(function (PDO $pdo): void {
     $user = requireRescheduleUser($pdo, 'customer');
+    expireUnpaidReschedules($pdo);
     $bookingId = filter_input(INPUT_GET, 'booking_id', FILTER_VALIDATE_INT);
     if (!$bookingId) {
         throw new InvalidArgumentException('Booking tidak valid.');
@@ -23,7 +24,8 @@ runEndpoint(function (PDO $pdo): void {
     if (empty($booking['selected_date']) || $booking['status'] !== 'Disetujui' || scheduledEndAt((string) $booking['selected_date'], $booking['end_time']) <= appNow()) {
         throw new InvalidArgumentException('Hanya booking aktif yang sudah disetujui yang dapat di-reschedule.');
     }
-    $pending = $pdo->prepare("SELECT COUNT(*) FROM booking_reschedule_requests WHERE booking_id = ? AND status = 'pending'");
+    $fee = rescheduleFee($booking);
+    $pending = $pdo->prepare("SELECT COUNT(*) FROM booking_reschedule_requests WHERE booking_id = ? AND status IN ('awaiting_payment','pending')");
     $pending->execute([$bookingId]);
     if ((int) $pending->fetchColumn() > 0) {
         throw new InvalidArgumentException('Booking ini sudah memiliki pengajuan reschedule yang menunggu persetujuan.');
@@ -35,6 +37,9 @@ runEndpoint(function (PDO $pdo): void {
         'tripName' => $booking['trip_name'],
         'tripType' => $booking['trip_type'],
         'participants' => (int) $booking['participants'],
+        'feeBaseAmount' => $fee['baseAmount'],
+        'feeAmount' => $fee['amount'],
+        'daysUntilTrip' => $fee['daysUntilTrip'],
         'current' => [
             'date' => $booking['selected_date'],
             'startTime' => rescheduleTime($booking['start_time']),
@@ -46,11 +51,7 @@ runEndpoint(function (PDO $pdo): void {
 
     if ($booking['trip_type'] === 'open') {
         $schedules = $pdo->prepare(
-            "SELECT ts.*,
-                    COALESCE((SELECT SUM(b2.participants) FROM bookings b2
-                              WHERE b2.schedule_id = ts.id
-                                AND b2.status IN ('Menunggu Approval','Disetujui','Selesai')), 0) reserved
-             FROM trip_schedules ts
+            "SELECT ts.* FROM trip_schedules ts
              WHERE ts.trip_id = ?
                AND ts.status IN ('active','full')
                AND ts.archived_at IS NULL
@@ -58,8 +59,8 @@ runEndpoint(function (PDO $pdo): void {
              ORDER BY ts.schedule_date, ts.start_time, ts.id"
         );
         $schedules->execute([(int) $booking['trip_id']]);
-        $response['schedules'] = array_map(static function (array $schedule) use ($booking): array {
-            $remaining = max(0, (int) $schedule['quota'] - (int) $schedule['reserved']);
+        $response['schedules'] = array_map(static function (array $schedule) use ($booking, $pdo): array {
+            $remaining = max(0, (int) $schedule['quota'] - getOpenTripReservedParticipants($pdo, (int) $schedule['id']));
             $isCurrent = (int) $schedule['id'] === (int) $booking['schedule_id'];
             return [
                 'id' => (int) $schedule['id'],
@@ -97,10 +98,22 @@ runEndpoint(function (PDO $pdo): void {
                AND status IN ('Menunggu Approval','Disetujui','Selesai')"
         );
         $blocked->execute([(int) $booking['trip_id'], $bookingId]);
+        $blockedSlots = $booking['private_booking_mode'] === 'shared' ? [] : $blocked->fetchAll();
+        if ($booking['private_booking_mode'] !== 'shared') {
+            $held = $pdo->prepare(
+                "SELECT r.requested_session_id session_id, r.requested_date selected_date
+                 FROM booking_reschedule_requests r
+                 INNER JOIN bookings b ON b.id = r.booking_id
+                 WHERE b.trip_id = ? AND b.id <> ? AND b.status = 'Disetujui'
+                   AND (r.status = 'pending' OR (r.status = 'awaiting_payment' AND r.payment_expires_at > NOW()))"
+            );
+            $held->execute([(int) $booking['trip_id'], $bookingId]);
+            $blockedSlots = array_merge($blockedSlots, $held->fetchAll());
+        }
         $response['blockedSlots'] = array_map(static fn(array $row): array => [
             'sessionId' => (int) $row['session_id'],
             'date' => $row['selected_date'],
-        ], $booking['private_booking_mode'] === 'shared' ? [] : $blocked->fetchAll());
+        ], $blockedSlots);
     }
     jsonSuccess($response);
 });

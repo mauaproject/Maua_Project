@@ -4,6 +4,7 @@ require_once dirname(__DIR__) . '/config/helpers.php';
 requireMethod('GET');
 
 runEndpoint(function (PDO $pdo): void {
+    expireUnpaidReschedules($pdo);
     $showAll = ($_GET['all'] ?? '') === '1';
     $summary = ($_GET['summary'] ?? '') === '1';
     $customerView = !$showAll;

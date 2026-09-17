@@ -4,6 +4,7 @@ require_once dirname(__DIR__) . '/config/helpers.php';
 requireMethod('GET');
 
 runEndpoint(function (PDO $pdo): void {
+    expireUnpaidReschedules($pdo);
     $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
     if (!$id) {
         throw new InvalidArgumentException('ID trip tidak valid.');

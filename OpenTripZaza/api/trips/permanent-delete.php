@@ -73,6 +73,13 @@ runEndpoint(function (PDO $pdo): void {
     );
     $paymentFileStatement->execute([$tripId]);
     $paymentFiles = $paymentFileStatement->fetchAll();
+    $rescheduleProofStatement = $pdo->prepare(
+        'SELECT r.payment_proof_url FROM booking_reschedule_requests r
+         INNER JOIN bookings b ON b.id = r.booking_id
+         WHERE b.trip_id = ? AND r.payment_proof_url IS NOT NULL'
+    );
+    $rescheduleProofStatement->execute([$tripId]);
+    $rescheduleProofs = $rescheduleProofStatement->fetchAll();
     $workerFileStatement = $pdo->prepare(
         'SELECT proof_photo_url FROM worker_tasks WHERE trip_id=?'
     );
@@ -128,6 +135,9 @@ runEndpoint(function (PDO $pdo): void {
     }
     foreach ($paymentFiles as $payment) {
         deleteStoredUpload((string) ($payment['payment_proof_url'] ?? ''), 'payment-proofs');
+    }
+    foreach ($rescheduleProofs as $payment) {
+        deleteStoredUpload((string) $payment['payment_proof_url'], 'payment-proofs');
     }
     foreach ($workerFiles as $workerFile) {
         deleteStoredUpload((string) ($workerFile['proof_photo_url'] ?? ''), 'worker-proofs');
