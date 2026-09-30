@@ -44,7 +44,7 @@ RewriteRule ^sitemap\.xml$ sitemap.php [L]
 # sudah tersedia sebelum JavaScript React berjalan.
 RewriteRule ^$ seo-render.php [L,QSA]
 RewriteRule ^(?:destinasi|reviews|open-trip-jogja)/?$ seo-render.php [L,QSA]
-RewriteRule ^open-trip/[0-9]+/?$ seo-render.php [L,QSA]
+RewriteRule ^open-trip/[a-z0-9-]+/?$ seo-render.php [L,QSA]
 
 # Layani file/folder asli secara langsung.
 RewriteCond %{REQUEST_FILENAME} -f [OR]

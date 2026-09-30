@@ -33,6 +33,7 @@ const jsonPost = (path, data) => request(path, {
 export const getTrips = (includeAll = true) => request(`trips/index.php${includeAll ? '?all=1' : ''}`)
 export const getTripSummaries = (includeAll = false) => request(`trips/index.php?summary=1${includeAll ? '&all=1' : ''}`)
 export const getTripDetail = (id, includeAll = false) => request(`trips/detail.php?id=${encodeURIComponent(id)}${includeAll ? '&all=1' : ''}`)
+export const getTripDetailBySlug = (slug) => request(`trips/detail.php?slug=${encodeURIComponent(slug)}`)
 export const createTrip = (data) => jsonPost('trips/create.php', data)
 export const updateTrip = (data) => jsonPost('trips/update.php', data)
 export const updateTripDriveLink = (data) => jsonPost('trips/update-drive-link.php', data)

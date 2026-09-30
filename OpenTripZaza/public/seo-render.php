@@ -6,6 +6,7 @@ if (!is_file($databaseFile)) {
     $databaseFile = dirname(__DIR__) . '/api/config/database.php';
 }
 require_once $databaseFile;
+require_once dirname($databaseFile) . '/trip-slugs.php';
 
 const SEO_SITE_URL = 'https://mauaproject.com';
 const SEO_SITE_NAME = 'MAUA Project';
@@ -105,7 +106,11 @@ function seoPublicTrips(PDO $pdo, int $limit = 16): array
               )
             ORDER BY t.updated_at DESC, t.id DESC
             LIMIT " . max(1, min($limit, 40));
-    return $pdo->query($sql)->fetchAll();
+    $trips = $pdo->query($sql)->fetchAll();
+    $slugs = tripSlugMap($pdo);
+    foreach ($trips as &$trip) $trip['slug'] = $slugs[(int) $trip['id']] ?? '';
+    unset($trip);
+    return $trips;
 }
 
 function seoTrip(PDO $pdo, int $id): ?array
@@ -155,7 +160,7 @@ function seoTripCards(array $trips, int $limit = 12): string
         if ($image !== '') {
             $cards .= '<img src="' . seoEscape(seoAbsoluteImage($image)) . '" alt="' . seoEscape($name . ' di ' . $destination) . '" width="480" height="320" loading="lazy">';
         }
-        $cards .= '<div><p class="seo-kicker">' . seoEscape($type) . '</p><h3><a href="/open-trip/' . (int) $trip['id'] . '">' . seoEscape($name) . '</a></h3>';
+        $cards .= '<div><p class="seo-kicker">' . seoEscape($type) . '</p><h3><a href="/open-trip/' . seoEscape($trip['slug']) . '">' . seoEscape($name) . '</a></h3>';
         $cards .= '<p>' . seoEscape($destination) . ' · Mulai ' . seoEscape(seoCurrency($trip['price'] ?? 0)) . ' per orang</p></div></article>';
     }
     return '<div class="seo-grid">' . $cards . '</div>';
@@ -323,7 +328,7 @@ if ($path === '//') {
     $path = '/';
 }
 
-$isTripPage = preg_match('#^/open-trip/(\d+)$#', $path, $tripMatch) === 1;
+$isTripPage = preg_match('#^/open-trip/([a-z0-9-]+)$#', $path, $tripMatch) === 1;
 $publicPaths = ['/', '/open-trip-jogja', '/destinasi', '/reviews'];
 $privatePrefixes = ['/admin', '/tim', '/akun', '/payment-confirmation', '/daftar', '/verify-email', '/forgot-password', '/reset-password', '/login', '/signup', '/customer'];
 $isPrivatePath = false;
@@ -347,7 +352,8 @@ $databaseError = null;
 try {
     $pdo = database();
     if ($isTripPage) {
-        $trip = seoTrip($pdo, (int) $tripMatch[1]);
+        $tripId = array_search($tripMatch[1], tripSlugMap($pdo), true);
+        $trip = $tripId !== false ? seoTrip($pdo, (int) $tripId) : null;
     } elseif (in_array($path, ['/', '/open-trip-jogja', '/destinasi'], true)) {
         $trips = seoPublicTrips($pdo);
     } elseif ($path === '/reviews') {
@@ -415,7 +421,7 @@ if ($path === '/open-trip-jogja' || $path === '/destinasi' || $path === '/') {
         'itemListElement' => array_map(static fn(array $item, int $index): array => [
             '@type' => 'ListItem',
             'position' => $index + 1,
-            'url' => SEO_SITE_URL . '/open-trip/' . (int) $item['id'],
+            'url' => SEO_SITE_URL . '/open-trip/' . $item['slug'],
             'name' => seoText($item['name'] ?? ''),
         ], $trips, array_keys($trips)),
     ];

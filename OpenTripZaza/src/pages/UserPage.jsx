@@ -14,6 +14,9 @@ import { getJakartaToday, getOpenTripScheduleOptions, getPrivateDateRange, getPr
 import { bloodTypeOptions, isCustomerTripProfileComplete, validateCustomerTripProfile } from '../utils/customerProfile'
 import { getAddonLineTotal, getAddonUnitCount, hydrateAddonForParticipants, isTripAddonActive } from '../utils/addons'
 import { AppModal, Badge, InfoBlock, NotFound } from './shared'
+import * as api from '../services/api'
+
+const tripPath = (trip) => `/open-trip/${trip.slug}`
 
 const useCustomerLanguage = () => {
   const { t, i18n } = useTranslation()
@@ -444,7 +447,7 @@ function DestinationCarousel({ trips, navigate }) {
             key={offset}
             onClick={() => {
               if (offset === 0) {
-                navigate(`/open-trip/${trip.id}`)
+                navigate(tripPath(trip))
                 return
               }
               setSlideDirection(offset > 0 ? 'next' : 'prev')
@@ -802,7 +805,7 @@ function TripCard({ trip, navigate }) {
         </dl>
         <div className="trip-card-footer">
           <div className="trip-start-price"><span>{t('common.from')}</span><strong>{formatCurrency(getTripStartingPrice(trip))}</strong></div>
-          <a className="text-link-btn" href={`/open-trip/${trip.id}`} onClick={(event) => navigateWithLink(event, navigate, `/open-trip/${trip.id}`)}>{t('common.details')} <span aria-hidden="true">&rarr;</span></a>
+          <a className="text-link-btn" href={tripPath(trip)} onClick={(event) => navigateWithLink(event, navigate, tripPath(trip))}>{t('common.details')} <span aria-hidden="true">&rarr;</span></a>
         </div>
       </div>
     </article>
@@ -932,7 +935,7 @@ function TripBreadcrumb({ trip, navigate, checkout }) {
     <div className="trip-breadcrumb">
       <button onClick={() => navigate('/')} type="button">{t('common.home')}</button>
       <span>-</span>
-      {checkout ? <button onClick={() => navigate(`/open-trip/${trip.id}`)} type="button">{trip.name}</button> : <span>{trip.name}</span>}
+      {checkout ? <button onClick={() => navigate(tripPath(trip))} type="button">{trip.name}</button> : <span>{trip.name}</span>}
     </div>
   )
 }
@@ -2575,7 +2578,14 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], reschedul
                     </>
                   )}
                   <a className="outline-btn" href="https://wa.me/62882005881248" target="_blank" rel="noreferrer">{t('common.contactAdmin')}</a>
-                  <button className="text-link-btn" onClick={() => navigate(`/open-trip/${item.tripId}`)} type="button">{t('common.viewTrip')}</button>
+                  <button className="text-link-btn" onClick={async () => {
+                    try {
+                      const trip = trips.find((entry) => entry.id === item.tripId) || await api.getTripDetail(item.tripId)
+                      navigate(tripPath(trip))
+                    } catch (error) {
+                      window.alert(error.message || 'Detail trip tidak dapat dibuka.')
+                    }
+                  }} type="button">{t('common.viewTrip')}</button>
                 </div>
               </article>
             )

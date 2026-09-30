@@ -24,6 +24,11 @@ const DEFAULT_SEO = {
   description: 'Vertical caving Jogja ke Goa Jomblang, Goa Ngeleng, Goa Sumitro, dan Goa Macan Mati. Cek jadwal open trip, harga, fasilitas, dan booking.',
   robots: 'index, follow',
 }
+const tripPath = (trip) => `/open-trip/${trip.slug}`
+const tripFromPath = (path, trips) => {
+  const slug = path.match(/^\/open-trip\/([a-z0-9-]+)$/)?.[1]
+  return slug ? trips.find((trip) => trip.slug === slug) : null
+}
 const lazyNamed = (loader, name) => lazy(() => loader().then((module) => ({ default: module[name] })))
 const loadAdminPage = () => import('./pages/AdminPage')
 const loadWorkerPage = () => import('./pages/WorkerPage')
@@ -111,8 +116,7 @@ const buildStructuredData = (path, trips) => {
   const cleanPath = path.split('?')[0] || '/'
   const canonicalPath = cleanPath === '/open-trip' ? '/' : cleanPath === '/review' ? '/reviews' : cleanPath
   const canonicalUrl = `${SITE_URL}${canonicalPath === '/' ? '/' : canonicalPath}`
-  const tripMatch = cleanPath.match(/^\/open-trip\/(\d+)$/)
-  const trip = tripMatch ? trips.find((item) => Number(item.id) === Number(tripMatch[1])) : null
+  const trip = tripFromPath(cleanPath, trips)
   const seo = buildSeo(path, trips)
   const graph = [
     {
@@ -184,9 +188,7 @@ const buildStructuredData = (path, trips) => {
 
 const buildSeo = (path, trips) => {
   const cleanPath = path.split('?')[0] || '/'
-  const parts = cleanPath.split('/').filter(Boolean)
-  const tripId = parts[0] === 'open-trip' ? Number(parts[1]) : 0
-  const trip = tripId ? trips.find((item) => Number(item.id) === tripId) : null
+  const trip = tripFromPath(cleanPath, trips)
   const privatePath = cleanPath.startsWith('/admin') || cleanPath.startsWith('/tim') || cleanPath.startsWith('/akun') || cleanPath.startsWith('/payment-confirmation') || cleanPath.startsWith('/daftar') || cleanPath.startsWith('/verify-email') || cleanPath.startsWith('/forgot-password') || cleanPath.startsWith('/reset-password')
 
   if (privatePath) {
@@ -206,7 +208,7 @@ const buildSeo = (path, trips) => {
       title: `${trip.name} | MAUA Project`,
       description: tripDescription || `Cek jadwal, harga, fasilitas, dan booking ${trip.name} di ${destination} bersama MAUA Project.`,
       robots: 'index, follow',
-      canonicalPath: `/open-trip/${trip.id}`,
+      canonicalPath: tripPath(trip),
     }
   }
 
@@ -277,6 +279,7 @@ function App() {
   const [adminReviews, setAdminReviews] = useState([])
   const [checkoutDraft, setCheckoutDraft] = useState(readCheckoutDraft)
   const [toast, setToast] = useState('')
+  const [missingTripPaths, setMissingTripPaths] = useState([])
   const [isSessionRestoring, setIsSessionRestoring] = useState(() => Boolean(api.getSessionToken()))
   const detailRequestsRef = useRef(new Set())
 
@@ -387,23 +390,27 @@ function App() {
   }, [])
 
   useEffect(() => {
-    const detailMatch = path.match(/^\/(?:open-trip|daftar)\/(\d+)$/)
-    if (!detailMatch) return
-    const tripId = Number(detailMatch[1])
-    if (trips.some((trip) => trip.id === tripId && Array.isArray(trip.imageUrls))) return
-    if (detailRequestsRef.current.has(tripId)) return
-    detailRequestsRef.current.add(tripId)
+    const publicMatch = path.match(/^\/open-trip\/([a-z0-9-]+)$/)
+    const checkoutMatch = path.match(/^\/daftar\/(\d+)$/)
+    if (!publicMatch && !checkoutMatch) return
+    const knownTrip = publicMatch ? tripFromPath(path, trips) : trips.find((trip) => trip.id === Number(checkoutMatch[1]))
+    const tripId = knownTrip?.id || Number(checkoutMatch?.[1] || 0)
+    if (knownTrip && Array.isArray(knownTrip.imageUrls)) return
+    if (missingTripPaths.includes(path) || detailRequestsRef.current.has(path)) return
+    detailRequestsRef.current.add(path)
     Promise.all([
-      api.getTripDetail(tripId),
-      path.startsWith('/daftar/') ? api.getPrivateBookingAvailability(tripId) : Promise.resolve([]),
+      publicMatch && !tripId ? api.getTripDetailBySlug(publicMatch[1]) : api.getTripDetail(tripId),
+      checkoutMatch ? api.getPrivateBookingAvailability(tripId) : Promise.resolve([]),
     ]).then(([detailTrip, availability]) => {
       setTrips((current) => [...current.filter((trip) => trip.id !== detailTrip.id), detailTrip])
       if (availability.length) {
         setRegistrations((current) => [...current, ...availability.filter((item) => !current.some((existing) => existing.id === item.id))])
       }
-    }).catch((error) => showToast(error.message))
-      .finally(() => detailRequestsRef.current.delete(tripId))
-  }, [path, trips])
+    }).catch((error) => {
+      if (publicMatch) setMissingTripPaths((current) => [...current, path])
+      else showToast(error.message)
+    }).finally(() => detailRequestsRef.current.delete(path))
+  }, [path, trips, missingTripPaths])
 
   useEffect(() => {
     const seo = buildSeo(path, trips)
@@ -952,6 +959,7 @@ function App() {
     updateJobStatus,
     showToast,
     isSessionRestoring,
+    missingTripPaths,
   }
 
   return (
@@ -965,7 +973,7 @@ function App() {
 }
 
 function RouteRenderer(props) {
-  const { path, session, navigate, trips, isSessionRestoring } = props
+  const { path, session, navigate, trips, isSessionRestoring, missingTripPaths } = props
   const parts = path.split('/').filter(Boolean)
   const id = Number(parts[1] || parts[2] || 0)
 
@@ -993,9 +1001,11 @@ function RouteRenderer(props) {
   if (path.startsWith('/verify-email')) return <EmailVerificationPage {...props} />
   if (path === '/forgot-password') return <ForgotPasswordPage {...props} />
   if (path === '/reset-password') return <ResetPasswordPage {...props} />
-  if (parts[0] === 'open-trip' && id) {
-    if (!trips.some((trip) => trip.id === id && Array.isArray(trip.imageUrls))) return <div className="route-loading">Memuat detail trip...</div>
-    return <TripDetail tripId={id} {...props} />
+  if (/^\/open-trip\/[a-z0-9-]+$/.test(path)) {
+    const trip = tripFromPath(path, trips)
+    if (missingTripPaths.includes(path)) return <NotFound navigate={navigate} />
+    if (!trip || !Array.isArray(trip.imageUrls)) return <div className="route-loading">Memuat detail trip...</div>
+    return <TripDetail tripId={trip.id} {...props} />
   }
   if (path === '/payment-confirmation') {
     if (session?.role !== 'customer') return <CustomerLoginPage afterLoginPath="/payment-confirmation" {...props} />

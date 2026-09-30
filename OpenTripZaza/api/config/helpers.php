@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/response.php';
 require_once __DIR__ . '/database.php';
+require_once __DIR__ . '/trip-slugs.php';
 
 function runEndpoint(callable $callback): void
 {
@@ -693,6 +694,7 @@ function mapTrip(PDO $pdo, array $trip, bool $customerView = false): array
 
     return [
         'id' => $tripId,
+        'slug' => tripSlugFor($pdo, $tripId),
         'name' => $trip['name'],
         'type' => $trip['trip_type'],
         'isPrivateTrip' => $trip['trip_type'] === 'private',
@@ -852,6 +854,7 @@ function mapTripSummaries(PDO $pdo, array $trips, bool $customerView = false): a
             : (bool) array_filter($allTripSchedules, static fn(array $schedule): bool => $schedule['isBookable']);
         return [
             'id' => $tripId,
+            'slug' => tripSlugFor($pdo, $tripId),
             'name' => $trip['name'],
             'type' => $trip['trip_type'],
             'isPrivateTrip' => $isPrivate,

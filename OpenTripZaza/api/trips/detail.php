@@ -5,10 +5,12 @@ requireMethod('GET');
 
 runEndpoint(function (PDO $pdo): void {
     expireUnpaidReschedules($pdo);
+    $slug = trim((string) ($_GET['slug'] ?? ''));
     $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
-    if (!$id) {
-        throw new InvalidArgumentException('ID trip tidak valid.');
+    if ($slug !== '') {
+        $id = array_search($slug, tripSlugMap($pdo), true);
     }
+    if (!$id) jsonError('Trip tidak ditemukan.', 404);
     $statement = $pdo->prepare('SELECT * FROM trips WHERE id = ? LIMIT 1');
     $statement->execute([$id]);
     $trip = $statement->fetch();

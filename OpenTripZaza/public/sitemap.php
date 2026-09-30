@@ -6,6 +6,7 @@ if (!is_file($databaseFile)) {
     $databaseFile = dirname(__DIR__) . '/api/config/database.php';
 }
 require_once $databaseFile;
+require_once dirname($databaseFile) . '/trip-slugs.php';
 
 const SITEMAP_BASE_URL = 'https://mauaproject.com';
 
@@ -53,9 +54,11 @@ try {
                 )
               )
             ORDER BY t.id";
-    foreach (database()->query($sql)->fetchAll() as $trip) {
+    $pdo = database();
+    $slugs = tripSlugMap($pdo);
+    foreach ($pdo->query($sql)->fetchAll() as $trip) {
         $urls[] = [
-            'path' => '/open-trip/' . (int) $trip['id'],
+            'path' => '/open-trip/' . $slugs[(int) $trip['id']],
             'lastmod' => (string) ($trip['lastmod'] ?: $today),
             'changefreq' => 'weekly',
             'priority' => '0.8',
