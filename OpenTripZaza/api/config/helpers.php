@@ -834,7 +834,7 @@ function mapTripSummaries(PDO $pdo, array $trips, bool $customerView = false): a
     foreach ($sessionStatement->fetchAll() as $session) {
         $sessions[(int) $session['trip_id']][] = $session;
     }
-    return array_map(static function (array $trip) use ($images, $schedules, $sessions, $customerView, $now): array {
+    return array_map(static function (array $trip) use ($pdo, $images, $schedules, $sessions, $customerView, $now): array {
         $tripId = (int) $trip['id'];
         $allTripSchedules = $schedules[$tripId] ?? [];
         $tripSchedules = $customerView
