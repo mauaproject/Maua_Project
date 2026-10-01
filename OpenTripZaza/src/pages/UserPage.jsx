@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import horizontalLogo from '../assets/desainHorizontal.webp'
+import bcaLogo from '../assets/Logo_BCA_Biru.png'
 import verticalLogo from '../assets/desainvertikal.webp'
 import whatsappIcon from '../assets/whatsapp.svg'
 import { addonOptions } from '../config/constants'
@@ -508,6 +509,52 @@ function ReviewCard({ review, dateLocale, compact = false }) {
   )
 }
 
+function PublicFooter({ navigate, faqId }) {
+  const { t } = useCustomerLanguage()
+
+  return (
+    <footer className="public-footer" aria-label={t('footer.label')}>
+      <div className="public-footer-main public-footer-wrap">
+        <div className="public-footer-brand">
+          <a href="/" onClick={(event) => navigateWithLink(event, navigate, '/')} aria-label={t('footer.homeLabel')}>
+            <img className="public-footer-logo" src={horizontalLogo} alt="MAUA Project" width="600" height="180" loading="lazy" decoding="async" />
+          </a>
+          <p className="public-footer-copy">{t('footer.description')}</p>
+          <p className="public-footer-location">
+            <svg className="public-footer-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z" /><circle cx="12" cy="10" r="2.5" /></svg>
+            {t('footer.location')}
+          </p>
+        </div>
+        <nav aria-label={t('footer.navigationLabel')}>
+          <h2>{t('footer.explore')}</h2>
+          <ul className="public-footer-links">
+            <li><a href="/destinasi" onClick={(event) => navigateWithLink(event, navigate, '/destinasi')}>{t('footer.trips')}</a></li>
+            <li><a href="/reviews" onClick={(event) => navigateWithLink(event, navigate, '/reviews')}>Reviews</a></li>
+            <li><a href={`#${faqId}`}>FAQ</a></li>
+          </ul>
+        </nav>
+        <div className="public-footer-contact">
+          <h2>{t('footer.contact')}</h2>
+          <ul className="public-footer-links">
+            <li><a className="public-footer-email" href="mailto:thisismaua@gmail.com"><svg className="public-footer-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3" /><path d="m4 7 8 6 8-6" /></svg>thisismaua@gmail.com</a></li>
+            <li><a href="https://www.instagram.com/mauaproject/" target="_blank" rel="noopener noreferrer"><svg className="public-footer-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5" /><circle cx="12" cy="12" r="4" /><circle cx="17.5" cy="6.5" r=".7" fill="currentColor" stroke="none" /></svg>@mauaproject</a></li>
+          </ul>
+        </div>
+        <div>
+          <h2>{t('footer.payment')}</h2>
+          <div className="public-footer-payment-logo"><div className="public-footer-bank-logo"><img src={bcaLogo} alt="BCA" width="3027" height="980" loading="lazy" decoding="async" /></div></div>
+          <p className="public-footer-payment-label">{t('footer.bankTransfer')}</p>
+          <p className="public-footer-payment-note">{t('footer.paymentNote')}</p>
+        </div>
+      </div>
+      <div className="public-footer-bottom public-footer-wrap">
+        <p>{t('footer.copyright', { year: new Date().getFullYear() })}</p>
+        <p className="public-footer-signoff">{t('footer.signoff')}</p>
+      </div>
+    </footer>
+  )
+}
+
 export function CustomerCatalog({ trips, reviews = [], navigate, session, logout }) {
   const { t, dateLocale } = useCustomerLanguage()
   const activeTrips = trips.filter((trip) => !trip.isArchived && (trip.status === 'Tersedia' || trip.status === 'Penuh'))
@@ -639,16 +686,7 @@ export function CustomerCatalog({ trips, reviews = [], navigate, session, logout
         </div>
       </section>
 
-      <footer className="public-footer reveal-on-scroll">
-        <div>
-          <h2>{t('catalog.footerTitle')}</h2>
-          <p>{t('catalog.footerCopy')}</p>
-        </div>
-        <div className="footer-contact">
-          <a href="https://www.instagram.com/mauaproject/" target="_blank" rel="noreferrer">Instagram</a>
-          <a href="https://wa.me/62882005881248" target="_blank" rel="noreferrer">0882005881248</a>
-        </div>
-      </footer>
+      <PublicFooter navigate={navigate} faqId="faq-list" />
     </main>
   )
 }
@@ -721,10 +759,7 @@ export function OpenTripJogjaPage({ trips, navigate, session, logout }) {
         </div>
       </section>
 
-      <footer className="public-footer reveal-on-scroll">
-        <div><h2>{t('catalog.footerTitle')}</h2><p>{t('catalog.footerCopy')}</p></div>
-        <div className="footer-contact"><a href="https://www.instagram.com/mauaproject/" target="_blank" rel="noreferrer">Instagram</a><a href="https://wa.me/62882005881248" target="_blank" rel="noreferrer">0882005881248</a></div>
-      </footer>
+      <PublicFooter navigate={navigate} faqId="faq-open-trip" />
     </main>
   )
 }
