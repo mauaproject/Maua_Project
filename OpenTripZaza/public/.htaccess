@@ -32,6 +32,8 @@ RewriteRule ^ https://mauaproject.com%{REQUEST_URI} [R=301,L]
 # Hindari duplikasi URL lama yang menampilkan konten sama.
 RewriteRule ^open-trip/?$ / [R=301,L]
 RewriteRule ^review/?$ /reviews [R=301,L]
+RewriteRule ^open-trip-jogja/?$ /blog [R=301,L]
+RewriteRule ^blog/$ /blog [R=301,L]
 
 # Jangan arahkan endpoint PHP dan file upload ke React.
 RewriteRule ^api(?:/|$) - [L]
@@ -43,7 +45,7 @@ RewriteRule ^sitemap\.xml$ sitemap.php [L]
 # HTML publik dirender di server agar judul, deskripsi, schema, dan isi utama
 # sudah tersedia sebelum JavaScript React berjalan.
 RewriteRule ^$ seo-render.php [L,QSA]
-RewriteRule ^(?:destinasi|reviews|open-trip-jogja)/?$ seo-render.php [L,QSA]
+RewriteRule ^(?:destinasi|reviews|blog)/?$ seo-render.php [L,QSA]
 RewriteRule ^open-trip/[a-z0-9-]+/?$ seo-render.php [L,QSA]
 
 # Layani file/folder asli secara langsung.

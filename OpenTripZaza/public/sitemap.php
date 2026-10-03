@@ -21,7 +21,7 @@ function sitemapEscape(string $value): string
 $today = (new DateTimeImmutable('now', new DateTimeZone('Asia/Jakarta')))->format('Y-m-d');
 $urls = [
     ['path' => '/', 'lastmod' => $today, 'changefreq' => 'weekly', 'priority' => '1.0'],
-    ['path' => '/open-trip-jogja', 'lastmod' => $today, 'changefreq' => 'weekly', 'priority' => '0.9'],
+    ['path' => '/blog', 'lastmod' => $today, 'changefreq' => 'monthly', 'priority' => '0.9'],
     ['path' => '/destinasi', 'lastmod' => $today, 'changefreq' => 'weekly', 'priority' => '0.9'],
     ['path' => '/reviews', 'lastmod' => $today, 'changefreq' => 'monthly', 'priority' => '0.7'],
 ];

@@ -287,6 +287,7 @@ export function PublicNav({ navigate, session, logout }) {
         <nav className="public-nav-menu" aria-label={t('nav.main')}>
           <a href="/destinasi" onClick={(event) => navigateWithLink(event, navigate, '/destinasi')}>{t('nav.trip')}</a>
           <a href="/" onClick={(event) => navigateWithLink(event, navigate, '/')}>{t('nav.home')}</a>
+          <a href="/blog" onClick={(event) => navigateWithLink(event, navigate, '/blog')}>{t('nav.blog')}</a>
           <a href="/reviews" onClick={(event) => navigateWithLink(event, navigate, '/reviews')}>{t('nav.review')}</a>
         </nav>
 
@@ -332,6 +333,7 @@ export function PublicNav({ navigate, session, logout }) {
           </div>
           <a href="/destinasi" onClick={(event) => navigateWithLink(event, navigate, '/destinasi', () => setIsMenuOpen(false))}>{t('nav.trip')}</a>
           <a href="/" onClick={(event) => navigateWithLink(event, navigate, '/', () => setIsMenuOpen(false))}>{t('nav.home')}</a>
+          <a href="/blog" onClick={(event) => navigateWithLink(event, navigate, '/blog', () => setIsMenuOpen(false))}>{t('nav.blog')}</a>
           <a href="/reviews" onClick={(event) => navigateWithLink(event, navigate, '/reviews', () => setIsMenuOpen(false))}>{t('nav.review')}</a>
           {isLoggedIn ? (
             <>
@@ -509,7 +511,7 @@ function ReviewCard({ review, dateLocale, compact = false }) {
   )
 }
 
-function PublicFooter({ navigate, faqId }) {
+export function PublicFooter({ navigate, faqId }) {
   const { t } = useCustomerLanguage()
 
   return (
@@ -530,7 +532,8 @@ function PublicFooter({ navigate, faqId }) {
           <ul className="public-footer-links">
             <li><a href="/destinasi" onClick={(event) => navigateWithLink(event, navigate, '/destinasi')}>{t('footer.trips')}</a></li>
             <li><a href="/reviews" onClick={(event) => navigateWithLink(event, navigate, '/reviews')}>Reviews</a></li>
-            <li><a href={`#${faqId}`}>FAQ</a></li>
+            <li><a href="/blog" onClick={(event) => navigateWithLink(event, navigate, '/blog')}>{t('nav.blog')}</a></li>
+            {faqId && <li><a href={`#${faqId}`}>FAQ</a></li>}
           </ul>
         </nav>
         <div className="public-footer-contact">
@@ -652,7 +655,7 @@ export function CustomerCatalog({ trips, reviews = [], navigate, session, logout
         <div>
           <h2>{t('seoIntro.title')}</h2>
           <p>{t('seoIntro.copy')}</p>
-          <a className="text-link-btn" href="/open-trip-jogja" onClick={(event) => navigateWithLink(event, navigate, '/open-trip-jogja')}>{t('seoIntro.cta')} <span aria-hidden="true">&rarr;</span></a>
+          <a className="text-link-btn" href="/blog" onClick={(event) => navigateWithLink(event, navigate, '/blog')}>{t('seoIntro.cta')} <span aria-hidden="true">&rarr;</span></a>
         </div>
       </section>
 
@@ -687,79 +690,6 @@ export function CustomerCatalog({ trips, reviews = [], navigate, session, logout
       </section>
 
       <PublicFooter navigate={navigate} faqId="faq-list" />
-    </main>
-  )
-}
-
-export function OpenTripJogjaPage({ trips, navigate, session, logout }) {
-  const { t } = useCustomerLanguage()
-  const activeTrips = trips.filter((trip) => !trip.isArchived && (trip.status === 'Tersedia' || trip.status === 'Penuh'))
-  const caveTrips = activeTrips.filter((trip) => !isCustomExperience(trip))
-  const faqs = t('faqs', { returnObjects: true })
-
-  useEffect(() => {
-    const elements = document.querySelectorAll('.reveal-on-scroll')
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('is-visible')
-          observer.unobserve(entry.target)
-        }
-      })
-    }, { threshold: 0.12 })
-    elements.forEach((element) => observer.observe(element))
-    return () => observer.disconnect()
-  }, [caveTrips.length])
-
-  return (
-    <main className="public-page open-trip-landing-page">
-      <PublicNav navigate={navigate} session={session} logout={logout} />
-      <section className="open-trip-landing-hero">
-        <p className="eyebrow">{t('seoLanding.eyebrow')}</p>
-        <h1>{t('seoLanding.title')}</h1>
-        <p>{t('seoLanding.subtitle')}</p>
-        <div className="open-trip-landing-actions">
-          <a className="primary-btn" href="/destinasi" onClick={(event) => navigateWithLink(event, navigate, '/destinasi')}>{t('seoLanding.primaryCta')}</a>
-          <a className="outline-btn" href="https://wa.me/62882005881248" target="_blank" rel="noreferrer">{t('seoLanding.secondaryCta')}</a>
-        </div>
-      </section>
-
-      <section className="open-trip-benefits reveal-on-scroll">
-        <div className="section-head compact-section-head">
-          <div><p className="eyebrow">{t('seoLanding.chooseEyebrow')}</p><h2>{t('seoLanding.chooseTitle')}</h2></div>
-        </div>
-        <div className="open-trip-benefit-grid">
-          {t('seoLanding.benefits', { returnObjects: true }).map(([title, copy]) => (
-            <article key={title}><h3>{title}</h3><p>{copy}</p></article>
-          ))}
-        </div>
-      </section>
-
-      <section className="catalog-trip-section open-trip-landing-catalog" id="jadwal-open-trip">
-        <div className="section-head compact-section-head">
-          <div><p className="eyebrow">{t('seoLanding.scheduleEyebrow')}</p><h2>{t('seoLanding.scheduleTitle')}</h2><p>{t('seoLanding.scheduleCopy')}</p></div>
-          <span>{caveTrips.length} {t('catalog.packageCount')}</span>
-        </div>
-        <div className="trip-grid catalog-trip-grid">
-          {caveTrips.length ? caveTrips.map((trip) => <TripCard key={trip.id} trip={trip} navigate={navigate} />) : <p className="empty-state">{t('catalog.openEmpty')}</p>}
-        </div>
-      </section>
-
-      <section className="open-trip-how reveal-on-scroll">
-        <div><p className="eyebrow">{t('seoLanding.howEyebrow')}</p><h2>{t('seoLanding.howTitle')}</h2></div>
-        <ol>
-          {t('seoLanding.steps', { returnObjects: true }).map((step, index) => <li key={step}><span>{index + 1}</span><p>{step}</p></li>)}
-        </ol>
-      </section>
-
-      <section className="faq-section" id="faq-open-trip">
-        <div className="faq-head"><p className="eyebrow">{t('catalog.faqEyebrow')}</p><h2>{t('seoLanding.faqTitle')}</h2></div>
-        <div className="faq-list">
-          {faqs.map(([question, answer]) => <details className="faq-item reveal-on-scroll" key={question}><summary>{question}</summary><p>{answer}</p></details>)}
-        </div>
-      </section>
-
-      <PublicFooter navigate={navigate} faqId="faq-open-trip" />
     </main>
   )
 }

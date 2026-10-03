@@ -1,7 +1,9 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import './App.css'
 import i18n from './i18n'
-import { CustomerAccountPage, CustomerCatalog, CustomerLoginPage, CustomerSignupPage, DestinationPage, EmailVerificationPage, ForgotPasswordPage, OpenTripJogjaPage, PaymentConfirmationPage, RegistrationPage, ResetPasswordPage, ReviewsPage, TripDetail } from './pages/UserPage'
+import { useTranslation } from 'react-i18next'
+import blogContent from './content/blog.json'
+import { CustomerAccountPage, CustomerCatalog, CustomerLoginPage, CustomerSignupPage, DestinationPage, EmailVerificationPage, ForgotPasswordPage, PaymentConfirmationPage, RegistrationPage, ResetPasswordPage, ReviewsPage, TripDetail } from './pages/UserPage'
 import { LoginPage, NotFound } from './pages/shared'
 import * as api from './services/api'
 import { ABOVE_MAX_PAX_RULE, getPrivatePricePerPerson, normalizePricePerPersonTiers } from './utils/pricing'
@@ -45,8 +47,11 @@ const MyJobs = lazyNamed(loadWorkerPage, 'MyJobs')
 const WorkerDashboard = lazyNamed(loadWorkerPage, 'WorkerDashboard')
 const WorkerJobDetail = lazyNamed(loadWorkerPage, 'WorkerJobDetail')
 const WorkerJobs = lazyNamed(loadWorkerPage, 'WorkerJobs')
+const BlogPage = lazy(() => import('./pages/BlogPage'))
 
 const canonicalPath = (target) => {
+  if (/^\/open-trip-jogja\/?(?=[?#]|$)/.test(target)) return target.replace(/^\/open-trip-jogja\/?/, '/blog')
+  if (target === '/blog/') return '/blog'
   if (target === '/pekerja') return '/tim'
   if (target.startsWith('/pekerja/')) return target.replace(/^\/pekerja/, '/tim')
   if (target === '/admin/pekerja') return '/admin/tim'
@@ -57,7 +62,7 @@ const readCurrentPath = () => {
   const currentPath = window.location.pathname
   const nextPath = canonicalPath(currentPath)
   if (nextPath !== currentPath) {
-    window.history.replaceState({}, '', nextPath)
+    window.history.replaceState({}, '', nextPath + window.location.search + window.location.hash)
   }
   return nextPath
 }
@@ -137,7 +142,7 @@ const buildStructuredData = (path, trips) => {
       '@id': `${SITE_URL}/#website`,
       url: `${SITE_URL}/`,
       name: 'MAUA Project',
-      inLanguage: 'id-ID',
+      inLanguage: ['id-ID', 'en'],
       publisher: { '@id': `${SITE_URL}/#organization` },
     },
     {
@@ -146,11 +151,21 @@ const buildStructuredData = (path, trips) => {
       url: canonicalUrl,
       name: seo.title,
       description: seo.description,
-      inLanguage: 'id-ID',
+      inLanguage: i18n.language?.startsWith('en') ? 'en' : 'id-ID',
       isPartOf: { '@id': `${SITE_URL}/#website` },
       about: { '@id': `${SITE_URL}/#organization` },
     },
   ]
+
+  if (cleanPath === '/blog') {
+    graph.push({
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: i18n.language?.startsWith('en') ? 'Home' : 'Beranda', item: `${SITE_URL}/` },
+        { '@type': 'ListItem', position: 2, name: 'Blog MAUA', item: canonicalUrl },
+      ],
+    })
+  }
 
   if (trip) {
     const destination = localizedText(trip.destination, 'id') || 'Yogyakarta'
@@ -212,12 +227,11 @@ const buildSeo = (path, trips) => {
     }
   }
 
-  if (cleanPath === '/open-trip-jogja') {
+  if (cleanPath === '/blog') {
     return {
-      title: 'Vertical Caving Jogja & Open Trip Goa | MAUA Project',
-      description: 'Vertical caving Jogja ke Goa Jomblang, Goa Ngeleng, Goa Sumitro, dan Goa Macan Mati. Pilih jadwal open trip atau private trip.',
+      ...blogContent[i18n.language?.startsWith('en') ? 'en' : 'id'].meta,
       robots: 'index, follow',
-      canonicalPath: '/open-trip-jogja',
+      canonicalPath: '/blog',
     }
   }
 
@@ -266,6 +280,8 @@ const buildSeo = (path, trips) => {
 }
 
 function App() {
+  const { i18n: customerI18n } = useTranslation()
+  const language = customerI18n.language
   const [path, setPath] = useState(readCurrentPath)
   const [session, setSession] = useState(null)
   const [trips, setTrips] = useState([])
@@ -427,7 +443,7 @@ function App() {
     upsertMetaTag('meta[name="twitter:title"]', { name: 'twitter:title', content: seo.title })
     upsertMetaTag('meta[name="twitter:description"]', { name: 'twitter:description', content: seo.description })
     upsertStructuredData(buildStructuredData(path, trips))
-  }, [path, trips])
+  }, [path, trips, language])
 
   const login = async (role, form) => {
     try {
@@ -989,7 +1005,7 @@ function RouteRenderer(props) {
   }
 
   if (path === '/' || path === '/open-trip') return <CustomerCatalog {...props} />
-  if (path === '/open-trip-jogja') return <OpenTripJogjaPage {...props} />
+  if (path === '/blog') return <BlogPage {...props} />
   if (path === '/review' || path === '/reviews') return <ReviewsPage {...props} />
   if (path.startsWith('/destinasi')) return <DestinationPage {...props} />
   if (path === '/akun') {

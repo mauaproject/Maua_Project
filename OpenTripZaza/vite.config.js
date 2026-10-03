@@ -1,9 +1,20 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { readFileSync } from 'node:fs'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), {
+    name: 'blog-content-for-php',
+    generateBundle() {
+      // React and the PHP renderer share the same approved blog content.
+      this.emitFile({
+        type: 'asset',
+        fileName: 'blog-content.json',
+        source: readFileSync(new URL('./src/content/blog.json', import.meta.url), 'utf8'),
+      })
+    },
+  }],
   build: {
     cssCodeSplit: true,
     sourcemap: false,

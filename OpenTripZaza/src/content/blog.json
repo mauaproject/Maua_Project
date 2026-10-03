@@ -1,0 +1,314 @@
+{
+  "id": {
+    "meta": {
+      "title": "Blog MAUA - Destinasi & Panduan Perjalanan Jogja | MAUA Project",
+      "description": "Kenali MAUA Project, panduan open trip dan private trip, destinasi goa, pantai, aktivitas air, serta pengalaman peserta di Yogyakarta."
+    },
+    "hero": {
+      "eyebrow": "Blog MAUA · Cerita, destinasi & panduan",
+      "title": "Kenali MAUA.\nTemukan\npetualanganmu.",
+      "copy": "Dari kedalaman goa hingga luasnya cakrawala Jogja. Kenali pengalaman yang menantimu, cara ikut trip, dan cerita mereka yang sudah berangkat.",
+      "explore": "Jelajahi destinasi",
+      "about": "Tentang MAUA",
+      "footnote": "Yogyakarta & sekitarnya · Open trip & private trip",
+      "imageAlt": "Cahaya matahari memasuki ruang goa",
+      "photoLabel": "Selalu ada sisi lain untuk dijelajahi",
+      "photoCaption": "A little wonder. A new story."
+    },
+    "contentsLabel": "Di halaman ini",
+    "contentsAria": "Jelajahi isi halaman",
+    "sections": [
+      {
+        "id": "tentang",
+        "label": "Tentang MAUA"
+      },
+      {
+        "id": "panduan",
+        "label": "Panduan Layanan"
+      },
+      {
+        "id": "destinasi",
+        "label": "Destinasi"
+      },
+      {
+        "id": "review",
+        "label": "Review Peserta"
+      },
+      {
+        "id": "persiapan",
+        "label": "Persiapan"
+      }
+    ],
+    "about": {
+      "eyebrow": "01 / Tentang MAUA",
+      "title": "Berangkat dengan rasa penasaran.\nPulang membawa cerita.",
+      "paragraphs": [
+        "MAUA Project menghadirkan pilihan pengalaman wisata alam di Yogyakarta dan sekitarnya, dengan vertical caving sebagai salah satu kegiatan utamanya. Kamu bisa mengenal sisi lain Jogja melalui penjelajahan goa, aktivitas sungai, hingga petualangan di alam terbuka.",
+        "Datang sendiri, bersama teman, atau dengan rombongan? Pilih open trip untuk bertemu peserta lain, atau private trip untuk perjalanan bersama kelompokmu. Kenali aktivitas dan fasilitas setiap paket agar pengalaman yang dipilih sesuai dengan rencanamu."
+      ],
+      "tags": [
+        "Vertical caving",
+        "Wisata alam",
+        "Open & private trip"
+      ],
+      "caption": "Lebih dekat dengan alam.\nLebih banyak cerita.",
+      "imageAlt": "Vegetasi hijau di antara dinding goa"
+    },
+    "guide": {
+      "eyebrow": "02 / Panduan layanan",
+      "title": "Pilih caramu\nmenjelajah.",
+      "intro": "Mulai dari jenis perjalanan yang cocok untukmu. Setelah itu, pilih destinasi dan jadwal yang tersedia.",
+      "bookingLink": "Lihat cara pemesanan",
+      "services": [
+        {
+          "title": "Open trip",
+          "copy": "Bergabung dengan peserta lain pada jadwal yang sudah tersedia. Pilihan untuk peserta individu atau kelompok kecil yang ingin berbagi pengalaman perjalanan.",
+          "note": "Jadwal & kuota mengikuti paket"
+        },
+        {
+          "title": "Private trip",
+          "copy": "Menjelajah bersama rombonganmu sendiri. Pilih tanggal sesuai ketersediaan paket dan diskusikan kebutuhan perjalanan dengan tim MAUA.",
+          "note": "Perjalanan untuk kelompokmu"
+        }
+      ],
+      "bookingTitle": "Dari memilih trip sampai siap berangkat",
+      "steps": [
+        {
+          "title": "Pilih pengalaman",
+          "copy": "Kenali destinasi dan tentukan open trip atau private trip yang sesuai."
+        },
+        {
+          "title": "Periksa detailnya",
+          "copy": "Cek jadwal, harga, kuota, aktivitas, fasilitas, dan meeting point pada paket."
+        },
+        {
+          "title": "Lengkapi data",
+          "copy": "Buat akun dan isi data peserta yang diminta pada proses pemesanan."
+        },
+        {
+          "title": "Bayar & konfirmasi",
+          "copy": "Ikuti instruksi transfer BCA, unggah bukti pembayaran, lalu tunggu konfirmasi tim."
+        }
+      ],
+      "bookingNote": "Baca syarat dan ketentuan pada halaman pembayaran sebelum melanjutkan pemesanan."
+    },
+    "destinations": {
+      "eyebrow": "03 / Kenali destinasi",
+      "title": "Dari goa hingga\npesisir Jogja.",
+      "intro": "Kenali pilihan pengalaman bersama MAUA, lalu temukan kegiatan yang sesuai dengan rencana perjalananmu.",
+      "groups": [
+        {
+          "id": "caves-title",
+          "title": "Goa & vertical caving",
+          "subtitle": "Jomblang, Ngeleng, Sumitro,\ndan Macan Mati",
+          "paragraphs": [
+            "**Goa Jomblang** menawarkan penurunan sekitar 60 meter menggunakan sistem hauling, dilanjutkan perjalanan melewati hutan purba menuju lorong yang dikenal dengan *Light of Heaven*. Cahaya matahari yang masuk melalui bukaan goa menjadi daya tarik utamanya. Untuk pengalaman yang lebih menantang, **Goa Ngeleng** memiliki jalur vertikal sekitar 90 meter, lorong horizontal dengan vegetasi alami, serta tantangan scrambling pada jalur keluar.",
+            "Di Pegunungan Karst Menoreh, Kulon Progo, **Goa Sumitro** menghadirkan penurunan sekitar 15 meter, formasi karst, dan sungai bawah tanah. Sementara itu, **Goa Macan Mati** menawarkan penurunan hingga 60 meter di dalam doline dengan vegetasi purba. Karakter goanya yang terbuka dan penjelajahan horizontal yang minimal menjadi pilihan untuk mengenal perlengkapan Single Rope Technique (SRT). Pilihan kegiatan untuk pemula disesuaikan dengan persyaratan paket dan pendampingan tim."
+          ]
+        },
+        {
+          "id": "water-title",
+          "title": "Aktivitas air",
+          "subtitle": "Paddle board & cave tubing",
+          "paragraphs": [
+            "**Kalisuci Paddle Board** mengajakmu menikmati sungai sepanjang sekitar 750 meter dengan air jernih berwarna hijau kebiruan. Tebing karst yang menjulang di kedua sisinya menghadirkan pemandangan alam terbuka sepanjang perjalanan di atas paddle board.",
+            "Untuk menjelajahi bagian bawah tanahnya, **Kalisuci Cave Tubing** membawa peserta mengapung menggunakan ban pelampung melalui lorong goa di kawasan karst Gunungsewu. Cahaya dari bukaan goa dan dinding karst menjadi bagian dari pengalamannya. Kegiatan dapat mencakup berenang dan melompat dari titik yang ditentukan, mengikuti paket serta arahan pemandu."
+          ]
+        },
+        {
+          "id": "mountain-title",
+          "title": "Gunung & petualangan darat",
+          "subtitle": "Merapi & Nglanggeran",
+          "paragraphs": [
+            "**Merapi Lava Tour** menawarkan petualangan jeep off-road di lereng Merapi sambil mengenal jejak erupsi masa lalu. Perjalanan melintasi jalan berbatu, area sungai, dan kawasan bekas aliran lava, dengan Gunung Merapi sebagai latar alamnya.",
+            "Jika ingin menikmati perjalanan dengan berjalan kaki, **Gunung Api Purba Nglanggeran** di Gunungkidul menawarkan trekking di antara formasi batuan vulkanik purba. Destinasi dengan ketinggian sekitar 700 meter di atas permukaan laut ini mengarah ke titik pandang dengan panorama perbukitan, persawahan, dan pedesaan Gunungkidul."
+          ]
+        },
+        {
+          "id": "coast-title",
+          "title": "Pantai & panorama laut",
+          "subtitle": "Pantai Timang",
+          "paragraphs": [
+            "**Pantai Timang** memperlihatkan sisi pesisir Gunungkidul melalui tebing kapur dan deburan ombak Samudra Hindia. Gondola tradisional dan jembatan gantung yang menghubungkan tebing daratan dengan Pulau Timang menjadi daya tarik utamanya, menawarkan pengalaman menyeberang dengan pemandangan laut yang luas."
+          ]
+        }
+      ],
+      "note": "Aktivitas, fasilitas, syarat peserta, serta ketersediaan mengikuti paket yang dipilih.",
+      "link": "Lihat pilihan paket"
+    },
+    "reviews": {
+      "eyebrow": "04 / Kata mereka",
+      "title": "Cerita terbaik datang\ndari yang sudah berangkat.",
+      "intro": "Pengalaman peserta bersama MAUA, dari momen pertama mencoba hingga keinginan untuk kembali.",
+      "ratingLabel": "5 dari 5 bintang",
+      "allLink": "Lihat semua review",
+      "originalLanguageNote": "Ulasan ditampilkan sesuai bahasa asli peserta."
+    },
+    "preparation": {
+      "eyebrow": "05 / Sebelum berangkat",
+      "title": "Sedikit persiapan,\nlebih nyaman di perjalanan.",
+      "intro": "Gunakan informasi teknis dari tim untuk paket yang kamu pesan. Empat hal ini bisa menjadi awal persiapanmu.",
+      "items": [
+        {
+          "title": "Kenali aktivitas",
+          "copy": "Pahami karakter kegiatan dan persyaratan peserta. Sampaikan kondisi serta kebutuhan yang relevan sebelum booking."
+        },
+        {
+          "title": "Pastikan meeting point",
+          "copy": "Simpan lokasi dan waktu berkumpul. Atur perjalanan menuju titik temu sesuai informasi tim."
+        },
+        {
+          "title": "Cek perlengkapan",
+          "copy": "Periksa apa yang disediakan dan apa yang perlu dibawa sendiri. Ikuti daftar perlengkapan dari paketmu."
+        },
+        {
+          "title": "Simpan kontak tim",
+          "copy": "Simpan konfirmasi pemesanan dan kontak admin. Ikuti briefing serta arahan pemandu selama kegiatan."
+        }
+      ]
+    },
+    "backTop": "Kembali ke atas"
+  },
+  "en": {
+    "meta": {
+      "title": "MAUA Blog - Jogja Destinations & Travel Guide | MAUA Project",
+      "description": "Get to know MAUA Project, explore open and private trip guides, caves, beaches and river activities, and read guest experiences in Yogyakarta."
+    },
+    "hero": {
+      "eyebrow": "MAUA Blog · Stories, destinations & guides",
+      "title": "Discover MAUA.\nFind your\nadventure.",
+      "copy": "From the depths of a cave to Jogja's open horizons. Discover the experiences that await, learn how to join a trip, and hear from those who have already been.",
+      "explore": "Explore destinations",
+      "about": "About MAUA",
+      "footnote": "Yogyakarta & beyond · Open trips & private trips",
+      "imageAlt": "Sunlight entering a cave chamber",
+      "photoLabel": "There is always another side to explore",
+      "photoCaption": "A little wonder. A new story."
+    },
+    "contentsLabel": "On this page",
+    "contentsAria": "Explore this page",
+    "sections": [
+      { "id": "tentang", "label": "About MAUA" },
+      { "id": "panduan", "label": "Our services" },
+      { "id": "destinasi", "label": "Destinations" },
+      { "id": "review", "label": "Guest reviews" },
+      { "id": "persiapan", "label": "Preparation" }
+    ],
+    "about": {
+      "eyebrow": "01 / About MAUA",
+      "title": "Set off with curiosity.\nCome home with stories.",
+      "paragraphs": [
+        "MAUA Project offers nature experiences in Yogyakarta and the surrounding area, with vertical caving as one of its main activities. Discover another side of Jogja through cave exploration, river activities, and outdoor adventures.",
+        "Travelling solo, with friends, or as a group? Choose an open trip to meet other participants, or a private trip for your own group. Explore the activities and facilities in each package to find an experience that fits your plans."
+      ],
+      "tags": ["Vertical caving", "Nature experiences", "Open & private trips"],
+      "caption": "Closer to nature.\nMore stories to share.",
+      "imageAlt": "Green vegetation between cave walls"
+    },
+    "guide": {
+      "eyebrow": "02 / Our services",
+      "title": "Choose your way\nto explore.",
+      "intro": "Start with the kind of trip that suits you, then choose from the available destinations and dates.",
+      "bookingLink": "How to book",
+      "services": [
+        { "title": "Open trip", "copy": "Join other participants on a scheduled departure. An option for solo travellers and small groups who want to share the journey with others.", "note": "Dates & capacity depend on the package" },
+        { "title": "Private trip", "copy": "Explore with your own group. Choose a date within the package's availability and discuss your travel needs with the MAUA team.", "note": "A journey for your own group" }
+      ],
+      "bookingTitle": "From choosing a trip to getting ready to go",
+      "steps": [
+        { "title": "Choose an experience", "copy": "Explore the destinations and choose an open or private trip that suits you." },
+        { "title": "Check the details", "copy": "Review dates, prices, capacity, activities, facilities, and the package's meeting point." },
+        { "title": "Complete your details", "copy": "Create an account and provide the participant information requested during booking." },
+        { "title": "Pay & confirm", "copy": "Follow the BCA bank transfer instructions, upload your payment receipt, and wait for the team's confirmation." }
+      ],
+      "bookingNote": "Read the terms and conditions on the payment page before completing your booking."
+    },
+    "destinations": {
+      "eyebrow": "03 / Explore the destinations",
+      "title": "From caves to\nJogja's coastline.",
+      "intro": "Discover the experiences available with MAUA and find activities that fit your travel plans.",
+      "groups": [
+        {
+          "id": "caves-title",
+          "title": "Caves & vertical caving",
+          "subtitle": "Jomblang, Ngeleng, Sumitro,\nand Macan Mati",
+          "paragraphs": [
+            "**Jomblang Cave** offers a descent of around 60 metres using a hauling system, followed by a walk through an ancient forest towards the passage known for the *Light of Heaven*. Sunlight entering through the cave opening is its main attraction. For a more demanding experience, **Ngeleng Cave** features a vertical route of around 90 metres, horizontal passages with natural vegetation, and a scrambling challenge on the way out.",
+            "In the Menoreh Karst Mountains of Kulon Progo, **Sumitro Cave** offers a descent of around 15 metres, karst formations, and an underground river. Meanwhile, **Macan Mati Cave** features a descent of up to 60 metres into a doline with ancient vegetation. Its open character and limited horizontal exploration offer an introduction to Single Rope Technique (SRT) equipment. Activities for beginners depend on package requirements and team guidance."
+          ]
+        },
+        {
+          "id": "water-title",
+          "title": "Water activities",
+          "subtitle": "Paddle boarding & cave tubing",
+          "paragraphs": [
+            "**Kalisuci Paddle Board** takes you along a river route of around 750 metres with clear, greenish-blue water. Towering karst cliffs on both sides provide an outdoor backdrop throughout the paddle board journey.",
+            "To explore the underground passages, **Kalisuci Cave Tubing** invites participants to float on inflatable tubes through caves in the Gunungsewu karst area. Light entering through cave openings and the surrounding karst walls are part of the experience. Activities may include swimming and jumping from designated spots, depending on the package and the guide's instructions."
+          ]
+        },
+        {
+          "id": "mountain-title",
+          "title": "Mountains & land adventures",
+          "subtitle": "Merapi & Nglanggeran",
+          "paragraphs": [
+            "**Merapi Lava Tour** offers an off-road jeep adventure on the slopes of Merapi while exploring traces of past eruptions. The journey passes rocky roads, river areas, and former lava flow zones, with Mount Merapi as the natural backdrop.",
+            "For those who prefer exploring on foot, **Nglanggeran Ancient Volcano** in Gunungkidul offers trekking among ancient volcanic rock formations. At around 700 metres above sea level, this destination leads to viewpoints overlooking hills, rice fields, and the Gunungkidul countryside."
+          ]
+        },
+        {
+          "id": "coast-title",
+          "title": "Beaches & ocean views",
+          "subtitle": "Timang Beach",
+          "paragraphs": [
+            "**Timang Beach** reveals Gunungkidul's coastline through limestone cliffs and the crashing waves of the Indian Ocean. Its main attractions are the traditional gondola and suspension bridge connecting the mainland cliffs to Timang Island, offering a crossing with expansive ocean views."
+          ]
+        }
+      ],
+      "note": "Activities, facilities, participant requirements, and availability depend on the selected package.",
+      "link": "Browse trip packages"
+    },
+    "reviews": {
+      "eyebrow": "04 / In their words",
+      "title": "The best stories come\nfrom those who have been.",
+      "intro": "Experiences shared by MAUA guests, from trying something new to wanting to come back.",
+      "ratingLabel": "5 out of 5 stars",
+      "allLink": "Read all reviews",
+      "originalLanguageNote": "Reviews are shown in the participants' original language."
+    },
+    "preparation": {
+      "eyebrow": "05 / Before you go",
+      "title": "A little preparation,\na more comfortable journey.",
+      "intro": "Follow the team's technical information for your booked package. These four points are a starting place for your preparation.",
+      "items": [
+        { "title": "Understand the activity", "copy": "Learn about the activity and participant requirements. Share relevant conditions and needs before booking." },
+        { "title": "Confirm the meeting point", "copy": "Save the meeting location and time. Plan your journey to the meeting point using the team's information." },
+        { "title": "Check your equipment", "copy": "Check what is provided and what you need to bring. Follow your package's equipment list." },
+        { "title": "Save the team's contact", "copy": "Keep your booking confirmation and the admin's contact details. Follow the briefing and your guide's instructions throughout the activity." }
+      ]
+    },
+    "backTop": "Back to top"
+  },
+  "featuredReviews": [
+    {
+      "name": "Milly Laksmidara",
+      "trip": "Goa Ngeleng",
+      "content": "Seru banget!! crewnya ramah, care, dan sangat mematuhi SOP keselamatan. Dapet temen baru ciwi-ciwi seruuu",
+      "date": "2026-09-27",
+      "rating": 5
+    },
+    {
+      "name": "Kharisma Hardiyanti",
+      "trip": "Vertical Caving - Goa Ngeleng",
+      "content": "So Much Fun! Pengalaman vertical caving di Goa Ngeleng bareng Maua Project unexpectedly seru pol! Dari awal sampai akhir kegiatannya exciting, menantang, tapi tetap fun. Guide-nya juga helpful dan selalu bikin kita feel safe selama kegiatan. Semua equipment udah prepared, jadi tinggal fokus menikmati adventure-nya. Dokumentasinya juga keren. Buat yang mau coba sesuatu yang beda, definitely worth to try!",
+      "date": "2026-08-18",
+      "rating": 5
+    },
+    {
+      "name": "Evelyn Tan",
+      "trip": "Goa Ngeleng",
+      "content": "shout out untuk semua para team maua project!! sangat memuaskan dan recommended, pelayanan ramah, proses pendaftaraan juga ga ribet tinggal isi di web ini. semua kakak2nya juga asik2, seru, dan baik. semoga bisa menjadwalkan trip berikutnya lagi di sini hehe semangat dan sukses selalu semua!!",
+      "date": "2026-07-23",
+      "rating": 5
+    }
+  ]
+}

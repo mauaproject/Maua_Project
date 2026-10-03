@@ -140,7 +140,50 @@ Endpoint admin yang digunakan:
 - `GET /api/trip-templates/index.php?type=open&year=2026&month=9`
 - `POST /api/trip-templates/generate.php`
 
+## Template private Goa Grubug
+
+Setelah generator paket bulanan tersedia, impor file berikut melalui phpMyAdmin:
+
+`api/migrations/2026-10-02-private-goa-grubug-template.sql`
+
+Migration menambahkan template **Goa Grubug** dan trip sumber berstatus **Ditutup**.
+Add-on disalin dari private Goa Jomblang pada database yang sedang digunakan,
+termasuk harga, batas peserta per unit, status, dan aksi worker. Jika sumber atau
+add-on belum tersedia, transaksi dibatalkan dengan pesan kesalahan. Menjalankan
+ulang migration setelah berhasil tidak menimpa template maupun trip sumber.
+
+Untuk membuat paket yang bisa dipesan, buka **Tambah Paket → Private Trip**,
+pilih **Goa Grubug**, bulan dan tahun, lalu generate. Paket berlaku dari tanggal
+pertama hingga terakhir bulan tersebut, dengan satu sesi 09.00–13.00 WIB dan
+kapasitas booking eksklusif. Caving dimulai 09.30 WIB. Harga per orang adalah
+Rp3.000.000 untuk 1 peserta, Rp1.500.000 untuk 2 peserta, dan Rp1.000.000 untuk
+3–40 peserta. Media dikosongkan untuk diisi melalui edit paket.
+
+Deskripsi, aktivitas, dan fasilitas tersedia dalam bahasa Indonesia dan Inggris.
+Reminder Indonesia memakai meeting point Goa Jomblang yang sudah dikonfirmasi
+untuk kegiatan Goa Grubug.
+Terjemahan reminder Inggris dan rincian konten tersedia di
+[`docs/goa-grubug-template.md`](docs/goa-grubug-template.md); sistem saat ini
+menyimpan satu bahasa reminder per trip. Perubahan ini hanya membutuhkan impor
+SQL, tanpa build ulang frontend.
+
 ## Catatan deployment Vite
+
+Blog satu halaman tersedia di **`/blog`**, menggantikan `/open-trip-jogja`.
+URL lama mendapat redirect permanen 301 melalui `.htaccess` dan renderer PHP;
+frontend juga mengenali URL lama ketika dijalankan dengan Vite. Navigasi desktop,
+mobile, footer, serta sitemap mengarah ke `/blog`.
+
+Konten Indonesia, Inggris, dan tiga review pilihan berada di
+`src/content/blog.json`. Saat build, file tersebut ikut disalin menjadi
+`dist/blog-content.json` untuk renderer PHP, sehingga isi blog React dan HTML
+server memakai sumber yang sama. Navbar menggunakan komponen bersama, termasuk
+pilihan bahasa dan tombol akun sesuai session.
+
+Untuk memasang revisi blog, unggah seluruh isi `dist`, termasuk `.htaccess`,
+`seo-render.php`, `blog-render.php`, `blog-content.json`, dan folder `assets`.
+Blog tidak membutuhkan migration database. Template Goa Grubug menggunakan
+impor SQL tersendiri sesuai bagian sebelumnya.
 
 Jalankan `npm run build`, lalu unggah isi folder `dist` ke document root website.
 Folder `api` dan `uploads` harus berada pada host yang dapat dicapai oleh

@@ -7,6 +7,7 @@ if (!is_file($databaseFile)) {
 }
 require_once $databaseFile;
 require_once dirname($databaseFile) . '/trip-slugs.php';
+require_once __DIR__ . '/blog-render.php';
 
 const SEO_SITE_URL = 'https://mauaproject.com';
 const SEO_SITE_NAME = 'MAUA Project';
@@ -141,7 +142,7 @@ function seoReviews(PDO $pdo, int $limit = 12): array
 function seoNav(): string
 {
     return '<header class="seo-nav"><a class="seo-brand" href="/">MAUA Project</a><nav aria-label="Navigasi utama">'
-        . '<a href="/">Beranda</a><a href="/open-trip-jogja">Open Trip Jogja</a>'
+        . '<a href="/">Beranda</a><a href="/blog">Blog</a>'
         . '<a href="/destinasi">Destinasi</a><a href="/reviews">Ulasan</a></nav></header>';
 }
 
@@ -254,6 +255,9 @@ function seoFaqSchema(): array
 function seoPageHtml(string $path, array $trips, array $reviews, ?array $trip): string
 {
     $nav = seoNav();
+    if ($path === '/blog') {
+        return '<div class="seo-prerender">' . $nav . seoBlogHtml() . '</div>';
+    }
     if ($trip !== null) {
         $name = seoText($trip['name'] ?? 'Trip MAUA Project');
         $destination = seoText($trip['destination_id'] ?? 'Yogyakarta');
@@ -280,17 +284,6 @@ function seoPageHtml(string $path, array $trips, array $reviews, ?array $trip): 
         return '<div class="seo-prerender">' . $nav . $content . '</div>';
     }
 
-    if ($path === '/open-trip-jogja') {
-        $content = '<main><section class="seo-hero"><p class="seo-kicker">Open trip & private vertical caving</p><h1>Vertical Caving Jogja</h1>';
-        $content .= '<p class="seo-lead">Jelajahi Goa Jomblang, Goa Ngeleng, Goa Sumitro, dan Goa Macan Mati melalui open trip atau private trip. Bandingkan jadwal, harga, kuota, serta fasilitas sebelum memesan.</p>';
-        $content .= '<p><a class="seo-button" href="/destinasi">Lihat semua paket trip</a></p></section>';
-        $content .= '<section class="seo-section"><h2>Pilih open trip atau private vertical caving</h2><div class="seo-columns"><article><h3>Open trip vertical caving</h3><p>Cocok untuk peserta individu atau kelompok kecil yang ingin bergabung pada jadwal dan kuota yang telah tersedia.</p></article><article><h3>Private vertical caving</h3><p>Cocok untuk rombongan sendiri yang membutuhkan pilihan tanggal sesuai rentang ketersediaan paket.</p></article><article><h3>Informasi transparan</h3><p>Setiap halaman paket menampilkan tujuan, aktivitas, fasilitas, harga, jadwal, dan slot yang dapat dipilih.</p></article></div></section>';
-        $content .= '<section class="seo-section"><h2>Jadwal vertical caving Jogja yang tersedia</h2>' . seoTripCards($trips) . '</section>';
-        $content .= '<section class="seo-section"><h2>Cara booking vertical caving Jogja</h2><ol><li>Pilih destinasi dan jenis trip.</li><li>Periksa tingkat aktivitas, fasilitas, jadwal, dan harga.</li><li>Buat akun lalu lengkapi data peserta.</li><li>Kirim pembayaran dan tunggu konfirmasi tim.</li></ol></section>';
-        $content .= seoFaqMarkup() . '</main>';
-        return '<div class="seo-prerender">' . $nav . $content . '</div>';
-    }
-
     if ($path === '/destinasi') {
         $content = '<main><section class="seo-hero"><p class="seo-kicker">Paket vertical caving Jogja</p><h1>Paket Vertical Caving dan Open Trip Goa Jogja</h1>';
         $content .= '<p class="seo-lead">Jelajahi Goa Jomblang, Goa Ngeleng, Goa Sumitro, dan Goa Macan Mati. Buka detail trip untuk memeriksa aktivitas, fasilitas, harga, jadwal, dan ketersediaan peserta.</p></section>';
@@ -311,7 +304,7 @@ function seoPageHtml(string $path, array $trips, array $reviews, ?array $trip): 
 
     $content = '<main><section class="seo-hero"><p class="seo-kicker">Open trip & private vertical caving</p><h1>Vertical Caving Jogja</h1>';
     $content .= '<p class="seo-lead">Jelajahi Goa Jomblang, Goa Ngeleng, Goa Sumitro, dan Goa Macan Mati melalui open trip atau private trip. Cek jadwal, harga, kuota, serta fasilitas sebelum booking.</p>';
-    $content .= '<p><a class="seo-button" href="/open-trip-jogja">Cari vertical caving Jogja</a></p></section>';
+    $content .= '<p><a class="seo-button" href="/blog">Kenali MAUA dan panduan perjalanan</a></p></section>';
     $content .= '<section class="seo-section"><h2>Open trip dan private vertical caving terbaru</h2><p>Pilih trip sesuai pengalaman yang kamu cari. Detail setiap paket menjelaskan destinasi, aktivitas, fasilitas, dan persiapan peserta.</p>' . seoTripCards($trips) . '</section>';
     $content .= seoFaqMarkup() . '</main>';
     return '<div class="seo-prerender">' . $nav . $content . '</div>';
@@ -327,9 +320,14 @@ $path = '/' . trim($requestPath, '/');
 if ($path === '//') {
     $path = '/';
 }
+if ($path === '/open-trip-jogja' || $requestPath === '/blog/') {
+    $query = (string) (parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_QUERY) ?? '');
+    header('Location: /blog' . ($query !== '' ? '?' . $query : ''), true, 301);
+    exit;
+}
 
 $isTripPage = preg_match('#^/open-trip/([a-z0-9-]+)$#', $path, $tripMatch) === 1;
-$publicPaths = ['/', '/open-trip-jogja', '/destinasi', '/reviews'];
+$publicPaths = ['/', '/blog', '/destinasi', '/reviews'];
 $privatePrefixes = ['/admin', '/tim', '/akun', '/payment-confirmation', '/daftar', '/verify-email', '/forgot-password', '/reset-password', '/login', '/signup', '/customer'];
 $isPrivatePath = false;
 foreach ($privatePrefixes as $prefix) {
@@ -350,11 +348,11 @@ $trip = null;
 $databaseError = null;
 
 try {
-    $pdo = database();
+    $pdo = $path === '/blog' ? null : database();
     if ($isTripPage) {
         $tripId = array_search($tripMatch[1], tripSlugMap($pdo), true);
         $trip = $tripId !== false ? seoTrip($pdo, (int) $tripId) : null;
-    } elseif (in_array($path, ['/', '/open-trip-jogja', '/destinasi'], true)) {
+    } elseif (in_array($path, ['/', '/destinasi'], true)) {
         $trips = seoPublicTrips($pdo);
     } elseif ($path === '/reviews') {
         $reviews = seoReviews($pdo);
@@ -364,9 +362,10 @@ try {
     error_log('SEO renderer database query failed: ' . $exception->getMessage());
 }
 
-if ($path === '/open-trip-jogja') {
-    $title = 'Vertical Caving Jogja & Open Trip Goa | MAUA Project';
-    $description = 'Vertical caving Jogja ke Goa Jomblang, Goa Ngeleng, Goa Sumitro, dan Goa Macan Mati. Pilih jadwal open trip atau private trip.';
+if ($path === '/blog') {
+    $blog = seoBlogContent()['id'];
+    $title = $blog['meta']['title'];
+    $description = $blog['meta']['description'];
 } elseif ($path === '/destinasi') {
     $title = 'Paket Vertical Caving Jogja & Open Trip Goa | MAUA Project';
     $description = 'Lihat paket vertical caving Jogja untuk Goa Jomblang, Goa Ngeleng, Goa Sumitro, dan Goa Macan Mati beserta jadwal, harga, dan fasilitas.';
@@ -410,11 +409,20 @@ if (str_starts_with($robots, 'noindex')) {
 $canonical = SEO_SITE_URL . ($canonicalPath === '/' ? '/' : $canonicalPath);
 $image = $trip !== null ? seoAbsoluteImage($trip['image_url'] ?? '') : (!empty($trips[0]['image_url']) ? seoAbsoluteImage($trips[0]['image_url']) : SEO_SITE_URL . '/favicon.svg');
 $schema = seoBaseSchema($canonical, $title, $description);
+if ($path === '/blog') {
+    $schema['@graph'][] = [
+        '@type' => 'BreadcrumbList',
+        'itemListElement' => [
+            ['@type' => 'ListItem', 'position' => 1, 'name' => 'Beranda', 'item' => SEO_SITE_URL . '/'],
+            ['@type' => 'ListItem', 'position' => 2, 'name' => 'Blog MAUA', 'item' => $canonical],
+        ],
+    ];
+}
 
-if (in_array($path, ['/', '/open-trip-jogja'], true)) {
+if ($path === '/') {
     $schema['@graph'][] = seoFaqSchema();
 }
-if ($path === '/open-trip-jogja' || $path === '/destinasi' || $path === '/') {
+if ($path === '/destinasi' || $path === '/') {
     $schema['@graph'][] = [
         '@type' => 'ItemList',
         'name' => 'Paket trip MAUA Project',
