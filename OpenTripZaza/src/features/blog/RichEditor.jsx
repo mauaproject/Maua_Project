@@ -57,6 +57,21 @@ export default function RichEditor({ value, onChange, onBusyChange = () => {} })
     sync()
     rememberSelection()
   }
+  const handleKeyDown = (event) => {
+    if (event.key !== 'Enter' || event.shiftKey || event.ctrlKey || event.metaKey || event.altKey || event.nativeEvent.isComposing) return
+    const current = window.getSelection()
+    if (!current?.rangeCount) return
+    const range = current.getRangeAt(0)
+    const anchor = range.startContainer.nodeType === Node.ELEMENT_NODE ? range.startContainer : range.startContainer.parentElement
+    const heading = anchor.closest('h2,h3')
+    if (!heading || !editor.current.contains(heading) || !heading.contains(range.endContainer)) return
+    event.preventDefault()
+    // Keep native editing history while making the next block a real paragraph.
+    document.execCommand('insertParagraph', false)
+    document.execCommand('formatBlock', false, 'p')
+    sync()
+    rememberSelection()
+  }
   const chooseImage = async (file) => {
     if (!file) return
     setUploading(true)
@@ -97,14 +112,14 @@ export default function RichEditor({ value, onChange, onBusyChange = () => {} })
   return <div className="bp-rich-editor">
     <div className="bp-editor-toolbar" role="toolbar" aria-label="Format isi artikel">
       <div className="bp-toolbar-group">{button('undo', 'Urungkan (Ctrl+Z)', <BlogIcon name="undo" size={17} />)}{button('redo', 'Ulangi (Ctrl+Y)', <BlogIcon name="redo" size={17} />)}</div><span className="bp-toolbar-divider" />
-      <select aria-label="Gaya paragraf" value={toolbarState.block} onChange={(event) => command('formatBlock', event.target.value)}><option value="p">Paragraf</option><option value="h2">Subjudul (H2)</option><option value="h3">Subjudul kecil (H3)</option><option value="blockquote">Kutipan</option></select><span className="bp-toolbar-divider" />
+      <select aria-label="Gaya paragraf" value={toolbarState.block} onPointerDown={rememberSelection} onChange={(event) => command('formatBlock', event.target.value)}><option value="p">Paragraf</option><option value="h2">Subjudul (H2)</option><option value="h3">Subjudul kecil (H3)</option><option value="blockquote">Kutipan</option></select><span className="bp-toolbar-divider" />
       <div className="bp-toolbar-group">{button('bold', 'Tebal (Ctrl+B)', <strong>B</strong>, null, true)}{button('italic', 'Miring (Ctrl+I)', <em>I</em>, null, true)}{button('underline', 'Garis bawah (Ctrl+U)', <u>U</u>, null, true)}{button('strikeThrough', 'Coret teks', <s>S</s>, null, true)}</div><span className="bp-toolbar-divider" />
       <div className="bp-toolbar-group" role="group" aria-label="Perataan teks">{alignments.map(([align, label]) => <button key={align} type="button" aria-label={label} title={label} aria-pressed={toolbarState.align === align} onMouseDown={(event) => event.preventDefault()} onClick={() => command(`justify${align === 'justify' ? 'Full' : align.charAt(0).toUpperCase() + align.slice(1)}`)}><BlogIcon name={align} size={17} /></button>)}</div><span className="bp-toolbar-divider" />
       <div className="bp-toolbar-group">{button('insertUnorderedList', 'Daftar poin', <span>• ≡</span>, null, true)}{button('insertOrderedList', 'Daftar nomor', <span>1. ≡</span>, null, true)}{button('outdent', 'Kurangi indentasi', <span>‹≡</span>)}{button('indent', 'Tambah indentasi', <span>›≡</span>)}</div><span className="bp-toolbar-divider" />
       <div className="bp-toolbar-group"><button type="button" title="Sisipkan tautan" aria-label="Sisipkan tautan" onMouseDown={(event) => event.preventDefault()} onClick={() => { setLink(''); setLinkOpen(true) }}><BlogIcon name="link" size={17} /></button>{button('unlink', 'Hapus tautan', <span>↗̸</span>)}<button type="button" title="Sisipkan gambar" aria-label="Sisipkan gambar" disabled={uploading} onMouseDown={(event) => event.preventDefault()} onClick={() => { imageTarget.current = null; imageInput.current.click() }}><BlogIcon name="image" size={18} /></button>{button('insertHorizontalRule', 'Garis pemisah', <span>―</span>)}{button('removeFormat', 'Hapus format', <span>Tₓ</span>)}</div>
       <input ref={imageInput} type="file" aria-label="Pilih gambar artikel" accept="image/jpeg,image/png,image/webp" hidden onChange={(event) => chooseImage(event.target.files[0])} />
     </div>
-    <div ref={editor} className="bp-editor-content bp-prose" contentEditable suppressContentEditableWarning role="textbox" aria-label="Isi artikel" aria-multiline="true" data-placeholder="Mulai tulis ceritamu di sini..." onInput={() => { sync(); rememberSelection() }} onKeyUp={rememberSelection} onMouseUp={rememberSelection} onFocus={rememberSelection} onBlur={sync} onClick={(event) => { if (event.target.tagName === 'IMG') { event.preventDefault(); editImage(event.target) } }} onPaste={(event) => { event.preventDefault(); command('insertText', event.clipboardData.getData('text/plain')) }} />
+    <div ref={editor} className="bp-editor-content bp-prose" contentEditable suppressContentEditableWarning role="textbox" aria-label="Isi artikel" aria-multiline="true" data-placeholder="Mulai tulis ceritamu di sini..." onInput={() => { sync(); rememberSelection() }} onKeyDown={handleKeyDown} onKeyUp={rememberSelection} onMouseUp={rememberSelection} onSelect={rememberSelection} onFocus={rememberSelection} onBlur={sync} onClick={(event) => { if (event.target.tagName === 'IMG') { event.preventDefault(); editImage(event.target) } }} onPaste={(event) => { event.preventDefault(); command('insertText', event.clipboardData.getData('text/plain')) }} />
     <div className="bp-editor-foot"><span>H2 / H3 membuat daftar isi. Klik gambar untuk mengatur ukuran dan posisinya.</span><span>{plainText(value).split(/\s+/).filter(Boolean).length} kata</span></div>
     {uploading && <p className="bp-field-note" role="status">Menyiapkan gambar...</p>}{error && <p className="form-error" role="alert">{error}</p>}
     <AppModal isOpen={linkOpen} title="Sisipkan tautan" description="Pilih teks di editor, lalu masukkan alamat tujuannya." confirmText="Sisipkan" cancelText="Batal" confirmDisabled={!/^https?:\/\/\S+$/i.test(link.trim())} onCancel={() => setLinkOpen(false)} onConfirm={() => { command('createLink', link.trim()); setLinkOpen(false) }}><label className="bp-modal-field">Alamat tautan<input type="url" value={link} onChange={(event) => setLink(event.target.value)} placeholder="https://..." autoFocus /></label></AppModal>

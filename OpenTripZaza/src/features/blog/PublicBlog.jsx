@@ -99,11 +99,15 @@ export function BlogCatalog({ posts = [], navigate, initialSearch = '', remote =
         <div><p className="bp-eyebrow">MAUA JOURNAL</p><h1>{english ? 'Every trip has a story.' : 'Setiap perjalanan\npunya cerita.'}</h1><p>{english ? 'Travel inspiration, destination guides, and stories from our adventures.' : 'Inspirasi perjalanan, panduan destinasi, dan cerita dari setiap petualangan bersama MAUA.'}</p></div>
         <div className="bp-heading-note"><span>EXPLORE. EXPERIENCE. SHARE.</span><span>Yogyakarta & sekitarnya <BlogIcon name="arrow" size={16} /></span></div>
       </header>
-      <section className="bp-discovery" aria-label={english ? 'Find an article' : 'Temukan artikel'}>
-        <div className="bp-category-filters" role="group" aria-label={english ? 'Article category' : 'Kategori artikel'}>
+      <section className="bp-discovery destination-toolbar" aria-label={english ? 'Find an article' : 'Temukan artikel'}>
+        <div className="bp-category-filters destination-filter-chips catalog-filter-chips" role="group" aria-label={english ? 'Article category' : 'Kategori artikel'}>
           {[{ id: 'all', idLabel: 'Semua Artikel', enLabel: 'All Articles' }, ...categories].map((item) => <button type="button" key={item.id} className={category === item.id ? 'is-active' : ''} aria-pressed={category === item.id} onClick={() => { setCategory(item.id); setPage(1) }}>{item[`${lang}Label`]}</button>)}
         </div>
-        <label className="bp-search"><BlogIcon name="search" /><input type="search" maxLength={200} aria-label={english ? 'Search articles' : 'Cari artikel'} placeholder={english ? 'Search stories, destinations...' : 'Cari cerita, destinasi, tips...'} value={search} onChange={(event) => { setSearch(event.target.value); setPage(1) }} /></label>
+        <form className="hero-search-form bp-catalog-search" role="search" onSubmit={(event) => { event.preventDefault(); setSearch(search.trim()); setPage(1) }}>
+          <span className="search-icon" aria-hidden="true" />
+          <label><input type="search" maxLength={200} aria-label={english ? 'Search articles' : 'Cari artikel'} placeholder={english ? 'Search articles' : 'Cari artikel'} value={search} onChange={(event) => { setSearch(event.target.value); setPage(1) }} /></label>
+          <button type="submit" className="search-submit" aria-label={english ? 'Find articles' : 'Temukan artikel'}><BlogIcon name="arrow" size={18} /></button>
+        </form>
       </section>
       <div className="bp-section-top"><h2>{search || category !== 'all' ? (english ? 'Articles for you' : 'Artikel untukmu') : (english ? 'Latest stories' : 'Cerita terbaru')}</h2><span role="status">{total} {english ? 'articles' : 'artikel'}</span></div>
       {remote?.error && <div className="bp-fetch-error" role="alert"><p>{remote.error}</p><button className="outline-btn" onClick={remote.retry}>{english ? 'Try again' : 'Coba lagi'}</button></div>}
