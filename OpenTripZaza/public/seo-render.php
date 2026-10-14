@@ -252,11 +252,11 @@ function seoFaqSchema(): array
     ];
 }
 
-function seoPageHtml(string $path, array $trips, array $reviews, ?array $trip): string
+function seoPageHtml(string $path, array $trips, array $reviews, ?array $trip, array $blogPosts = [], ?array $blogArticle = null): string
 {
     $nav = seoNav();
-    if ($path === '/blog') {
-        return '<div class="seo-prerender">' . $nav . seoBlogHtml() . '</div>';
+    if ($path === '/blog' || $blogArticle !== null) {
+        return '<div class="seo-prerender">' . $nav . seoBlogHtml($blogPosts, $blogArticle) . '</div>';
     }
     if ($trip !== null) {
         $name = seoText($trip['name'] ?? 'Trip MAUA Project');
@@ -327,6 +327,7 @@ if ($path === '/open-trip-jogja' || $requestPath === '/blog/') {
 }
 
 $isTripPage = preg_match('#^/open-trip/([a-z0-9-]+)$#', $path, $tripMatch) === 1;
+$isBlogArticle = preg_match('#^/blog/([a-z0-9-]+)$#', $path, $blogMatch) === 1;
 $publicPaths = ['/', '/blog', '/destinasi', '/reviews'];
 $privatePrefixes = ['/admin', '/tim', '/akun', '/payment-confirmation', '/daftar', '/verify-email', '/forgot-password', '/reset-password', '/login', '/signup', '/customer'];
 $isPrivatePath = false;
@@ -345,11 +346,17 @@ $statusCode = 200;
 $trips = [];
 $reviews = [];
 $trip = null;
+$blogPosts = [];
+$blogArticle = null;
 $databaseError = null;
 
 try {
-    $pdo = $path === '/blog' ? null : database();
-    if ($isTripPage) {
+    $pdo = database();
+    if ($path === '/blog') {
+        $blogPosts = seoBlogPosts($pdo);
+    } elseif ($isBlogArticle) {
+        $blogArticle = seoBlogArticle($pdo, $blogMatch[1]);
+    } elseif ($isTripPage) {
         $tripId = array_search($tripMatch[1], tripSlugMap($pdo), true);
         $trip = $tripId !== false ? seoTrip($pdo, (int) $tripId) : null;
     } elseif (in_array($path, ['/', '/destinasi'], true)) {
@@ -363,9 +370,18 @@ try {
 }
 
 if ($path === '/blog') {
-    $blog = seoBlogContent()['id'];
-    $title = $blog['meta']['title'];
-    $description = $blog['meta']['description'];
+    $title = 'Blog & Cerita Perjalanan | MAUA Project';
+    $description = 'Cerita perjalanan, panduan destinasi, tips wisata, dan kabar terbaru dari MAUA Project.';
+} elseif ($isBlogArticle && $blogArticle !== null) {
+    $content = $blogArticle['idContent'];
+    $title = ($content['seoTitle'] ?: $content['title']) . ' | MAUA Project';
+    $description = $content['seoDescription'] ?: $content['excerpt'];
+} elseif ($isBlogArticle && $databaseError === null) {
+    $statusCode = 404;
+    $robots = 'noindex, follow';
+    $title = 'Artikel Tidak Ditemukan | MAUA Project';
+    $description = 'Artikel yang kamu cari belum diterbitkan atau sudah tidak tersedia.';
+    $canonicalPath = '/blog';
 } elseif ($path === '/destinasi') {
     $title = 'Paket Vertical Caving Jogja & Open Trip Goa | MAUA Project';
     $description = 'Lihat paket vertical caving Jogja untuk Goa Jomblang, Goa Ngeleng, Goa Sumitro, dan Goa Macan Mati beserta jadwal, harga, dan fasilitas.';
@@ -391,12 +407,18 @@ if ($path === '/blog') {
     $title = 'Area Akun | MAUA Project';
     $description = 'Area akun dan pengelolaan MAUA Project.';
     $canonicalPath = '/';
-} elseif (!in_array($path, $publicPaths, true) && !$isTripPage) {
+} elseif (!in_array($path, $publicPaths, true) && !$isTripPage && !$isBlogArticle) {
     $statusCode = 404;
     $robots = 'noindex, follow';
     $title = 'Halaman Tidak Ditemukan | MAUA Project';
     $description = 'Halaman yang kamu cari tidak ditemukan.';
     $canonicalPath = '/';
+}
+
+if (($path === '/blog' || $isBlogArticle) && $databaseError !== null) {
+    $statusCode = 503;
+    $robots = 'noindex, follow';
+    header('Retry-After: 60');
 }
 
 http_response_code($statusCode);
@@ -407,15 +429,25 @@ if (str_starts_with($robots, 'noindex')) {
 }
 
 $canonical = SEO_SITE_URL . ($canonicalPath === '/' ? '/' : $canonicalPath);
-$image = $trip !== null ? seoAbsoluteImage($trip['image_url'] ?? '') : (!empty($trips[0]['image_url']) ? seoAbsoluteImage($trips[0]['image_url']) : SEO_SITE_URL . '/favicon.svg');
+$image = $blogArticle !== null ? seoAbsoluteImage($blogArticle['cover']) : ($trip !== null ? seoAbsoluteImage($trip['image_url'] ?? '') : (!empty($trips[0]['image_url']) ? seoAbsoluteImage($trips[0]['image_url']) : SEO_SITE_URL . '/favicon.svg'));
 $schema = seoBaseSchema($canonical, $title, $description);
-if ($path === '/blog') {
+if ($path === '/blog' || $blogArticle !== null) {
     $schema['@graph'][] = [
         '@type' => 'BreadcrumbList',
         'itemListElement' => [
             ['@type' => 'ListItem', 'position' => 1, 'name' => 'Beranda', 'item' => SEO_SITE_URL . '/'],
-            ['@type' => 'ListItem', 'position' => 2, 'name' => 'Blog MAUA', 'item' => $canonical],
+            ['@type' => 'ListItem', 'position' => 2, 'name' => 'Blog MAUA', 'item' => SEO_SITE_URL . '/blog'],
         ],
+    ];
+}
+if ($blogArticle !== null) {
+    $schema['@graph'][count($schema['@graph']) - 1]['itemListElement'][] = ['@type' => 'ListItem', 'position' => 3, 'name' => $blogArticle['idContent']['title'], 'item' => $canonical];
+    $schema['@graph'][] = [
+        '@type' => $blogArticle['category'] === 'berita' ? 'NewsArticle' : 'BlogPosting',
+        'headline' => $blogArticle['idContent']['title'], 'description' => $description, 'image' => [$image],
+        'datePublished' => $blogArticle['publishedAt'], 'dateModified' => $blogArticle['updatedAt'],
+        'mainEntityOfPage' => $canonical, 'author' => ['@type' => 'Person', 'name' => $blogArticle['author']],
+        'publisher' => ['@id' => SEO_SITE_URL . '/#organization'],
     ];
 }
 
@@ -468,7 +500,7 @@ if (!is_file($indexFile)) {
 $html = is_file($indexFile) ? (string) file_get_contents($indexFile) : '<!doctype html><html lang="id"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>MAUA Project</title></head><body><div id="root"></div></body></html>';
 
 $replaceTag = static function (string $pattern, string $replacement) use (&$html): void {
-    $updated = preg_replace($pattern, $replacement, $html, 1);
+    $updated = preg_replace_callback($pattern, static fn(): string => $replacement, $html, 1);
     if (is_string($updated)) {
         $html = $updated;
     }
@@ -482,6 +514,7 @@ $replaceTag('#<link\s+rel=["\']canonical["\'][^>]*>#i', '<link rel="canonical" h
 $replaceTag('#<meta\s+property=["\']og:title["\'][^>]*>#i', '<meta property="og:title" content="' . seoEscape($title) . '">');
 $replaceTag('#<meta\s+property=["\']og:description["\'][^>]*>#i', '<meta property="og:description" content="' . seoEscape($description) . '">');
 $replaceTag('#<meta\s+property=["\']og:url["\'][^>]*>#i', '<meta property="og:url" content="' . seoEscape($canonical) . '">');
+$replaceTag('#<meta\s+property=["\']og:type["\'][^>]*>#i', '<meta property="og:type" content="' . ($blogArticle ? 'article' : 'website') . '">');
 $replaceTag('#<meta\s+property=["\']og:image["\'][^>]*>#i', '<meta property="og:image" content="' . seoEscape($image) . '">');
 $replaceTag('#<meta\s+name=["\']twitter:title["\'][^>]*>#i', '<meta name="twitter:title" content="' . seoEscape($title) . '">');
 $replaceTag('#<meta\s+name=["\']twitter:description["\'][^>]*>#i', '<meta name="twitter:description" content="' . seoEscape($description) . '">');
@@ -492,11 +525,13 @@ $html = str_replace('</head>', seoPrerenderStyles() . '<script id="maua-structur
 
 if ($statusCode === 404) {
     $body = '<div class="seo-prerender">' . seoNav() . '<main><section class="seo-hero"><h1>Halaman tidak ditemukan</h1><p>Periksa kembali alamat halaman atau lihat paket trip yang tersedia.</p><p><a class="seo-button" href="/destinasi">Lihat destinasi</a></p></section></main></div>';
+} elseif ($statusCode === 503) {
+    $body = '<div class="seo-prerender">' . seoNav() . '<main><section class="seo-hero"><h1>Blog belum dapat dimuat</h1><p>Silakan coba lagi nanti.</p></section></main></div>';
 } elseif ($isPrivatePath) {
     $body = '';
 } else {
-    $body = seoPageHtml($path, $trips, $reviews, $trip);
+    $body = seoPageHtml($path, $trips, $reviews, $trip, $blogPosts, $blogArticle);
 }
 
-$html = preg_replace('#<div\s+id=["\']root["\']>\s*</div>#i', '<div id="root">' . $body . '</div>', $html, 1) ?: $html;
+$html = preg_replace_callback('#<div\s+id=["\']root["\']>\s*</div>#i', static fn(): string => '<div id="root">' . $body . '</div>', $html, 1) ?: $html;
 echo $html;

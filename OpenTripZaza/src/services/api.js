@@ -19,7 +19,9 @@ const request = async (path, options = {}) => {
     throw new Error('Server tidak mengembalikan JSON yang valid.')
   }
   if (!response.ok || !payload.success) {
-    throw new Error(payload.message || `Request gagal (${response.status}).`)
+    const error = new Error(payload.message || `Request gagal (${response.status}).`)
+    error.status = response.status
+    throw error
   }
   return payload.data
 }
@@ -29,6 +31,26 @@ const jsonPost = (path, data) => request(path, {
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify(data),
 })
+
+export const getBlogPosts = ({ all = false, search = '', category = 'all', page = 1, limit = 8, signal } = {}) => {
+  const params = new URLSearchParams({ search, category, page: String(page), limit: String(limit) })
+  if (all) params.set('all', '1')
+  return request(`blog/index.php?${params}`, { signal })
+}
+export const getBlogPost = ({ id, slug, admin = false, signal }) => {
+  const params = new URLSearchParams(id ? { id: String(id) } : { slug })
+  if (admin) params.set('admin', '1')
+  return request(`blog/detail.php?${params}`, { signal })
+}
+export const saveBlogPost = (post) => jsonPost('blog/save.php', post)
+export const setBlogPostStatus = (id, status, version) => jsonPost('blog/status.php', { id, status, version })
+export const uploadBlogImage = async (file) => {
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) throw new Error('Gunakan gambar JPG, PNG, atau WebP.')
+  if (file.size > 10 * 1024 * 1024) throw new Error('Ukuran gambar maksimal 10 MB.')
+  const form = new FormData()
+  form.append('image', file)
+  return (await request('blog/upload.php', { method: 'POST', body: form })).url
+}
 
 export const getTrips = (includeAll = true) => request(`trips/index.php${includeAll ? '?all=1' : ''}`)
 export const getTripSummaries = (includeAll = false) => request(`trips/index.php?summary=1${includeAll ? '&all=1' : ''}`)

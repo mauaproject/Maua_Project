@@ -68,6 +68,14 @@ try {
     error_log('Sitemap trip query failed: ' . $exception->getMessage());
 }
 
+try {
+    foreach (database()->query("SELECT slug,DATE(updated_at) AS lastmod FROM blog_posts WHERE status='published' AND published_at<=CURRENT_TIMESTAMP ORDER BY id")->fetchAll() as $post) {
+        $urls[] = ['path' => '/blog/' . $post['slug'], 'lastmod' => $post['lastmod'], 'changefreq' => 'monthly', 'priority' => '0.7'];
+    }
+} catch (Throwable $exception) {
+    error_log('Sitemap blog query failed: ' . $exception->getMessage());
+}
+
 echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
 echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
 foreach ($urls as $url) {

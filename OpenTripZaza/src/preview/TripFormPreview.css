@@ -1,0 +1,8 @@
+.trip-preview-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; border: 1px dashed #dcccae; border-radius: 12px; background: #f9f4e9; padding: 12px 16px; }
+.trip-preview-toolbar > div:first-child { display: grid; gap: 4px; }
+.trip-preview-toolbar strong { color: #8c6d32; font-size: 11px; font-weight: 700; }
+.trip-preview-toolbar span { color: #9c8b6c; font-size: 11px; }
+.trip-preview-switch { display: flex; flex-wrap: wrap; gap: 6px; }
+.trip-preview-switch button { border: 1px solid #e4d9c5; border-radius: 7px; padding: 7px 10px; background: #fffdf8; color: #8b7858; font-size: 10px; font-weight: 600; }
+.trip-preview-switch button[aria-pressed=true] { border-color: #c4a462; background: #f1e4c4; color: #75521a; }
+@media (max-width: 900px) { .trip-preview-toolbar { flex-direction: column; align-items: flex-start; gap: 10px; } }

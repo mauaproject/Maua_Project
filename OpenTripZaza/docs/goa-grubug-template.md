@@ -2,6 +2,19 @@
 
 Status: materi dan migration siap. Pemasangan pada database website dilakukan dengan mengimpor `api/migrations/2026-10-02-private-goa-grubug-template.sql` melalui phpMyAdmin.
 
+Perbaikan 3 Oktober 2026: migration membuat trip **Goa Grubug - Sumber Template** berstatus **Ditutup** sebagai sumber generator. Paket Goa Grubug yang sudah ada, termasuk booking dan media, tidak diubah. Nama template tetap **Goa Grubug**; hasil generate tetap **Goa Grubug - [Bulan Tahun]**. Jalankan seluruh isi file terbaru jika versi awal berhenti dengan galat `#1644 - Private Goa Grubug sudah ada tanpa template`.
+
+## Transportasi otomatis dari template
+
+Perbaikan 4 Oktober 2026: add-on **Transportasi A - Mobil maksimal 5 orang** pada sumber template memakai `max_participants_per_unit = 5`. Generator sudah menyalin nilai ini ke setiap paket baru, sehingga tidak perlu mengedit kapasitas mobil setiap kali membuat trip.
+
+- **Template sudah terpasang:** impor `api/migrations/2026-10-04-grubug-template-transport-capacity.sql` sekali melalui phpMyAdmin, lalu generate paket seperti biasa. Mengulang migration 2 Oktober saja tidak memperbarui template yang sudah ada.
+- **Pemasangan baru:** file `api/migrations/2026-10-02-private-goa-grubug-template.sql` terbaru langsung menetapkan kapasitas mobil 5.
+
+Saat add-on dipilih, 1–5 peserta dihitung 1 mobil, 6–10 peserta 2 mobil, dan 11–15 peserta 3 mobil. Jika harga per mobil Rp850.000, biaya transportasi untuk 6 peserta otomatis Rp1.700.000.
+
+Migration perbaikan hanya mengubah kapasitas add-on bernama tersebut pada sumber yang terdaftar di template `private-goa-grubug`. Harga dan add-on lainnya tetap. Paket yang sudah di-generate tidak tersinkron otomatis; booking lama juga tidak dihitung ulang. Jika nama add-on sudah diganti, migration memberikan pesan agar nama pada sumber template diperiksa. Tidak perlu build atau upload ulang frontend.
+
 ## Detail yang sudah disesuaikan
 
 - Jam mulai caving dikonfirmasi **09.30 WIB**. Kedatangan paling lambat 09.00 dan registrasi 09.10; caving diperkirakan selesai 11.00–11.30, dilanjutkan bersih-bersih dan makan siang hingga kegiatan berakhir 13.00.
@@ -26,7 +39,7 @@ Status: materi dan migration siap. Pemasangan pada database website dilakukan de
 | Ketersediaan | Tanggal pertama hingga terakhir bulan yang dipilih saat Generate |
 | Sesi | Sesi 1, 09.00–13.00 WIB |
 | Media | Kosong |
-| Add-on | Salin persis dari private Goa Jomblang |
+| Add-on | Salin dari private Goa Jomblang; kapasitas Transportasi A ditetapkan 5 peserta/mobil |
 | Harga 1 peserta | Rp3.000.000/orang |
 | Harga 2 peserta | Rp1.500.000/orang |
 | Harga 3–40 peserta | Rp1.000.000/orang |
@@ -37,7 +50,7 @@ Sistem yang tersedia sudah mendukung tiga tingkatan harga, dengan harga tingkat 
 
 ## Add-on pembanding
 
-Referensi: salinan SQL lokal `u124793915_maua_project (9).sql`, private Goa Jomblang, ID 38. Ini bukan verifikasi data live. Ketika template dipasang, salin dari record private Goa Jomblang pada database target.
+Referensi: salinan SQL lokal `u124793915_maua_project (9).sql`, private Goa Jomblang, ID 38. Ini bukan verifikasi data live. Ketika template dipasang, salin dari record private Goa Jomblang pada database target, dengan koreksi kapasitas mobil menjadi 5 peserta per unit (nilai pada salinan lokal masih kosong).
 
 | Add-on | Harga pada salinan lokal | Aksi pekerja |
 |---|---:|---|
@@ -189,7 +202,11 @@ Reminder saat ini memakai satu subject dan satu body per trip, bukan kolom terpi
 
 ## Validasi lokal
 
-Migration diuji pada MariaDB 10.4 terisolasi dengan schema trip dari proyek dan data add-on sintetis. Pengujian berhasil untuk pemasangan pertama, pengulangan tanpa duplikasi atau penimpaan, serta pembatalan transaksi ketika sumber Jomblang atau add-on tidak tersedia. Seluruh atribut add-on tersalin, termasuk batas peserta per unit, status, dan aksi worker.
+Migration awal diuji pada MariaDB 10.4 terisolasi dengan schema trip dari proyek dan data add-on sintetis. Pengujian berhasil untuk pemasangan pertama, pengulangan tanpa duplikasi atau penimpaan, serta pembatalan transaksi ketika sumber Jomblang atau add-on tidak tersedia. Seluruh atribut add-on tersalin, termasuk batas peserta per unit, status, dan aksi worker.
 
 Fungsi generator aplikasi berhasil membuat periode Oktober 2026 penuh dan Februari 2028 sampai tanggal 29, mempertahankan sesi, harga, konten dua bahasa, reminder, dan media kosong. Perhitungan harga backend dan fungsi harga frontend diperiksa untuk 1, 2, 3, 4, dan 40 peserta. Pengujian ini tidak memasang template pada database website.
+
+Perbaikan 3 Oktober 2026 juga diuji pada MariaDB 10.4 terisolasi: pemasangan berhasil ketika private Goa Grubug sudah ada maupun belum ada. Snapshot paket lama, tier harga, sesi, add-on, dan gambar tidak berubah sesudah pemasangan dan generate. Pengulangan tidak membuat sumber atau template ganda. Generator menghasilkan **Goa Grubug - November 2026**, tersedia 1–30 November, dengan harga bertingkat dan sesi yang ditentukan. Sumber Jomblang yang tidak ditemukan tetap membatalkan transaksi tanpa menambah paket.
+
+Perbaikan 4 Oktober 2026 diuji pada MariaDB 10.4 terisolasi untuk template lama dengan kapasitas mobil kosong dan pemasangan baru dari sumber Jomblang yang kapasitas mobilnya kosong. Keduanya menghasilkan kapasitas 5 pada sumber dan pada paket baru melalui fungsi generator PHP asli. Pengulangan migration tidak mengubah data lagi; paket lama, sumber Jomblang, harga, dan add-on lain tetap. Template atau nama add-on yang tidak ditemukan menghasilkan galat tanpa perubahan data. Fungsi frontend diuji dengan add-on hasil generate untuk 1, 5, 6, 10, 11, dan 40 peserta, termasuk biaya 6 peserta = 2 × Rp850.000. SQL belum dijalankan pada database website.
 

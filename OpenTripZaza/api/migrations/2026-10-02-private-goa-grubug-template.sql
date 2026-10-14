@@ -1,9 +1,11 @@
 -- Template private Goa Grubug. Prasyarat:
 --   2026-08-31-trip-generation-templates.sql dan seluruh schema trip terbaru.
 -- Jalankan lewat phpMyAdmin pada database MAUA.
--- Membuat satu trip sumber berstatus Ditutup, tanpa periode dan media.
+-- Membuat satu trip sumber "Goa Grubug - Sumber Template" berstatus Ditutup,
+-- tanpa periode dan media. Paket Goa Grubug yang sudah ada tidak diubah.
 -- Paket aktif satu bulan penuh dibuat lewat Tambah Paket > Private Trip.
 -- Aman dijalankan ulang: template yang sudah ada tidak diubah.
+-- Template yang sudah terpasang: gunakan 2026-10-04-grubug-template-transport-capacity.sql.
 SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- Meeting point dan jam mulai caving telah dikonfirmasi pemilik usaha.
@@ -42,13 +44,6 @@ seed: BEGIN
      OR @grubug_meeting_point_url NOT LIKE 'https://%' THEN
     SIGNAL SQLSTATE '45000'
       SET MESSAGE_TEXT = 'Isi nama meeting point Goa Grubug dan URL Google Maps HTTPS yang sudah dikonfirmasi.';
-  END IF;
-
-  IF EXISTS (
-    SELECT 1 FROM trips WHERE trip_type = 'private' AND name = 'Goa Grubug'
-  ) THEN
-    SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'Private Goa Grubug sudah ada tanpa template. Periksa paket tersebut sebelum melanjutkan.';
   END IF;
 
   -- Utamakan sumber template Jomblang yang terdaftar, lalu paket dasar,
@@ -115,6 +110,9 @@ Maua Project Team 🌿';
     CONCAT(TRIM(@grubug_meeting_point_name), ' (', TRIM(@grubug_meeting_point_url), ')')
   );
 
+  -- Gunakan sumber tersendiri agar paket lama, termasuk booking, harga,
+  -- sesi, add-on dan media yang sudah diisi, tetap utuh.
+  -- Nama paket bulanan mengikuti nama template, bukan nama trip sumber ini.
   INSERT INTO trips
     (name, trip_type, experience_type, status, destination_id, destination_en,
      description_id, description_en, activities_id, activities_en, facilities_id, facilities_en,
@@ -123,7 +121,7 @@ Maua Project Team 🌿';
      flexible_schedule, private_booking_mode, include_drive_link,
      h7_reminder_subject, h7_reminder_body)
   VALUES
-    ('Goa Grubug', 'private', 'cave', 'Ditutup', 'Goa Grubug', 'Grubug Cave',
+    ('Goa Grubug - Sumber Template', 'private', 'cave', 'Ditutup', 'Goa Grubug', 'Grubug Cave',
      'Goa Grubug menawarkan pengalaman turun ke dalam sinkhole alami sedalam sekitar 100 meter tepat di spot Heaven’s Light menggunakan sistem hauling. Setelah mencapai dasar goa, peserta akan diajak menikmati fenomena Cahaya Surga dari dalam goa, yaitu sinar matahari yang menembus mulut goa dan menciptakan pemandangan yang spektakuler. Trip ini cocok bagi pemula maupun pecinta petualangan yang ingin merasakan sensasi eksplorasi goa dengan tetap didampingi oleh tim profesional dan mengutamakan standar keselamatan.',
      'Grubug Cave offers the experience of descending into a natural sinkhole approximately 100 meters deep, directly at the Heaven’s Light spot, using a hauling system. Upon reaching the cave floor, participants can enjoy the spectacular Heaven’s Light phenomenon, where sunlight streams through the cave opening and illuminates the space below. This trip is suitable for beginners and adventure enthusiasts who want to experience cave exploration with professional assistance and an emphasis on safety standards.',
      JSON_ARRAY('Vertical caving di spot Heaven’s Light, satu per satu.', 'Eksplorasi goa horizontal.', 'Pengambilan foto dan video di spot Light of Heaven.'),
@@ -150,7 +148,11 @@ Maua Project Team 🌿';
 
   INSERT INTO trip_addons
     (trip_id, name, price, max_participants_per_unit, worker_action, status, sort_order, created_at, updated_at)
-  SELECT grubug_id, name, price, max_participants_per_unit, worker_action, status, sort_order,
+  -- Kapasitas mobil harus berupa angka agar checkout menghitung unit otomatis.
+  SELECT grubug_id, name, price,
+         CASE WHEN TRIM(name) = 'Transportasi A - Mobil maksimal 5 orang'
+              THEN 5 ELSE max_participants_per_unit END,
+         worker_action, status, sort_order,
          CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
   FROM trip_addons
   WHERE trip_id = source_jomblang_id

@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Preview Tabel Pendaftaran — Maua Project</title>
+  <link rel="icon" href="./public/favicon.svg">
+  <style>
+    :root { color-scheme: light; --page:#f3f0ee; --paper:#fffdf8; --white:#fff; --ink:#241a08; --muted:#806b45; --line:#e9dcc7; --gold:#a66f14; --gold-light:#f2c75c; --soft:#fff5d6; --green:#28664c;
+      font-family:"Sofia Sans", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-synthesis:none; text-rendering:optimizeLegibility; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--page); color:var(--ink); font-family:inherit; font-size:14px; line-height:1.5; }
+    button,input,select { font:inherit; }
+    button,a,input,select,summary { -webkit-tap-highlight-color:transparent; }
+    button,a,summary { touch-action:manipulation; }
+    button { cursor:pointer; }
+    button:disabled { cursor:default; opacity:.4; }
+    button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible { outline:3px solid #c39130; outline-offset:3px; }
+    a { color:inherit; text-decoration:none; }
+    svg { width:17px; height:17px; flex-shrink:0; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+    [hidden] { display:none !important; }
+    .sidebar { width:224px; position:fixed; inset:0 auto 0 0; z-index:30; display:flex; flex-direction:column; padding:28px 18px 20px; color:#f0e5cf; background:linear-gradient(160deg,#443414,#241b09 75%); }
+    .brand { padding:0 12px 22px; border-bottom:1px solid #b38c433b; }
+    .brand img { display:block; width:166px; height:52px; object-fit:contain; object-position:left; }
+    .role { display:inline-block; padding:3px 10px; margin-top:12px; border:1px solid #b88c37; border-radius:30px; color:#f2cc73; font-size:11px; letter-spacing:.3px; }
+    .nav { display:grid; gap:6px; margin-top:24px; }
+    .nav span { display:flex; align-items:center; gap:12px; padding:11px 14px; border:1px solid transparent; border-radius:9px; font-weight:600; font-size:14px; }
+    .nav svg { opacity:.8; }
+    .nav .active { position:relative; border-color:#a18339; background:#c5993224; color:#fff9e9; }
+    .nav .active::before { content:""; width:3px; height:24px; background:var(--gold-light); position:absolute; left:-8px; border-radius:4px; }
+    .sidebar-bottom { margin-top:auto; padding:18px 12px 0; border-top:1px solid #b38c433b; }
+    .admin-avatar { width:32px; height:32px; border-radius:50%; background:#d9b766; color:#302109; display:grid; place-items:center; font-weight:700; }
+    .admin-account { display:flex; align-items:center; gap:10px; }
+    .admin-account strong { display:block; font-size:12px; }
+    .admin-account small { color:#c6b78f; font-size:11px; }
+    .main { margin-left:224px; padding:28px 32px 32px; max-width:1820px; }
+    .breadcrumb { display:flex; align-items:center; gap:9px; font-size:12px; color:var(--muted); margin-bottom:9px; }
+    .breadcrumb svg { width:12px; height:12px; opacity:.6; }
+    .page-head { display:flex; align-items:center; justify-content:space-between; gap:20px; margin-bottom:22px; }
+    h1 { margin:0; font-size:32px; font-weight:750; line-height:1.18; letter-spacing:-.8px; }
+    .subtitle { margin:7px 0 0; color:var(--muted); font-size:13px; }
+    .btn { display:inline-flex; align-items:center; justify-content:center; gap:7px; border:1px solid var(--line); padding:9px 14px; border-radius:9px; background:var(--white); color:var(--ink); font-size:12px; font-weight:600; white-space:nowrap; transition:background .15s,border-color .15s; }
+    .btn:hover { background:#fff7e6; border-color:#c99e50; }
+    .btn.gold { border-color:#bd8b31; background:linear-gradient(120deg,#f3d783,#d2a03f); }
+    .btn.small { padding:7px 9px; font-size:11.5px; border-radius:7px; }
+    .btn.ghost { background:transparent; border-color:transparent; color:var(--muted); }
+    .btn.proof { color:#885a14; border-color:#e4ceaa; background:#fff9ec; }
+    .btn.proof:hover { background:#ffedc5; }
+    .mobile-toggle { display:none; }
+    .context { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:18px; align-items:center; border:1px solid var(--line); background:var(--paper); border-radius:14px; padding:17px 20px; margin-bottom:18px; }
+    .trip-title { display:flex; align-items:center; gap:9px; margin:0 0 5px; font-size:15px; font-weight:700; }
+    .trip-title svg { color:#b17c21; }
+    .trip-meta { color:var(--muted); font-size:12px; display:flex; flex-wrap:wrap; gap:5px 12px; }
+    .trip-meta span { display:inline-flex; align-items:center; gap:5px; }
+    .trip-meta svg { width:13px; height:13px; }
+    .capacity { display:flex; gap:24px; padding-left:26px; border-left:1px solid var(--line); }
+    .capacity small { display:block; font-size:10px; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); }
+    .capacity strong { display:block; font-size:21px; line-height:1.3; margin-top:3px; }
+    .capacity .remaining { color:var(--green); }
+    .team { border:1px solid var(--line); border-radius:10px; margin:0 0 18px; background:#fffdf880; }
+    .team summary { display:flex; gap:9px; align-items:center; cursor:pointer; padding:11px 16px; list-style:none; font-size:12px; }
+    .team summary::-webkit-details-marker { display:none; }
+    .team summary>svg { color:var(--muted); }
+    .team summary .team-note { color:var(--muted); }
+    .team .chevron { margin-left:auto; width:14px; }
+    .team[open] .chevron { transform:rotate(180deg); }
+    .team-content { border-top:1px solid var(--line); padding:12px 16px; display:flex; align-items:center; gap:20px; flex-wrap:wrap; font-size:12px; }
+    .team-content span { color:var(--muted); }
+    .table-card { background:var(--white); border:1px solid var(--line); border-radius:15px; box-shadow:0 8px 24px #3e2c0905; overflow:hidden; }
+    .list-head { padding:19px 22px 0; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    h2 { font-size:17px; margin:0; letter-spacing:-.2px; }
+    .list-head p { margin:3px 0 0; color:var(--muted); font-size:11.5px; }
+    .demo-tag { font-size:10px; color:#87724f; border:1px dashed #d9c9ac; border-radius:6px; padding:4px 8px; white-space:nowrap; }
+    .toolbar { padding:17px 22px; display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+    .tabs { display:flex; gap:5px; padding:4px; border-radius:9px; background:#f6f2eb; }
+    .tab { border:0; background:transparent; color:#806b45; padding:7px 10px; border-radius:7px; font-size:12px; font-weight:600; white-space:nowrap; display:flex; align-items:center; gap:8px; }
+    .tab .count { font-size:10px; min-width:18px; height:18px; display:grid; place-items:center; background:#e9e1d3; border-radius:5px; color:#806b45; }
+    .tab[aria-pressed="true"] { background:#fff; color:#33250c; box-shadow:0 1px 5px #44331415; }
+    .tab[aria-pressed="true"] .count { background:#f6e1ac; color:#77500e; }
+    .search { display:flex; align-items:center; gap:8px; border:1px solid var(--line); border-radius:8px; padding:9px 12px; width:280px; max-width:100%; background:#fff; }
+    .search svg { width:15px; height:15px; color:#9d8c71; }
+    .search input { width:100%; border:0; outline:0; background:transparent; color:var(--ink); font-size:12px; min-width:0; }
+    .search:focus-within { border-color:#b18128; box-shadow:0 0 0 2px #ead39c55; }
+    .search input:focus-visible { outline:none; }
+    .search input::placeholder { color:#9c8d78; }
+    .table-scroll { overflow:auto; scrollbar-width:thin; scrollbar-color:#d4bc90 #faf7f0; }
+    table { width:100%; border-collapse:separate; border-spacing:0; min-width:1040px; text-align:left; }
+    thead th { padding:12px 15px; background:#faf6ed; border-top:1px solid var(--line); border-bottom:1px solid var(--line); color:#856b3d; font-size:10px; text-transform:uppercase; letter-spacing:.6px; font-weight:650; white-space:nowrap; }
+    tbody td { padding:11px 15px; border-bottom:1px solid #f0e9de; vertical-align:middle; background:#fff; font-size:12px; height:64px; }
+    tbody tr:last-child td { border-bottom:0; }
+    tbody tr:hover td { background:#fffcf5; }
+    .no { width:42px; color:#a39783; padding-left:22px; font-variant-numeric:tabular-nums; }
+    .name-cell { min-width:210px; }
+    .person-name { font-weight:650; font-size:13px; display:block; line-height:1.35; }
+    .person-meta { display:block; margin-top:3px; color:#9a8a72; font-size:10.5px; }
+    .participant-cell { text-align:center; width:70px; font-variant-numeric:tabular-nums; }
+    .participant-number { font-weight:700; }
+    .participant-label { font-size:10px; color:var(--muted); padding-left:3px; }
+    .payment-cell { width:95px; white-space:nowrap; }
+    .payment-note { font-size:10px; color:#9a8a72; margin-top:2px; }
+    .amount { font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap; width:135px; }
+    .badge { display:inline-flex; align-items:center; gap:5px; padding:4px 8px; border-radius:6px; font-size:10px; font-weight:600; white-space:nowrap; line-height:1.5; }
+    .badge::before { content:""; width:5px; height:5px; border-radius:50%; background:currentColor; }
+    .badge.waiting { color:#966411; background:#fff1d0; }
+    .badge.approved { color:#2e7155; background:#e8f3eb; }
+    .badge.rejected { color:#a45344; background:#fceee8; }
+    .badge.done { color:#64716b; background:#eef2ef; }
+    .action-head,.action-cell { position:sticky; right:0; border-left:1px solid #f0e9de; width:330px; }
+    .action-head { z-index:2; padding-left:17px; }
+    .action-cell { z-index:1; padding-right:20px; box-shadow:-6px 0 12px -10px #806b45; }
+    .row-actions { display:flex; align-items:center; justify-content:flex-end; gap:6px; }
+    .row-actions svg { width:13px; height:13px; }
+    .empty-cell { padding:45px; text-align:center; color:var(--muted); }
+    .table-footer { border-top:1px solid var(--line); padding:13px 22px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; font-size:11px; color:var(--muted); }
+    .footer-left { display:flex; align-items:center; gap:15px; }
+    .page-size { display:flex; align-items:center; gap:7px; }
+    .page-size select { border:1px solid var(--line); border-radius:6px; color:var(--ink); padding:5px 6px; background:#fff; font-size:11px; }
+    .pagination { display:flex; align-items:center; gap:5px; }
+    .page-btn { border:1px solid var(--line); border-radius:6px; min-width:29px; height:29px; background:#fff; color:var(--muted); display:grid; place-items:center; font-size:11px; }
+    .page-btn.current { background:#f6e4b7; border-color:#e7c980; color:#704b10; font-weight:700; }
+    .page-btn svg { width:13px; height:13px; }
+    .page-note { margin:12px 3px 0; font-size:11px; color:#a2927a; display:flex; align-items:center; gap:6px; }
+    .page-note svg { width:13px; height:13px; }
+    dialog { color:var(--ink); background:#fff; border:1px solid var(--line); padding:0; box-shadow:0 20px 80px #241a0833; }
+    dialog::backdrop { background:#241a0873; backdrop-filter:blur(3px); }
+    .drawer { position:fixed; inset:0 0 0 auto; margin:0; height:100dvh; max-height:100dvh; width:min(620px,100%); max-width:100%; border-radius:16px 0 0 16px; border-right:0; overflow:auto; }
+    .dialog-head { display:flex; align-items:flex-start; justify-content:space-between; gap:15px; padding:23px 24px; border-bottom:1px solid var(--line); position:sticky; top:0; background:#fff; z-index:3; }
+    .dialog-head h2 { font-size:20px; }
+    .dialog-head p { color:var(--muted); font-size:12px; margin:5px 0 0; }
+    .close-btn { width:31px; height:31px; border-radius:50%; border:1px solid var(--line); background:#fff; display:grid; place-items:center; color:#8c7958; flex-shrink:0; }
+    .close-btn:hover { background:#f7f1e7; }
+    .dialog-body { padding:24px; }
+    .section-title { display:flex; align-items:center; gap:8px; font-size:12px; font-weight:700; margin:0 0 14px; }
+    .section-title svg { width:15px; height:15px; color:#a67a2c; }
+    .detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:17px 20px; margin:0 0 26px; }
+    .detail-grid dt { color:#9a8a72; font-size:10px; margin-bottom:4px; }
+    .detail-grid dd { margin:0; font-size:12px; overflow-wrap:anywhere; }
+    .detail-grid .full { grid-column:1/-1; }
+    .detail-section + .detail-section { border-top:1px solid var(--line); padding-top:22px; margin-top:22px; }
+    .detail-section .detail-grid { margin-bottom:0; }
+    .section-count { background:#f3e6c9; border-radius:5px; padding:2px 6px; color:#8a641f; font-size:10px; }
+    .section-help { font-size:11px; color:var(--muted); margin:-5px 0 14px; }
+    .participant-list { display:grid; gap:12px; }
+    .participant-card { min-width:0; border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+    .participant-card summary { display:flex; align-items:center; gap:10px; padding:13px 15px; background:var(--paper); cursor:pointer; list-style:none; }
+    .participant-card summary::-webkit-details-marker { display:none; }
+    .participant-index { display:grid; place-items:center; flex-shrink:0; width:28px; height:28px; border-radius:7px; background:#f4e5bf; font-size:12px; font-weight:700; color:#8a641f; }
+    .participant-heading { min-width:0; flex:1; }
+    .participant-heading strong { display:block; font-size:13px; overflow-wrap:anywhere; }
+    .participant-heading small { display:block; margin-top:2px; color:var(--muted); font-size:10px; }
+    .participant-card summary>svg { width:14px; height:14px; color:var(--muted); }
+    .participant-card[open] summary>svg { transform:rotate(180deg); }
+    .participant-card .detail-grid { padding:16px; border-top:1px solid var(--line); gap:15px 20px; }
+    .participant-card .long-answer dd { white-space:pre-wrap; line-height:1.65; }
+    .participant-card .health-answer { padding:10px 12px; border:1px solid #ead9b6; border-radius:7px; background:#fff9eb; }
+    .booking-note { border:1px solid var(--line); border-radius:9px; padding:13px 15px; background:var(--paper); white-space:pre-wrap; overflow-wrap:anywhere; font-size:12px; line-height:1.65; }
+    .addon-detail { display:grid; gap:9px; }
+    .addon-item { display:flex; align-items:flex-start; justify-content:space-between; gap:15px; padding:12px 14px; border:1px solid var(--line); border-radius:9px; font-size:12px; }
+    .addon-item strong { display:block; font-size:12px; }
+    .addon-item small { display:block; font-size:10px; color:var(--muted); margin-top:3px; }
+    .addon-amount { white-space:nowrap; font-weight:600; }
+    .detail-subhead { color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.4px; margin:16px 0 9px; }
+    .detail-person { display:flex; align-items:center; gap:12px; padding:15px; border-radius:10px; border:1px solid var(--line); background:var(--paper); margin-bottom:24px; }
+    .person-avatar { width:40px; height:40px; border-radius:10px; background:#f1dfb4; display:grid; place-items:center; font-weight:700; color:#946414; }
+    .detail-person strong { display:block; font-size:14px; }
+    .detail-person small { display:block; font-size:10px; color:var(--muted); margin-top:4px; }
+    .detail-person .badge { margin-left:auto; }
+    .payment-box { background:#faf6ed; border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:22px; }
+    .payment-line { display:flex; justify-content:space-between; gap:12px; font-size:12px; margin-bottom:9px; }
+    .payment-line span { color:var(--muted); }
+    .payment-line.balance { padding-top:10px; border-top:1px dashed #ddcba8; margin:12px 0 0; }
+    .payment-box .btn { margin-top:15px; width:100%; }
+    .dialog-foot { padding:17px 24px; background:var(--paper); border-top:1px solid var(--line); display:flex; align-items:center; justify-content:flex-end; gap:9px; }
+    .drawer .dialog-foot { position:sticky; bottom:0; }
+    .proof-dialog { width:min(480px,calc(100% - 24px)); border-radius:15px; max-height:90dvh; overflow:auto; }
+    .proof-dialog .dialog-body { background:#f4f3f1; padding:22px; }
+    .receipt { background:#fff; border-radius:10px; border:1px solid #e1e5e9; padding:24px; font-family:inherit; max-width:340px; margin:auto; }
+    .receipt-brand { color:#1d5685; font-size:21px; font-style:italic; font-weight:750; display:flex; align-items:center; justify-content:space-between; }
+    .receipt-brand span { font-size:9px; font-style:normal; font-weight:500; color:#8d9ba7; letter-spacing:1px; border:1px solid #c9d2db; padding:3px 5px; border-radius:4px; }
+    .receipt-success { text-align:center; margin:22px 0; }
+    .receipt-check { display:grid; place-items:center; width:37px; height:37px; margin:0 auto 9px; border-radius:50%; color:#2e8a63; background:#e7f4ec; }
+    .receipt-success strong { display:block; color:#28664c; font-size:14px; }
+    .receipt-success small { color:#82909a; font-size:10px; }
+    .receipt-amount { text-align:center; font-size:25px; font-weight:700; color:#245482; margin-bottom:22px; }
+    .receipt-row { padding:11px 0; border-bottom:1px solid #eef0f2; font-size:12px; }
+    .receipt-row span { display:block; color:#8c98a2; font-size:9px; margin-bottom:3px; }
+    .receipt-row strong { font-weight:600; color:#3a4e5f; }
+    .receipt-watermark { text-align:center; margin-top:19px; font-size:9px; letter-spacing:1.3px; color:#95a3ae; }
+    .proof-caption { text-align:center; color:#8a8174; font-size:10px; margin:13px 0 0; }
+    .status-dialog { width:min(410px,calc(100% - 24px)); border-radius:14px; }
+    .status-options { display:grid; gap:9px; }
+    .status-option { display:flex; gap:10px; align-items:center; padding:12px; border:1px solid var(--line); border-radius:8px; font-size:12px; cursor:pointer; }
+    .status-option:has(input:checked) { border-color:#bf9139; background:#fff8e8; }
+    .status-option input { accent-color:#a66f14; margin:0; }
+    .status-option strong { display:block; font-size:12px; }
+    .status-option small { display:block; font-size:10px; color:var(--muted); margin-top:2px; }
+    .toast { position:fixed; bottom:22px; left:calc(50% + 112px); transform:translateX(-50%); background:#2d2414; color:#fff5dd; padding:12px 18px; border-radius:10px; box-shadow:0 6px 24px #241a0824; font-size:12px; z-index:80; }
+    @media(min-width:1700px) { .main { padding:34px 42px; } tbody td { height:69px; } }
+    @media(max-width:1200px) { .toolbar { align-items:stretch; } .search { width:100%; } .capacity { gap:16px; padding-left:18px; } .capacity strong { font-size:18px; } .team-note { display:none; } }
+    @media(max-width:850px) { .sidebar { width:190px; } .brand img { width:140px; } .main { margin-left:190px; padding:24px 20px; } .context { grid-template-columns:1fr; gap:14px; } .capacity { border-left:0; border-top:1px solid var(--line); padding:12px 0 0; gap:28px; } h1 { font-size:27px; } .toast { left:calc(50% + 95px); } }
+    @media(max-width:640px) { .sidebar { transform:translateX(-100%); transition:transform .2s; width:224px; box-shadow:12px 0 40px #241a0855; } body.nav-open .sidebar { transform:translateX(0); } .main { margin-left:0; padding:18px 14px; } .mobile-toggle { display:inline-flex; margin-bottom:16px; } .breadcrumb { font-size:10px; } .page-head { align-items:flex-start; } h1 { font-size:25px; } .page-head>.btn { padding:8px; font-size:0; } .page-head>.btn svg { width:17px; height:17px; } .subtitle { font-size:11px; } .context { padding:14px; } .trip-title { font-size:14px; } .capacity { justify-content:space-between; gap:12px; } .capacity small { font-size:9px; } .capacity strong { font-size:19px; } .list-head { padding:16px 14px 0; } h2 { font-size:15px; } .toolbar { padding:14px; gap:12px; } .tabs { max-width:100%; overflow:auto; } .tab { font-size:10.5px; padding:7px 8px; gap:5px; } .tab .count { min-width:16px; height:16px; font-size:9px; } .table-footer { padding:12px 14px; } .footer-left { flex-wrap:wrap; gap:8px; } .action-head,.action-cell { position:static; } .drawer { border-radius:0; } .dialog-head,.dialog-body { padding:20px; } .detail-person { flex-wrap:wrap; } .detail-person .badge { margin-left:52px; } .toast { left:50%; width:calc(100% - 28px); text-align:center; } }
+    @media(prefers-reduced-motion:reduce) { * { transition:none !important; scroll-behavior:auto !important; } }
+  </style>
+</head>
+<body>
+  <svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden"><defs>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4M17 3v4M3 11h18M8 15h3"/></symbol>
+    <symbol id="i-trip" viewBox="0 0 24 24"><path d="m3 20 7-13 4 7 3-5 4 11H3ZM9 9l2 3 2-1M17 9V3l4 2-4 2"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6M18 14a5 5 0 0 1 3 5v1"/></symbol>
+    <symbol id="i-archive" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="5" rx="1"/><path d="M5 8v12h14V8M10 12h4"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3 2.8 5.8 6.4.9-4.6 4.5 1.1 6.3-5.7-3-5.7 3 1.1-6.3-4.6-4.5 6.4-.9L12 3Z"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m8 10 4 4 4-4"/></symbol>
+    <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+    <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></symbol>
+    <symbol id="i-receipt" viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3ZM9 7h6M9 11h6M9 15h3"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4 10-10"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/></symbol>
+  </defs></svg>
+
+  <aside class="sidebar" aria-label="Menu admin">
+    <div class="brand"><img src="./src/assets/desainHorizontal.webp" alt="Maua Project"><span class="role">Admin</span></div>
+    <nav class="nav" aria-label="Navigasi admin">
+      <span><svg><use href="#i-grid"/></svg>Dashboard</span>
+      <span><svg><use href="#i-trip"/></svg>Paket Trip</span>
+      <span><svg><use href="#i-archive"/></svg>Arsip Trip</span>
+      <span class="active" aria-current="page"><svg><use href="#i-calendar"/></svg>Jadwal</span>
+      <span><svg><use href="#i-refresh"/></svg>Reschedule</span>
+      <span><svg><use href="#i-calendar"/></svg>Kalender Booking</span>
+      <span><svg><use href="#i-star"/></svg>Review</span>
+      <span><svg><use href="#i-users"/></svg>Akun Tim</span>
+    </nav>
+    <div class="sidebar-bottom"><div class="admin-account"><div class="admin-avatar">M</div><div><strong>Tim Maua Project</strong><small>Administrator</small></div></div></div>
+  </aside>
+
+  <main class="main">
+    <button class="btn mobile-toggle" id="mobile-menu" aria-expanded="false"><svg><use href="#i-menu"/></svg>Menu admin</button>
+    <div class="breadcrumb"><span>Jadwal</span><svg><use href="#i-right"/></svg><span>Goa Jomblang</span><svg><use href="#i-right"/></svg><strong>Pendaftaran</strong></div>
+    <header class="page-head">
+      <div><h1>Manajemen Pendaftaran</h1><p class="subtitle">Kelola peserta, periksa pembayaran, dan tinjau pendaftaran dalam satu tempat.</p></div>
+      <a class="btn" href="#jadwal"><svg><use href="#i-left"/></svg>Kembali ke jadwal</a>
+    </header>
+
+    <section class="context" id="jadwal" aria-label="Ringkasan jadwal trip">
+      <div><p class="trip-title"><svg><use href="#i-trip"/></svg>Goa Jomblang — Oktober 2026</p><div class="trip-meta"><span><svg><use href="#i-calendar"/></svg>10 Okt 2026</span><span><svg><use href="#i-clock"/></svg>08.00 – 13.00 WIB</span><span>Sesi 1 · Open Trip</span><span class="badge approved">Aktif</span></div></div>
+      <div class="capacity"><div><small>Kuota</small><strong>30</strong></div><div><small>Disetujui</small><strong id="approved-seats">0</strong></div><div><small>Tertahan</small><strong id="held-seats">0</strong></div><div><small>Sisa kuota</small><strong class="remaining" id="remaining-seats">0</strong></div></div>
+    </section>
+    <details class="team"><summary><svg><use href="#i-users"/></svg><strong>Tim Trip</strong><span class="team-note">· 1 tugas dokumentasi sedang dikerjakan</span><svg class="chevron"><use href="#i-chevron"/></svg></summary><div class="team-content"><strong>Dokumentasi Foto Camera + Video iPhone</strong><span>Tim Dokumentasi Maua</span><span class="badge waiting">Sedang dikerjakan</span><span>Link hasil: belum tersedia</span></div></details>
+
+    <section class="table-card" aria-labelledby="list-title">
+      <div class="list-head"><div><h2 id="list-title">Daftar Pendaftar</h2><p>Satu baris mewakili satu booking. Rincian peserta tersedia di Detail.</p></div><span class="demo-tag">Preview · data contoh</span></div>
+      <div class="toolbar">
+        <div class="tabs" role="group" aria-label="Filter status pendaftaran">
+          <button class="tab" data-filter="all" aria-pressed="true">Semua<span class="count" data-count="all">0</span></button>
+          <button class="tab" data-filter="waiting" aria-pressed="false">Menunggu<span class="count" data-count="waiting">0</span></button>
+          <button class="tab" data-filter="approved" aria-pressed="false">Disetujui<span class="count" data-count="approved">0</span></button>
+          <button class="tab" data-filter="rejected" aria-pressed="false">Ditolak<span class="count" data-count="rejected">0</span></button>
+        </div>
+        <label class="search"><svg><use href="#i-search"/></svg><input id="search" type="search" aria-label="Cari nama, email, atau WhatsApp" placeholder="Cari nama, email, atau WhatsApp…"></label>
+      </div>
+      <div class="table-scroll" tabindex="0" role="region" aria-label="Tabel pendaftaran, geser untuk melihat seluruh kolom">
+        <table aria-label="Daftar booking peserta"><thead><tr><th class="no" scope="col">No.</th><th class="name-cell" scope="col">Nama pemesan</th><th class="participant-cell" scope="col">Peserta</th><th class="payment-cell" scope="col">Pembayaran</th><th scope="col">Nominal dibayar</th><th scope="col">Status</th><th class="action-head" scope="col">Aksi</th></tr></thead><tbody id="booking-rows"></tbody></table>
+      </div>
+      <div class="table-footer"><div class="footer-left"><span id="result-summary" role="status"></span><label class="page-size">Tampilkan<select id="page-size" aria-label="Jumlah booking per halaman"><option value="10">10</option><option value="25">25</option><option value="50">50</option></select></label></div><nav class="pagination" id="pagination" aria-label="Halaman pendaftaran"></nav></div>
+    </section>
+    <p class="page-note"><svg><use href="#i-info"/></svg>Jumlah pada filter adalah jumlah booking; kuota dihitung berdasarkan jumlah peserta.</p>
+  </main>
+
+  <dialog class="drawer" id="detail-dialog" aria-labelledby="detail-title"><header class="dialog-head"><div><h2 id="detail-title">Detail Pendaftaran</h2><p id="detail-booking-id"></p></div><button class="close-btn" data-close="detail-dialog" aria-label="Tutup detail"><svg><use href="#i-close"/></svg></button></header><div class="dialog-body" id="detail-content"></div><footer class="dialog-foot"><button class="btn" data-close="detail-dialog">Tutup</button><button class="btn gold" id="detail-change-status">Ubah status<svg><use href="#i-chevron"/></svg></button></footer></dialog>
+  <dialog class="proof-dialog" id="proof-dialog" aria-labelledby="proof-title"><header class="dialog-head"><div><h2 id="proof-title">Bukti Transfer</h2><p id="proof-owner"></p></div><button class="close-btn" data-close="proof-dialog" aria-label="Tutup bukti transfer"><svg><use href="#i-close"/></svg></button></header><div class="dialog-body"><div class="receipt"><div class="receipt-brand">BCA mobile<span>CONTOH</span></div><div class="receipt-success"><div class="receipt-check"><svg><use href="#i-check"/></svg></div><strong>Transfer berhasil</strong><small>08 Oktober 2026 · 10:24 WIB</small></div><div class="receipt-amount" id="receipt-amount"></div><div class="receipt-row"><span>DARI</span><strong id="receipt-sender"></strong></div><div class="receipt-row"><span>KE REKENING</span><strong>Maua Project (contoh)</strong><br><small>Bank BCA · **** 1234</small></div><div class="receipt-row"><span>BERITA</span><strong id="receipt-reference"></strong></div><div class="receipt-watermark">ILUSTRASI BUKTI TRANSFER</div></div><p class="proof-caption">Contoh tampilan bukti pembayaran untuk preview.</p></div><footer class="dialog-foot"><button class="btn" data-close="proof-dialog">Tutup</button><button class="btn gold" id="proof-view-detail">Lihat detail booking<svg><use href="#i-right"/></svg></button></footer></dialog>
+  <dialog class="status-dialog" id="status-dialog" aria-labelledby="status-title"><form id="status-form"><header class="dialog-head"><div><h2 id="status-title">Ubah Status</h2><p id="status-owner"></p></div><button class="close-btn" type="button" data-close="status-dialog" aria-label="Tutup ubah status"><svg><use href="#i-close"/></svg></button></header><div class="dialog-body"><div class="status-options"><label class="status-option"><input type="radio" name="status" value="waiting"><span><strong>Menunggu Approval</strong><small>Pendaftaran masih perlu ditinjau.</small></span></label><label class="status-option"><input type="radio" name="status" value="approved"><span><strong>Disetujui</strong><small>Peserta telah dikonfirmasi untuk mengikuti trip.</small></span></label><label class="status-option"><input type="radio" name="status" value="rejected"><span><strong>Ditolak</strong><small>Pendaftaran tidak disetujui.</small></span></label><label class="status-option"><input type="radio" name="status" value="done"><span><strong>Selesai</strong><small>Peserta telah menyelesaikan trip.</small></span></label></div></div><footer class="dialog-foot"><button class="btn" type="button" data-close="status-dialog">Batal</button><button class="btn gold" type="submit">Simpan status</button></footer></form></dialog>
+  <div class="toast" id="toast" role="status" hidden></div>
+
+  <script>
+    'use strict';
+    const sampleNames = ['Nadia Prameswari','Arif Rahman','Dinda Maharani','Rizky Aditya','Alya Putri','Bima Saputra','Citra Lestari','Fajar Nugroho','Gita Larasati','Hana Kartika','Irfan Maulana','Jihan Safitri','Kevin Pratama','Laras Wulandari','Maya Anggraini','Naufal Ramadhan','Olivia Maharani','Putra Wicaksono'];
+    const cities = ['Yogyakarta','Jakarta','Surabaya','Bandung','Semarang','Solo'];
+    const companionNames = ['Sinta Permata','Reza Ananta','Anisa Putri','Bagas Mahendra','Tiara Melati','Andi Setiawan'];
+    function makeParticipant(name,index,participantIndex) {
+      const city = cities[(index + participantIndex) % cities.length];
+      return {
+        name,
+        email:name.toLowerCase().replaceAll(' ','.') + '@example.com',
+        whatsapp:'08xx-xxxx-' + String(1000 + index * 2 + participantIndex),
+        address:'Jl. Melati Raya No. ' + (18 + index + participantIndex) + ', RT 04/RW 08, Kelurahan Sukamaju, Kecamatan Sentosa, ' + city + ', Indonesia. Rumah di sebelah balai warga, pagar berwarna putih.',
+        age:24 + (index + participantIndex) % 9,
+        gender:(index + participantIndex) % 2 === 0 ? 'Perempuan' : 'Laki-laki',
+        bloodType:['A','B','AB','O','Tidak tahu'][(index + participantIndex) % 5],
+        heightCm:158 + (index + participantIndex) % 20,
+        weightKg:52 + (index * 2 + participantIndex) % 24,
+        shoeSize:37 + (index + participantIndex) % 7,
+        healthNotes:participantIndex === 1 ? 'Memiliki alergi debu. Membawa obat pribadi dan masker; mohon diinformasikan kepada pemandu sebelum kegiatan.' : 'Tidak ada riwayat penyakit atau alergi yang perlu diperhatikan.'
+      };
+    }
+    const bookings = sampleNames.map((name,index) => {
+      const participants = index % 5 === 1 ? 2 : 1;
+      const participantDetails = Array.from({length:participants},(_,participantIndex) => makeParticipant(participantIndex === 0 ? name : companionNames[index % companionNames.length],index,participantIndex));
+      const pricePerPerson = 1450000;
+      const tripSubtotal = participants * pricePerPerson;
+      const addonDetails = index % 3 === 0 ? [{name:'Dokumentasi Foto Camera + Video iPhone',quantity:1,unitPrice:150000}] : [];
+      const addonTotal = addonDetails.reduce((sum,addon) => sum + addon.quantity * addon.unitPrice,0);
+      const total = tripSubtotal + addonTotal;
+      const full = index % 3 === 1;
+      return {
+        id:'MAUA-1026-' + String(index + 1).padStart(3,'0'), name, participants, participantDetails,
+        pricePerPerson,tripSubtotal,addonDetails,addonTotal,total,
+        paid:full ? total : total / 2, requiredPaymentAmount:full ? total : total / 2,
+        payment:full ? 'Lunas' : 'DP 50%',
+        paymentStatus:index < 9 ? 'waiting_verification' : index < 16 ? 'verified' : 'rejected',
+        status:index < 9 ? 'waiting' : index < 16 ? 'approved' : 'rejected',
+        email:participantDetails[0].email, whatsapp:participantDetails[0].whatsapp,
+        notes:participants > 1 ? 'Kami berangkat bersama. Mohon ditempatkan dalam kelompok yang sama.\nAkan hadir di meeting point 30 menit sebelum kegiatan.' : 'Tidak ada catatan tambahan.',
+        tripName:'Goa Jomblang — Oktober 2026',tripType:'Open Trip',selectedDate:'10 Okt 2026',sessionName:'Sesi 1',startTime:'08.00',endTime:'13.00',
+        selectedPackageName:'',selectedPackageDestinations:[],
+        createdAt:'08 Okt 2026, 10.15 WIB',paymentSubmittedAt:'08 Okt 2026, 10.24 WIB',
+        bcaAccountNumber:'**** 1234',proof:index !== 7
+      };
+    });
+    const labels = { waiting:'Menunggu', approved:'Disetujui', rejected:'Ditolak', done:'Selesai' };
+    const state = { filter:'all', search:'', page:1, pageSize:10, selectedId:null, detailId:null };
+    const rupiah = value => new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(value);
+    const esc = value => String(value).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+    const icon = name => '<svg aria-hidden="true"><use href="#i-' + name + '"/></svg>';
+    const badge = item => '<span class="badge ' + item.status + '">' + labels[item.status] + '</span>';
+    const byId = id => bookings.find(item => item.id === id);
+    const matchesFilter = (item,filter) => filter === 'all' || (filter === 'approved' ? ['approved','done'].includes(item.status) : item.status === filter);
+    function filteredBookings() {
+      return bookings.filter(item => matchesFilter(item,state.filter) && [item.name,item.email,item.whatsapp,item.id,...item.participantDetails.flatMap(participant => [participant.name,participant.email,participant.whatsapp])].join(' ').toLowerCase().includes(state.search));
+    }
+    function render() {
+      const filtered = filteredBookings();
+      const pages = Math.max(1,Math.ceil(filtered.length / state.pageSize));
+      state.page = Math.min(state.page,pages);
+      const offset = (state.page - 1) * state.pageSize;
+      const visible = filtered.slice(offset,offset + state.pageSize);
+      document.querySelectorAll('[data-count]').forEach(el => { el.textContent = bookings.filter(item => matchesFilter(item,el.dataset.count)).length; });
+      document.querySelectorAll('[data-filter]').forEach(el => el.setAttribute('aria-pressed',String(el.dataset.filter === state.filter)));
+      const approved = bookings.filter(item => ['approved','done'].includes(item.status)).reduce((sum,item) => sum + item.participants,0);
+      const waiting = bookings.filter(item => item.status === 'waiting').reduce((sum,item) => sum + item.participants,0);
+      document.getElementById('approved-seats').textContent = approved;
+      document.getElementById('held-seats').textContent = approved + waiting;
+      document.getElementById('remaining-seats').textContent = Math.max(0,30 - approved - waiting);
+      document.getElementById('booking-rows').innerHTML = visible.length ? visible.map((item,index) => '<tr><td class="no">' + (offset + index + 1) + '</td><td class="name-cell"><span class="person-name">' + esc(item.name) + '</span><span class="person-meta">' + esc(item.id) + '</span></td><td class="participant-cell"><span class="participant-number">' + item.participants + '</span><span class="participant-label">orang</span></td><td class="payment-cell">' + item.payment + '<div class="payment-note">Transfer BCA</div></td><td class="amount">' + rupiah(item.paid) + '</td><td>' + badge(item) + '</td><td class="action-cell"><div class="row-actions"><button class="btn small proof" data-action="proof" data-id="' + item.id + '" aria-label="Lihat bukti transfer ' + esc(item.name) + '"' + (item.proof ? '' : ' disabled title="Belum ada bukti transfer"') + '>' + icon('receipt') + (item.proof ? 'Bukti transfer' : 'Belum ada bukti') + '</button><button class="btn small" data-action="status" data-id="' + item.id + '" aria-label="Ubah status ' + esc(item.name) + '">Ubah status' + icon('chevron') + '</button><button class="btn small" data-action="detail" data-id="' + item.id + '" aria-label="Lihat detail ' + esc(item.name) + '">' + icon('eye') + 'Detail</button></div></td></tr>').join('') : '<tr><td class="empty-cell" colspan="7">Tidak ada pendaftaran yang sesuai. Coba kata pencarian atau filter lainnya.</td></tr>';
+      document.getElementById('result-summary').textContent = filtered.length ? 'Menampilkan ' + (offset + 1) + '–' + Math.min(offset + state.pageSize,filtered.length) + ' dari ' + filtered.length + ' booking' : '0 booking ditemukan';
+      document.getElementById('pagination').innerHTML = '<button class="page-btn" data-page="' + (state.page - 1) + '" aria-label="Halaman sebelumnya"' + (state.page === 1 ? ' disabled' : '') + '>' + icon('left') + '</button>' + Array.from({length:pages},(_,i) => '<button class="page-btn' + (i + 1 === state.page ? ' current' : '') + '" data-page="' + (i + 1) + '" aria-label="Halaman ' + (i + 1) + '"' + (i + 1 === state.page ? ' aria-current="page"' : '') + '>' + (i + 1) + '</button>').join('') + '<button class="page-btn" data-page="' + (state.page + 1) + '" aria-label="Halaman berikutnya"' + (state.page === pages ? ' disabled' : '') + '>' + icon('right') + '</button>';
+    }
+    function detailField(label,value,classes = '') {
+      return '<div' + (classes ? ' class="' + classes + '"' : '') + '><dt>' + esc(label) + '</dt><dd>' + esc(value === '' || value == null ? '—' : value) + '</dd></div>';
+    }
+    function renderParticipant(participant,index) {
+      return '<details class="participant-card" open><summary><span class="participant-index">' + (index + 1) + '</span><span class="participant-heading"><strong>' + esc(participant.name) + '</strong><small>Peserta ' + (index + 1) + (index === 0 ? ' · Pemesan' : '') + '</small></span>' + icon('chevron') + '</summary><dl class="detail-grid">'
+        + detailField('Email peserta',participant.email,'full')
+        + detailField('WhatsApp peserta',participant.whatsapp)
+        + detailField('Usia',participant.age ? participant.age + ' tahun' : '')
+        + detailField('Jenis kelamin',participant.gender)
+        + detailField('Golongan darah',participant.bloodType)
+        + detailField('Tinggi badan',participant.heightCm ? participant.heightCm + ' cm' : '')
+        + detailField('Berat badan',participant.weightKg ? participant.weightKg + ' kg' : '')
+        + detailField('Ukuran sepatu',participant.shoeSize)
+        + detailField('Domisili / alamat lengkap',participant.address,'full long-answer')
+        + detailField('Kondisi kesehatan / riwayat penyakit / alergi',participant.healthNotes,'full long-answer health-answer')
+        + '</dl></details>';
+    }
+    function openDetail(id) {
+      const item = byId(id);
+      if (!item) return;
+      state.detailId = id;
+      document.getElementById('detail-booking-id').textContent = item.id + ' · Didaftarkan ' + item.createdAt;
+      const initials = item.name.split(' ').map(word => word[0]).slice(0,2).join('');
+      const paymentLabels = {waiting_verification:'Menunggu verifikasi',verified:'Terverifikasi',rejected:'Ditolak'};
+      const addonHtml = item.addonDetails.length ? '<div class="addon-detail">' + item.addonDetails.map(addon => '<div class="addon-item"><div><strong>' + esc(addon.name) + '</strong><small>' + addon.quantity + ' unit × ' + rupiah(addon.unitPrice) + '</small></div><span class="addon-amount">' + rupiah(addon.quantity * addon.unitPrice) + '</span></div>').join('') + '</div>' : '<p class="section-help">Tidak ada add-on yang dipilih.</p>';
+      document.getElementById('detail-content').innerHTML = `
+        <div class="detail-person"><div class="person-avatar">${esc(initials)}</div><div><strong>${esc(item.name)}</strong><small>Pemesan · ${item.participants} peserta</small></div>${badge(item)}</div>
+        <section class="detail-section"><h3 class="section-title">${icon('users')}Kontak Pemesan</h3><dl class="detail-grid">
+          ${detailField('Email',item.email,'full')}${detailField('WhatsApp',item.whatsapp)}${detailField('Jumlah peserta',item.participants + ' orang')}
+        </dl></section>
+        <section class="detail-section"><h3 class="section-title">${icon('trip')}Detail Trip</h3><dl class="detail-grid">
+          ${detailField('Paket trip',item.tripName,'full')}${detailField('Jenis trip',item.tripType)}${detailField('Sesi',item.sessionName)}
+          ${detailField('Tanggal keberangkatan',item.selectedDate)}${detailField('Jam',item.startTime + ' – ' + item.endTime + ' WIB')}
+          ${item.selectedPackageName ? detailField('Paket private yang dipilih',item.selectedPackageName,'full') : ''}
+          ${item.selectedPackageDestinations.length ? detailField('Destinasi / aktivitas',item.selectedPackageDestinations.join(', '),'full') : ''}
+          ${detailField('Harga per orang',rupiah(item.pricePerPerson))}${detailField('Subtotal trip',rupiah(item.tripSubtotal))}
+        </dl><h4 class="detail-subhead">Add-on yang dipilih</h4>${addonHtml}</section>
+        <section class="detail-section"><h3 class="section-title">${icon('users')}Data Peserta <span class="section-count">${item.participantDetails.length} orang</span></h3>
+          <p class="section-help">Data lengkap setiap peserta. Klik nama untuk merapatkan atau membuka rinciannya.</p>
+          <div class="participant-list">${item.participantDetails.map(renderParticipant).join('')}</div>
+        </section>
+        <section class="detail-section"><h3 class="section-title">${icon('receipt')}Pembayaran</h3><div class="payment-box">
+          <div class="payment-line"><span>Jenis pembayaran</span><strong>${esc(item.payment)}</strong></div>
+          <div class="payment-line"><span>Subtotal trip</span><strong>${rupiah(item.tripSubtotal)}</strong></div>
+          <div class="payment-line"><span>Total add-on</span><strong>${rupiah(item.addonTotal)}</strong></div>
+          <div class="payment-line"><span>Total tagihan</span><strong>${rupiah(item.total)}</strong></div>
+          <div class="payment-line"><span>Nominal wajib dibayar</span><strong>${rupiah(item.requiredPaymentAmount)}</strong></div>
+          <div class="payment-line"><span>Nominal dibayar</span><strong>${rupiah(item.paid)}</strong></div>
+          <div class="payment-line balance"><span>Sisa pembayaran</span><strong>${rupiah(item.total - item.paid)}</strong></div>
+          <button class="btn proof" data-action="proof" data-id="${esc(item.id)}"${item.proof ? '' : ' disabled'}>${icon('receipt')}${item.proof ? 'Lihat bukti transfer' : 'Belum ada bukti transfer'}</button>
+        </div><dl class="detail-grid">${detailField('Metode pembayaran','Transfer Bank BCA')}${detailField('Status verifikasi',paymentLabels[item.paymentStatus])}${detailField('Rekening tujuan (contoh)',item.bcaAccountNumber)}${detailField('Tanggal unggah bukti',item.proof ? item.paymentSubmittedAt : '')}</dl></section>
+        <section class="detail-section"><h3 class="section-title">${icon('info')}Catatan Pemesan</h3><div class="booking-note">${esc(item.notes)}</div></section>
+        ${item.addonDetails.length ? `<section class="detail-section"><h3 class="section-title">${icon('users')}Hasil Pekerjaan Tim</h3><dl class="detail-grid">${detailField('Jenis pekerjaan',item.addonDetails[0].name,'full')}${detailField('Tim','Tim Dokumentasi Maua')}${detailField('Status tugas','Sedang dikerjakan')}${detailField('Link hasil','Belum tersedia')}${detailField('Waktu selesai','Belum selesai')}</dl></section>` : ''}
+      `;
+      const dialog = document.getElementById('detail-dialog');
+      if (!dialog.open) dialog.showModal();
+    }
+    function openProof(id) {
+      const item = byId(id);
+      if (!item || !item.proof) return;
+      state.selectedId = id;
+      document.getElementById('proof-owner').textContent = item.name + ' · ' + item.payment;
+      document.getElementById('receipt-amount').textContent = rupiah(item.paid);
+      document.getElementById('receipt-sender').textContent = item.name;
+      document.getElementById('receipt-reference').textContent = 'Goa Jomblang · ' + item.id;
+      document.getElementById('proof-dialog').showModal();
+    }
+    function openStatus(id) {
+      const item = byId(id);
+      if (!item) return;
+      state.selectedId = id;
+      document.getElementById('status-owner').textContent = item.name + ' · ' + item.id;
+      document.querySelectorAll('input[name="status"]').forEach(input => { input.checked = input.value === item.status; });
+      document.getElementById('status-dialog').showModal();
+    }
+    let toastTimer;
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.hidden = false;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { toast.hidden = true; },3500);
+    }
+    document.addEventListener('click',event => {
+      const close = event.target.closest('[data-close]');
+      if (close) document.getElementById(close.dataset.close).close();
+      const filter = event.target.closest('[data-filter]');
+      if (filter) { state.filter = filter.dataset.filter; state.page = 1; render(); }
+      const page = event.target.closest('[data-page]');
+      if (page && !page.disabled) { state.page = Number(page.dataset.page); render(); }
+      const action = event.target.closest('[data-action]');
+      if (action && !action.disabled) ({detail:openDetail,proof:openProof,status:openStatus})[action.dataset.action](action.dataset.id);
+      if (document.body.classList.contains('nav-open') && !event.target.closest('.sidebar,#mobile-menu')) {
+        document.body.classList.remove('nav-open');
+        document.getElementById('mobile-menu').setAttribute('aria-expanded','false');
+      }
+    });
+    document.getElementById('search').addEventListener('input',event => { state.search = event.target.value.trim().toLowerCase(); state.page = 1; render(); });
+    document.getElementById('page-size').addEventListener('change',event => { state.pageSize = Number(event.target.value); state.page = 1; render(); });
+    document.getElementById('status-form').addEventListener('submit',event => {
+      event.preventDefault();
+      const item = byId(state.selectedId);
+      const selected = document.querySelector('input[name="status"]:checked');
+      if (!item || !selected) return;
+      item.status = selected.value;
+      document.getElementById('status-dialog').close();
+      render();
+      if (document.getElementById('detail-dialog').open && state.detailId === item.id) openDetail(item.id);
+      showToast('Status ' + item.name + ' diubah menjadi ' + labels[item.status] + ' dalam preview.');
+    });
+    document.getElementById('detail-change-status').addEventListener('click',() => openStatus(state.detailId));
+    document.getElementById('proof-view-detail').addEventListener('click',() => { const id = state.selectedId; document.getElementById('proof-dialog').close(); openDetail(id); });
+    document.getElementById('mobile-menu').addEventListener('click',() => { const open = document.body.classList.toggle('nav-open'); document.getElementById('mobile-menu').setAttribute('aria-expanded',String(open)); });
+    document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('click',event => { const rect = dialog.getBoundingClientRect(); if (event.target === dialog && (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom)) dialog.close(); }));
+    document.addEventListener('keydown',event => { if (event.key === 'Escape') { document.body.classList.remove('nav-open'); document.getElementById('mobile-menu').setAttribute('aria-expanded','false'); } });
+    render();
+  </script>
+</body>
+</html>

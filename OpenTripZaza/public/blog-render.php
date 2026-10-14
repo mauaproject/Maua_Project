@@ -1,70 +1,51 @@
 <?php
 declare(strict_types=1);
 
-function seoBlogContent(): array
+$blogHelper = __DIR__ . '/api/blog/helper.php';
+if (!is_file($blogHelper)) $blogHelper = dirname(__DIR__) . '/api/blog/helper.php';
+require_once $blogHelper;
+
+function seoBlogPosts(PDO $pdo): array
 {
-    static $content = null;
-    if ($content === null) {
-        $file = __DIR__ . '/blog-content.json';
-        if (!is_file($file)) {
-            $file = dirname(__DIR__) . '/src/content/blog.json';
-        }
-        $content = json_decode((string) file_get_contents($file), true, 512, JSON_THROW_ON_ERROR);
-    }
-    return $content;
+    return array_map(fn(array $row): array => mapBlogPost($row, true), $pdo->query(blogSelect() . " WHERE p.status='published' AND p.published_at<=CURRENT_TIMESTAMP ORDER BY p.published_at DESC,p.id DESC LIMIT 8")->fetchAll());
 }
 
-function seoBlogRichText(string $text): string
+function seoBlogArticle(PDO $pdo, string $slug): ?array
 {
-    $safeText = seoEscape($text);
-    $safeText = preg_replace('/\*\*([^*]+)\*\*/u', '<strong>$1</strong>', $safeText);
-    return (string) preg_replace('/\*([^*]+)\*/u', '<em>$1</em>', $safeText);
+    $query = $pdo->prepare(blogSelect() . " WHERE p.slug=? AND p.status='published' AND p.published_at<=CURRENT_TIMESTAMP LIMIT 1");
+    $query->execute([$slug]);
+    $row = $query->fetch();
+    return $row ? mapBlogPost($row) : null;
 }
 
-function seoBlogHtml(): string
+function seoBlogHtml(array $posts, ?array $article = null): string
 {
-    $data = seoBlogContent();
-    $copy = $data['id'];
-    $heading = static fn(array $section): string => '<p class="seo-kicker">' . seoEscape($section['eyebrow']) . '</p><h2>' . nl2br(seoEscape($section['title'])) . '</h2>';
-    $paragraphs = static fn(array $items): string => implode('', array_map(static fn(string $text): string => '<p>' . seoBlogRichText($text) . '</p>', $items));
-
-    $html = '<main id="blog-top"><section class="seo-hero"><p class="seo-kicker">' . seoEscape($copy['hero']['eyebrow']) . '</p>';
-    $html .= '<h1>' . nl2br(seoEscape($copy['hero']['title'])) . '</h1><p class="seo-lead">' . seoEscape($copy['hero']['copy']) . '</p>';
-    $html .= '<a class="seo-button" href="#destinasi">' . seoEscape($copy['hero']['explore']) . '</a></section>';
-    $html .= '<nav aria-label="' . seoEscape($copy['contentsAria']) . '"><ul>';
-    foreach ($copy['sections'] as $section) {
-        $html .= '<li><a href="#' . seoEscape($section['id']) . '">' . seoEscape($section['label']) . '</a></li>';
+    if ($article) {
+        $content = $article['idContent'];
+        $body = blogHtml($content['body']);
+        $index = 0;
+        $contents = [];
+        $body = preg_replace_callback('#<h([23])([^>]*)>(.*?)</h\1>#is', function (array $match) use (&$index, &$contents): string {
+            $title = html_entity_decode(strip_tags($match[3]), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $slug = strtolower((string) iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $title));
+            $slug = trim((string) preg_replace('/[^a-z0-9]+/', '-', $slug), '-');
+            $id = 'section-' . (++$index) . '-' . $slug;
+            $contents[] = '<li><a href="#' . seoEscape($id) . '">' . seoEscape($title) . '</a></li>';
+            return '<h' . $match[1] . $match[2] . ' id="' . seoEscape($id) . '">' . $match[3] . '</h' . $match[1] . '>';
+        }, $body) ?? $body;
+        $html = '<main><article class="seo-detail"><a href="/blog">Kembali ke blog</a><h1>' . seoEscape($content['title']) . '</h1><p class="seo-lead">' . seoEscape($content['excerpt']) . '</p>';
+        $html .= '<p>' . seoEscape($article['author']) . ' · <time datetime="' . seoEscape($article['publishedAt']) . '">' . seoEscape(substr($article['publishedAt'], 0, 10)) . '</time></p>';
+        if ($article['cover']) $html .= '<img class="seo-hero-image" src="' . seoEscape(seoAbsoluteImage($article['cover'])) . '" alt="' . seoEscape($article['coverAlt']) . '">';
+        if ($contents) $html .= '<nav aria-label="Daftar isi"><h2>Daftar isi</h2><ul>' . implode('', $contents) . '</ul></nav>';
+        return $html . '<div class="seo-blog-body">' . $body . '</div></article></main>';
     }
-    $html .= '</ul></nav>';
-    $html .= '<section class="seo-section" id="tentang">' . $heading($copy['about']) . $paragraphs($copy['about']['paragraphs']) . '</section>';
-
-    $html .= '<section class="seo-section" id="panduan">' . $heading($copy['guide']) . '<p>' . seoEscape($copy['guide']['intro']) . '</p><div class="seo-columns">';
-    foreach ($copy['guide']['services'] as $service) {
-        $html .= '<article><h3>' . seoEscape($service['title']) . '</h3><p>' . seoEscape($service['copy']) . '</p><p>' . seoEscape($service['note']) . '</p></article>';
+    $html = '<main><section class="seo-hero"><p class="seo-kicker">MAUA Journal</p><h1>Blog dan Cerita Perjalanan</h1><p class="seo-lead">Inspirasi perjalanan, panduan destinasi, dan kabar terbaru dari MAUA Project.</p></section>';
+    if (!$posts) return $html . '<section class="seo-section"><h2>Cerita baru sedang disiapkan</h2><p>Cerita perjalanan dan informasi terbaru akan hadir di sini.</p></section></main>';
+    $html .= '<section class="seo-section"><h2>Artikel terbaru</h2><div class="seo-grid">';
+    foreach ($posts as $post) {
+        $html .= '<article class="seo-card"><a href="/blog/' . seoEscape($post['slug']) . '">';
+        if ($post['cover']) $html .= '<img src="' . seoEscape(seoAbsoluteImage($post['thumbnail'])) . '" alt="' . seoEscape($post['coverAlt']) . '" loading="lazy">';
+        $html .= '<h3>' . seoEscape($post['idContent']['title']) . '</h3></a><p>' . seoEscape($post['category']) . ' · <time datetime="' . seoEscape($post['publishedAt']) . '">' . seoEscape(substr($post['publishedAt'], 0, 10)) . '</time></p></article>';
     }
-    $html .= '</div><h3 id="booking">' . seoEscape($copy['guide']['bookingTitle']) . '</h3><ol>';
-    foreach ($copy['guide']['steps'] as $step) {
-        $html .= '<li><h4>' . seoEscape($step['title']) . '</h4><p>' . seoEscape($step['copy']) . '</p></li>';
-    }
-    $html .= '</ol><p>' . seoEscape($copy['guide']['bookingNote']) . '</p></section>';
-
-    $html .= '<section class="seo-section" id="destinasi">' . $heading($copy['destinations']) . '<p>' . seoEscape($copy['destinations']['intro']) . '</p>';
-    foreach ($copy['destinations']['groups'] as $group) {
-        $html .= '<section><h3 id="' . seoEscape($group['id']) . '">' . seoEscape($group['title']) . '</h3><p>' . nl2br(seoEscape($group['subtitle'])) . '</p>' . $paragraphs($group['paragraphs']) . '</section>';
-    }
-    $html .= '<p>' . seoEscape($copy['destinations']['note']) . '</p><a href="/destinasi">' . seoEscape($copy['destinations']['link']) . '</a></section>';
-
-    $html .= '<section class="seo-section" id="review">' . $heading($copy['reviews']) . '<p>' . seoEscape($copy['reviews']['intro']) . '</p><div class="seo-grid">';
-    foreach ($data['featuredReviews'] as $review) {
-        $html .= '<article class="seo-review"><h3>' . seoEscape($review['name']) . '</h3><p>' . seoEscape($review['trip']) . '</p>';
-        $html .= '<p aria-label="' . seoEscape($copy['reviews']['ratingLabel']) . '">' . str_repeat('★', (int) $review['rating']) . '</p>';
-        $html .= '<blockquote lang="id">' . seoEscape($review['content']) . '</blockquote><time datetime="' . seoEscape($review['date']) . '">' . seoEscape($review['date']) . '</time></article>';
-    }
-    $html .= '</div><p>' . seoEscape($copy['reviews']['originalLanguageNote']) . '</p><a href="/reviews">' . seoEscape($copy['reviews']['allLink']) . '</a></section>';
-
-    $html .= '<section class="seo-section" id="persiapan">' . $heading($copy['preparation']) . '<p>' . seoEscape($copy['preparation']['intro']) . '</p><ul>';
-    foreach ($copy['preparation']['items'] as $item) {
-        $html .= '<li><h3>' . seoEscape($item['title']) . '</h3><p>' . seoEscape($item['copy']) . '</p></li>';
-    }
-    return $html . '</ul></section></main>';
+    return $html . '</div></section></main>';
 }

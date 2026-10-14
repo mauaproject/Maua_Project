@@ -2,7 +2,6 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import './App.css'
 import i18n from './i18n'
 import { useTranslation } from 'react-i18next'
-import blogContent from './content/blog.json'
 import { CustomerAccountPage, CustomerCatalog, CustomerLoginPage, CustomerSignupPage, DestinationPage, EmailVerificationPage, ForgotPasswordPage, PaymentConfirmationPage, RegistrationPage, ResetPasswordPage, ReviewsPage, TripDetail } from './pages/UserPage'
 import { LoginPage, NotFound } from './pages/shared'
 import * as api from './services/api'
@@ -48,6 +47,7 @@ const WorkerDashboard = lazyNamed(loadWorkerPage, 'WorkerDashboard')
 const WorkerJobDetail = lazyNamed(loadWorkerPage, 'WorkerJobDetail')
 const WorkerJobs = lazyNamed(loadWorkerPage, 'WorkerJobs')
 const BlogPage = lazy(() => import('./pages/BlogPage'))
+const AdminBlogPage = lazy(() => import('./features/blog/AdminBlogPage'))
 
 const canonicalPath = (target) => {
   if (/^\/open-trip-jogja\/?(?=[?#]|$)/.test(target)) return target.replace(/^\/open-trip-jogja\/?/, '/blog')
@@ -229,7 +229,8 @@ const buildSeo = (path, trips) => {
 
   if (cleanPath === '/blog') {
     return {
-      ...blogContent[i18n.language?.startsWith('en') ? 'en' : 'id'].meta,
+      title: i18n.language?.startsWith('en') ? 'Travel Stories & Blog | MAUA Project' : 'Blog & Cerita Perjalanan | MAUA Project',
+      description: i18n.language?.startsWith('en') ? 'Travel stories, destination guides, tips, and the latest updates from MAUA Project.' : 'Cerita perjalanan, panduan destinasi, tips wisata, dan kabar terbaru dari MAUA Project.',
       robots: 'index, follow',
       canonicalPath: '/blog',
     }
@@ -429,6 +430,8 @@ function App() {
   }, [path, trips, missingTripPaths])
 
   useEffect(() => {
+    // Article metadata belongs to the fetched article, including its 404/loading state.
+    if (/^\/blog\/[a-z0-9-]+\/?(?:\?|$)/.test(path)) return
     const seo = buildSeo(path, trips)
     const canonicalUrl = `${SITE_URL}${seo.canonicalPath === '/' ? '/' : seo.canonicalPath}`
     document.documentElement.lang = i18n.language?.startsWith('en') ? 'en' : 'id'
@@ -440,6 +443,10 @@ function App() {
     upsertMetaTag('meta[property="og:title"]', { property: 'og:title', content: seo.title })
     upsertMetaTag('meta[property="og:description"]', { property: 'og:description', content: seo.description })
     upsertMetaTag('meta[property="og:url"]', { property: 'og:url', content: canonicalUrl })
+    upsertMetaTag('meta[property="og:type"]', { property: 'og:type', content: 'website' })
+    const seoImage = tripFromPath(path.split('?')[0], trips)?.imageUrl || `${SITE_URL}/favicon.svg`
+    upsertMetaTag('meta[property="og:image"]', { property: 'og:image', content: seoImage })
+    upsertMetaTag('meta[name="twitter:image"]', { name: 'twitter:image', content: seoImage })
     upsertMetaTag('meta[name="twitter:title"]', { name: 'twitter:title', content: seo.title })
     upsertMetaTag('meta[name="twitter:description"]', { name: 'twitter:description', content: seo.description })
     upsertStructuredData(buildStructuredData(path, trips))
@@ -1005,7 +1012,7 @@ function RouteRenderer(props) {
   }
 
   if (path === '/' || path === '/open-trip') return <CustomerCatalog {...props} />
-  if (path === '/blog') return <BlogPage {...props} />
+  if (/^\/blog(?:\?|$)/.test(path) || /^\/blog\/[a-z0-9-]+\/?$/.test(path)) return <BlogPage {...props} />
   if (path === '/review' || path === '/reviews') return <ReviewsPage {...props} />
   if (path.startsWith('/destinasi')) return <DestinationPage {...props} />
   if (path === '/akun') {
@@ -1036,6 +1043,7 @@ function RouteRenderer(props) {
   if (path === '/admin') return <AdminDashboard {...props} />
   if (path === '/admin/dashboard') return <AdminDashboard {...props} />
   if (path === '/admin/reviews') return <AdminReviews {...props} />
+  if (/^\/admin\/blog(?:\/(?:new|edit\/\d+))?$/.test(path)) return <AdminBlogPage {...props} />
   if (path === '/admin/reschedule') return <AdminReschedules {...props} />
   if (path === '/admin/open-trip') return <AdminTrips {...props} />
   if (path === '/admin/arsip-trip') return <AdminTripArchive {...props} />

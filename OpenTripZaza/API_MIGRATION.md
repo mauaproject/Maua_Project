@@ -146,11 +146,31 @@ Setelah generator paket bulanan tersedia, impor file berikut melalui phpMyAdmin:
 
 `api/migrations/2026-10-02-private-goa-grubug-template.sql`
 
-Migration menambahkan template **Goa Grubug** dan trip sumber berstatus **Ditutup**.
+Migration menambahkan template **Goa Grubug** dan trip sumber
+**Goa Grubug - Sumber Template** berstatus **Ditutup**. Paket Goa Grubug yang
+sudah ada, beserta booking, harga, sesi, add-on, dan medianya, tidak diubah.
 Add-on disalin dari private Goa Jomblang pada database yang sedang digunakan,
-termasuk harga, batas peserta per unit, status, dan aksi worker. Jika sumber atau
+termasuk harga, status, dan aksi worker. Batas peserta per unit juga disalin,
+kecuali **Transportasi A - Mobil maksimal 5 orang** yang ditetapkan **5** agar
+jumlah mobil otomatis mengikuti jumlah peserta. Jika sumber atau
 add-on belum tersedia, transaksi dibatalkan dengan pesan kesalahan. Menjalankan
 ulang migration setelah berhasil tidak menimpa template maupun trip sumber.
+
+Jika versi awal menampilkan galat `#1644 - Private Goa Grubug sudah ada tanpa
+template`, jalankan seluruh isi versi terbaru file yang sama. Versi terbaru
+membuat sumber khusus tersebut tanpa memakai atau menimpa paket lama. Jika
+template sudah berhasil terpasang sebelumnya, script tidak melakukan perubahan.
+
+Untuk template yang sudah terpasang, impor sekali:
+
+`api/migrations/2026-10-04-grubug-template-transport-capacity.sql`
+
+Migration ini mengisi kapasitas 5 peserta per mobil pada sumber template Goa
+Grubug. Setiap paket yang di-generate berikutnya otomatis mewarisinya: 1–5
+peserta = 1 mobil, 6–10 = 2 mobil, dan seterusnya. Aman diulang, tanpa mengubah
+harga atau add-on lain. Paket yang sudah di-generate dan booking lama tidak
+diubah. Jika add-on sudah berganti nama, migration meminta pemeriksaan nama
+pada sumber template. Tidak perlu build ulang frontend.
 
 Untuk membuat paket yang bisa dipesan, buka **Tambah Paket → Private Trip**,
 pilih **Goa Grubug**, bulan dan tahun, lalu generate. Paket berlaku dari tanggal
@@ -166,6 +186,30 @@ Terjemahan reminder Inggris dan rincian konten tersedia di
 [`docs/goa-grubug-template.md`](docs/goa-grubug-template.md); sistem saat ini
 menyimpan satu bahasa reminder per trip. Perubahan ini hanya membutuhkan impor
 SQL, tanpa build ulang frontend.
+
+## Template private Treking - Gunung Api Purba Nglanggeran
+
+Setelah generator paket bulanan tersedia, buka file berikut, salin seluruh
+isinya, lalu jalankan sekali di tab **SQL** phpMyAdmin pada database website:
+
+`api/migrations/2026-10-04-private-nglanggeran-template.sql`
+
+Template muncul pada **Tambah Paket → Private Trip** dengan nama
+**Treking - Gunung Api Purba Nglanggeran**. Pilih bulan dan tahun untuk membuat
+paket yang tersedia setiap tanggal pada bulan tersebut. Sumber berstatus
+Ditutup dan terpisah dari paket yang sudah ada. SQL aman dijalankan ulang
+tanpa duplikasi atau penimpaan data.
+
+Konfigurasi: kategori **Wisata Goa**, **Include Drive**, mode **Bersama**,
+peserta **1–3 orang per booking**, dan **Sesi Pagi 07.00–11.30 WIB**. Harga per
+orang: Rp475.000 untuk 1 peserta, Rp325.000 untuk 2, Rp275.000 untuk 3.
+Kedua add-on ojek dihitung per peserta, mobil per 3 peserta, dan Camera
+Insta360 sekali per booking. Deskripsi, aktivitas, fasilitas Indonesia–Inggris,
+serta reminder Indonesia tersimpan pada sumber dan ikut saat generate.
+
+Tidak perlu build atau upload ulang frontend. Media diisi pada paket baru;
+link Drive dokumentasi diisi kemudian. Rincian ada di
+[`docs/nglanggeran-template.md`](docs/nglanggeran-template.md).
 
 ## Catatan deployment Vite
 

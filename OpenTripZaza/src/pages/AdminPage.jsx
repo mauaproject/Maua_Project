@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { addonOptions, registrationStatuses, tripStatuses } from '../config/constants'
 import { formatCurrency, formatDate, tripName } from '../utils/formatters'
@@ -10,6 +10,7 @@ import { ABOVE_MAX_PAX_RULE, normalizePricePerPersonTiers } from '../utils/prici
 import { getPrivateDateRange, getRegistrationDate, getTripSchedules, getTripSessions, hasScheduleRegistrations, isSameScheduleRegistration, isSlotHoldingRegistration, scheduleStatusLabel } from '../utils/schedules'
 import { isTripAddonActive } from '../utils/addons'
 import { AppModal, Badge, DataPanel, Metric, Sidebar } from './shared'
+import '../trip-wizard.css'
 
 const parseImageUrls = (value) => String(value || '')
   .split(/\r?\n|,/)
@@ -188,7 +189,7 @@ const isActiveBookingForCalendar = (registration) => isSlotHoldingRegistration(r
 
 const countParticipants = (items) => items.reduce((sum, item) => sum + Number(item.participants || 0), 0)
 
-function AdminShell({ title, children, navigate, logout, path, registrations = [], rescheduleRequests = [] }) {
+export function AdminShell({ title, children, navigate, logout, path, registrations = [], rescheduleRequests = [], extraLinks = [] }) {
   const { t } = useTranslation()
   const pendingParticipants = countParticipants(registrations.filter((item) => !item.isCompleted).filter(isPendingRegistration))
   const pendingReschedules = rescheduleRequests.filter((request) => request.status === 'pending').length
@@ -203,6 +204,8 @@ function AdminShell({ title, children, navigate, logout, path, registrations = [
         ['/admin/reschedule', 'Reschedule', pendingReschedules],
         ['/admin/kalender-booking', 'Kalender Booking'],
         ['/admin/reviews', t('reviews.admin.menu')],
+        ['/admin/blog', 'Blog'],
+        ...extraLinks,
         ['/admin/tim', 'Akun Tim'],
       ]} navigate={navigate} logout={logout} path={path} />
       <section className="workspace">
@@ -1121,13 +1124,26 @@ export function AdminTripArchive(props) {
   )
 }
 
-export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
+const tripFormSteps = [
+  { label: 'Informasi dasar', hint: 'Identitas trip' },
+  { label: 'Harga & jadwal', hint: 'Harga, sesi & peserta' },
+  { label: 'Add-on', hint: 'Opsional', optional: true },
+  { label: 'Foto trip', hint: 'Opsional', optional: true },
+  { label: 'Detail trip', hint: 'Deskripsi & fasilitas' },
+  { label: 'Pengingat', hint: 'Opsional', optional: true },
+]
+
+export function TripForm({ tripId, trips, saveTrip, navigate, initialValues, children, ...props }) {
   const selected = trips.find((item) => item.id === tripId)
-  const [form, setForm] = useState(normalizeTripForm(selected))
+  const [form, setForm] = useState(() => normalizeTripForm(selected || initialValues))
   const [imageFiles, setImageFiles] = useState([])
-  const [primaryImage, setPrimaryImage] = useState(() => getInitialPrimaryImage(selected))
+  const [primaryImage, setPrimaryImage] = useState(() => getInitialPrimaryImage(selected || initialValues))
   const [formError, setFormError] = useState('')
   const [isSaving, setIsSaving] = useState(false)
+  const [activeStep, setActiveStep] = useState(0)
+  const [furthestStep, setFurthestStep] = useState(0)
+  const formRef = useRef(null)
+  const stepHeadingRef = useRef(null)
   const isPrivateTrip = Boolean(form.isPrivateTrip)
   const currentImages = Array.isArray(form.imageUrls) ? form.imageUrls : []
   const registrations = props.registrations || []
@@ -1345,14 +1361,18 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
     }
   }
 
-  const onSubmit = async (event) => {
-    event.preventDefault()
-    if (isSaving) return
-    if (form.h7ReminderSubject.length > 190) {
-      setFormError('Subject Email Pengingat H-7 maksimal 190 karakter.')
-      return
-    }
-    if (!isPrivateTrip) {
+  const showStep = (index) => {
+    setActiveStep(index)
+    setFurthestStep((current) => Math.max(current, index))
+    setFormError('')
+    requestAnimationFrame(() => {
+      stepHeadingRef.current?.scrollIntoView({ block: 'start', behavior: 'instant' })
+      formRef.current?.querySelector(`[data-trip-step="${index}"] h3`)?.focus({ preventScroll: true })
+    })
+  }
+
+  const getStepError = (index) => {
+    if (index === 1 && !isPrivateTrip) {
       const invalidSchedule = !form.schedules.length || form.schedules.some((schedule) => (
         !schedule.name.trim()
         || !schedule.date
@@ -1362,11 +1382,13 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
         || Number(schedule.quota) <= 0
       ))
       if (invalidSchedule) {
-        setFormError('Setiap sesi Open Trip wajib punya nama, tanggal, jam mulai, jam selesai, dan kuota. Jam selesai harus lebih besar dari jam mulai.')
-        return
+        return 'Setiap sesi Open Trip wajib punya nama, tanggal, jam mulai, jam selesai, dan kuota. Jam selesai harus lebih besar dari jam mulai.'
       }
+      const sessionKeys = form.schedules.map((session) => `${session.date}|${session.startTime}|${session.endTime}`)
+      if (new Set(sessionKeys).size !== sessionKeys.length) return 'Dua sesi tidak boleh memiliki tanggal dan jam yang sama persis.'
     }
-    if (isPrivateTrip) {
+    if (index === 1 && isPrivateTrip) {
+      if (Number(form.minParticipants) > Number(form.maxParticipants)) return 'Minimal peserta tidak boleh melebihi maksimal peserta.'
       const hasPrivatePackages = Boolean(form.privatePackages?.length)
       const invalidPackage = hasPrivatePackages && form.privatePackages.some((item) => (
         !item.name.trim()
@@ -1375,8 +1397,7 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
         || !textToLines(item.destinationsText).length
       ))
       if (invalidPackage) {
-        setFormError('Setiap paket wajib memiliki nama, harga per orang berdasarkan jumlah peserta, dan minimal 1 destinasi/aktivitas.')
-        return
+        return 'Setiap paket wajib memiliki nama, harga per orang berdasarkan jumlah peserta, dan minimal 1 destinasi/aktivitas.'
       }
       if (!hasPrivatePackages) {
         const legacyPrices = Array.from(
@@ -1384,23 +1405,58 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
           (_, index) => Number(form.pricePerPersonTiers?.[index + 1]),
         )
         if (legacyPrices.some((price) => !Number.isFinite(price) || price <= 0)) {
-          setFormError('Harga private trip berdasarkan jumlah peserta wajib diisi dan harus lebih dari 0.')
-          return
+          return 'Harga private trip berdasarkan jumlah peserta wajib diisi dan harus lebih dari 0.'
         }
       }
       const invalidSession = !form.sessions.length || form.sessions.some((session) => !session.startTime || !session.endTime || session.endTime <= session.startTime)
       if (invalidSession) {
-        setFormError('Private trip minimal punya 1 sesi. Jam selesai harus lebih besar dari jam mulai.')
-        return
+        return 'Private trip minimal punya 1 sesi. Jam selesai harus lebih besar dari jam mulai.'
       }
       if (!form.availableStartDate || !form.availableEndDate || form.availableEndDate < form.availableStartDate) {
-        setFormError('Isi rentang tanggal private trip dengan benar. Tanggal selesai tidak boleh lebih awal dari tanggal mulai.')
-        return
+        return 'Isi rentang tanggal private trip dengan benar. Tanggal selesai tidak boleh lebih awal dari tanggal mulai.'
       }
     }
-    if ((form.addons || []).some((addon) => !addon.name.trim() || Number(addon.price) < 0 || (addon.maxParticipantsPerUnit !== '' && Number(addon.maxParticipantsPerUnit) <= 0))) {
-      setFormError('Setiap add-on wajib memiliki nama, harga tidak boleh negatif, dan maksimal peserta harus lebih dari 0 jika diisi.')
+    if (index === 2 && (form.addons || []).some((addon) => !addon.name.trim() || Number(addon.price) < 0 || (addon.maxParticipantsPerUnit !== '' && Number(addon.maxParticipantsPerUnit) <= 0))) {
+      return 'Setiap add-on wajib memiliki nama, harga tidak boleh negatif, dan maksimal peserta harus lebih dari 0 jika diisi.'
+    }
+    if (index === 5 && form.h7ReminderSubject.length > 190) return 'Subject Email Pengingat H-7 maksimal 190 karakter.'
+    return ''
+  }
+
+  const validateStep = (index) => {
+    const section = formRef.current?.querySelector(`[data-trip-step="${index}"]`)
+    const invalidField = Array.from(section?.querySelectorAll('input, select, textarea') || [])
+      .find((field) => !field.checkValidity())
+    const error = getStepError(index)
+    if (!invalidField && !error) return true
+    showStep(index)
+    setFormError(invalidField ? 'Lengkapi isian pada langkah ini sebelum melanjutkan.' : error)
+    requestAnimationFrame(() => {
+      invalidField?.focus({ preventScroll: false })
+      invalidField?.reportValidity()
+    })
+    return false
+  }
+
+  const moveToStep = (index) => {
+    if (isSaving || index < 0 || index >= tripFormSteps.length) return
+    if (index > activeStep) {
+      for (let step = 0; step < index; step += 1) {
+        if (!validateStep(step)) return
+      }
+    }
+    showStep(index)
+  }
+
+  const onSubmit = async (event) => {
+    event.preventDefault()
+    if (isSaving) return
+    if (activeStep < tripFormSteps.length - 1) {
+      moveToStep(activeStep + 1)
       return
+    }
+    for (let step = 0; step < tripFormSteps.length; step += 1) {
+      if (!validateStep(step)) return
     }
     const imageUrls = Array.isArray(form.imageUrls) ? form.imageUrls.filter(Boolean) : []
     const orderedImageUrls = primaryImage?.type === 'existing'
@@ -1443,7 +1499,7 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
     setFormError('')
     setIsSaving(true)
     try {
-      const saved = await saveTrip({
+      await saveTrip({
         ...tripForm,
         description: {
           id: form.descriptionId.trim(),
@@ -1491,9 +1547,7 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
           status: addon.status === 'inactive' ? 'inactive' : 'active',
         })),
       })
-      if (saved === false) {
-        setIsSaving(false)
-      }
+      setIsSaving(false)
     } catch (error) {
       setFormError(error.message || 'Trip gagal disimpan. Silakan coba kembali.')
       setIsSaving(false)
@@ -1501,60 +1555,75 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
   }
 
   return (
-    <AdminShell title={selected ? 'Edit Paket Trip' : 'Tambah Paket Trip'} navigate={navigate} {...props}>
+    <AdminShell navigate={navigate} {...props}>
       {tripId && !selected ? (
         <section className="admin-page-stack">
           <p className="empty-state">Memuat detail paket trip...</p>
         </section>
       ) : (
       <section className="admin-page-stack trip-form-page">
-        <div className="admin-page-head">
+        {children}
+        <div className="trip-form-heading">
           <div>
-            <p className="eyebrow">{selected ? 'Update paket' : 'Paket baru'}</p>
-            <h2>{selected ? 'Perbarui detail paket trip.' : 'Lengkapi informasi paket trip baru.'}</h2>
-            <p className="muted">Gunakan field sesuai jenis trip agar form tetap ringkas dan mudah dipakai admin.</p>
+            <p className="trip-form-breadcrumb">Paket Trip <span aria-hidden="true">/</span> {selected ? 'Edit paket' : 'Paket baru'}</p>
+            <h1>{selected ? 'Edit paket trip' : 'Tambah paket trip'}</h1>
+            <p className="muted">Lengkapi paket selangkah demi selangkah. Kamu bisa kembali untuk mengubah isian.</p>
           </div>
-          <button className="outline-btn" disabled={isSaving} onClick={() => navigate('/admin/open-trip')}>Kembali</button>
+          <button className="outline-btn" type="button" disabled={isSaving} onClick={() => navigate('/admin/open-trip')}><span aria-hidden="true">←</span> Kembali ke paket</button>
         </div>
-        {formError && <p className="form-error">{formError}</p>}
-        <form className="trip-section-form" onSubmit={onSubmit}>
-          <section className="form-section-card">
+        <nav className="trip-wizard-nav" aria-label="Tahapan pengisian trip" ref={stepHeadingRef}>
+          <ol>
+            {tripFormSteps.map((step, index) => (
+              <li key={step.label} className={index === activeStep ? 'is-current' : index < activeStep ? 'is-complete' : ''}>
+                <button type="button" disabled={isSaving || index > furthestStep} aria-current={index === activeStep ? 'step' : undefined} onClick={() => moveToStep(index)}>
+                  <span className="trip-step-number">{index < activeStep ? <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m6 12 4 4 8-8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg> : index + 1}</span>
+                  <span className="trip-step-copy"><strong>{step.label}</strong><small>{step.hint}</small></span>
+                </button>
+              </li>
+            ))}
+          </ol>
+          <div className="trip-wizard-progress"><span>Langkah <strong>{activeStep + 1}</strong> dari {tripFormSteps.length}<span className="trip-mobile-step-name"> · {tripFormSteps[activeStep].label}</span></span><span className="trip-wizard-type">{isPrivateTrip ? 'Private Trip' : 'Open Trip'}</span></div>
+        </nav>
+        <form ref={formRef} className="trip-section-form trip-wizard-form" noValidate onSubmit={onSubmit}>
+          {formError && <p className="form-error trip-wizard-error" role="alert">{formError}</p>}
+          <section className="form-section-card" data-trip-step="0" hidden={activeStep !== 0} aria-labelledby="trip-step-0-title">
             <div className="form-section-title">
               <span>1</span>
-              <div><h3>Informasi Dasar</h3><p>Identitas utama paket yang tampil di katalog customer.</p></div>
+              <div><h3 id="trip-step-0-title" tabIndex={-1}>Informasi dasar</h3><p>Mulai dari identitas paket yang akan dilihat customer.</p></div>
             </div>
+            <p className="trip-required-note">Isian bertanda <span>*</span> wajib dilengkapi.</p>
             <div className="data-form section-fields">
-              <label>{isPrivateTrip ? 'Nama private trip' : 'Nama trip'}<input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
+              <label><span className="trip-field-label">{isPrivateTrip ? 'Nama private trip' : 'Nama trip'} <span className="trip-required-marker" aria-hidden="true">*</span></span><input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
               <label>Jenis trip<select value={isPrivateTrip ? 'private' : 'open'} onChange={(e) => setForm({ ...form, isPrivateTrip: e.target.value === 'private' })}><option value="open">Open Trip</option><option value="private">Private Trip</option></select><small>{isPrivateTrip ? 'Private Trip menerima request tanggal dari customer.' : 'Open Trip memakai tanggal keberangkatan tetap.'}</small></label>
               <label>Kategori paket<select value={getExperienceType(form)} onChange={(e) => setForm({ ...form, experienceType: e.target.value })}><option value="cave">Wisata Goa</option><option value="custom">Wisata / Kegiatan (Non-Goa)</option></select><small>Paket custom memakai isi dan alur pemesanan yang sama, tetapi dapat digunakan untuk wisata atau kegiatan selain goa.</small></label>
-              <label>Destinasi Indonesia<input required value={form.destinationId} onChange={(e) => setForm({ ...form, destinationId: e.target.value })} /></label>
-              <label>Destinasi English<input value={form.destinationEn} onChange={(e) => setForm({ ...form, destinationEn: e.target.value })} /></label>
+              <label><span className="trip-field-label">Destinasi Indonesia <span className="trip-required-marker" aria-hidden="true">*</span></span><input required value={form.destinationId} onChange={(e) => setForm({ ...form, destinationId: e.target.value })} /></label>
               <label>Status<select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>{tripStatuses.map((status) => <option key={status}>{status}</option>)}</select></label>
               <label>Dokumentasi bawaan<select value={form.includeDriveLink ? 'include' : 'none'} onChange={(e) => setForm({ ...form, includeDriveLink: e.target.value === 'include' })}>
                 <option value="include">Include link drive</option>
                 <option value="none">Tidak include link drive</option>
               </select><small>Jika aktif, admin dapat mengisi link dokumentasi bawaan per jadwal/sesi.</small></label>
+              <details className="trip-translation-fields full"><summary>Tambahkan destinasi dalam English <span>Opsional</span></summary><div><label>Destinasi English<input value={form.destinationEn} onChange={(e) => setForm({ ...form, destinationEn: e.target.value })} /></label></div></details>
             </div>
           </section>
 
-          <section className="form-section-card">
+          <section className="form-section-card" data-trip-step="1" hidden={activeStep !== 1} aria-labelledby="trip-step-1-title">
             <div className="form-section-title">
               <span>2</span>
-              <div><h3>Harga & Kapasitas</h3><p>{isPrivateTrip ? 'Gunakan jadwal fleksibel karena customer dapat request tanggal sendiri.' : 'Gunakan tanggal tetap karena trip ini memiliki jadwal keberangkatan tertentu.'}</p></div>
+              <div><h3 id="trip-step-1-title" tabIndex={-1}>Harga & jadwal</h3><p>{isPrivateTrip ? 'Atur harga, batas peserta, dan pilihan waktu. Customer memilih tanggal dalam rentang yang kamu sediakan.' : 'Tentukan harga per orang, tanggal keberangkatan, dan kuota setiap sesi.'}</p></div>
             </div>
             <div className="data-form section-fields">
               {!isPrivateTrip ? (
                 <>
-                  <label>Harga per orang<input required type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} /></label>
-                  <label>Jumlah sesi/jadwal<input required type="number" min="1" value={form.schedules.length} onChange={(e) => updateScheduleCount(e.target.value)} /><small>Default 1 sesi. Tambahkan baris dengan tanggal yang sama jika satu tanggal memiliki beberapa sesi.</small></label>
+                  <label><span className="trip-field-label">Harga per orang <span className="trip-required-marker" aria-hidden="true">*</span></span><input required type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} /></label>
+                  <label><span className="trip-field-label">Jumlah sesi/jadwal <span className="trip-required-marker" aria-hidden="true">*</span></span><input required type="number" min="1" value={form.schedules.length} onChange={(e) => updateScheduleCount(e.target.value)} /><small>Default 1 sesi. Tambahkan baris dengan tanggal yang sama jika satu tanggal memiliki beberapa sesi.</small></label>
                   {form.schedules.map((schedule, index) => (
                     <div className="admin-nested-fields full" key={schedule.id}>
                       <h4>Sesi Open Trip {index + 1}</h4>
-                      <label>Nama sesi<input required value={schedule.name} placeholder={`Sesi ${index + 1}`} onChange={(e) => updateSchedule(index, 'name', e.target.value)} /></label>
-                      <label>Tanggal sesi<input required type="date" value={schedule.date} onChange={(e) => updateSchedule(index, 'date', e.target.value)} /></label>
-                      <label>Jam mulai<input required type="time" value={schedule.startTime} onChange={(e) => updateSchedule(index, 'startTime', e.target.value)} /></label>
-                      <label>Jam selesai<input required type="time" value={schedule.endTime} onChange={(e) => updateSchedule(index, 'endTime', e.target.value)} /></label>
-                      <label>Kuota sesi<input required type="number" min="1" value={schedule.quota} onChange={(e) => updateSchedule(index, 'quota', e.target.value)} /></label>
+                      <label><span className="trip-field-label">Nama sesi <span className="trip-required-marker" aria-hidden="true">*</span></span><input required value={schedule.name} placeholder={`Sesi ${index + 1}`} onChange={(e) => updateSchedule(index, 'name', e.target.value)} /></label>
+                      <label><span className="trip-field-label">Tanggal sesi <span className="trip-required-marker" aria-hidden="true">*</span></span><input required type="date" value={schedule.date} onChange={(e) => updateSchedule(index, 'date', e.target.value)} /></label>
+                      <label><span className="trip-field-label">Jam mulai <span className="trip-required-marker" aria-hidden="true">*</span></span><input required type="time" value={schedule.startTime} onChange={(e) => updateSchedule(index, 'startTime', e.target.value)} /></label>
+                      <label><span className="trip-field-label">Jam selesai <span className="trip-required-marker" aria-hidden="true">*</span></span><input required type="time" value={schedule.endTime} onChange={(e) => updateSchedule(index, 'endTime', e.target.value)} /></label>
+                      <label><span className="trip-field-label">Kuota sesi <span className="trip-required-marker" aria-hidden="true">*</span></span><input required type="number" min="1" value={schedule.quota} onChange={(e) => updateSchedule(index, 'quota', e.target.value)} /></label>
                       <label>Status sesi<select value={schedule.status} onChange={(e) => updateSchedule(index, 'status', e.target.value)}><option value="active">Active</option><option value="full">Full</option><option value="inactive">Inactive</option></select></label>
                       {form.includeDriveLink && <label className="full">Link drive dokumentasi trip<input type="url" placeholder="https://drive.google.com/..." value={schedule.driveLinkUrl || ''} onChange={(e) => updateSchedule(index, 'driveLinkUrl', e.target.value)} /></label>}
                       {Number(schedule.bookedCount) > 0 && <small>Sudah ada {schedule.bookedCount} peserta disetujui pada sesi ini.</small>}
@@ -1564,19 +1633,17 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
               ) : (
                 <>
                   <label>Jadwal fleksibel<input disabled value="Customer memilih tanggal saat checkout" /><small>Gunakan jadwal fleksibel karena customer dapat request tanggal sendiri.</small></label>
-                  <label>Minimal peserta<input required type="number" min="1" value={form.minParticipants} onChange={(e) => setForm({ ...form, minParticipants: e.target.value })} /></label>
-                  <label>Maksimal peserta<input required type="number" min="1" value={form.maxParticipants} onChange={(e) => updateMaxParticipants(e.target.value)} /></label>
+                  <label><span className="trip-field-label">Minimal peserta <span className="trip-required-marker" aria-hidden="true">*</span></span><input required type="number" min="1" value={form.minParticipants} onChange={(e) => setForm({ ...form, minParticipants: e.target.value })} /></label>
+                  <label><span className="trip-field-label">Maksimal peserta <span className="trip-required-marker" aria-hidden="true">*</span></span><input required type="number" min="1" value={form.maxParticipants} onChange={(e) => updateMaxParticipants(e.target.value)} /></label>
                   {!form.privatePackages?.length && (
                     <div className="admin-nested-fields price-tier-editor full">
                       <h4>Harga Private Trip Berdasarkan Jumlah Peserta</h4>
                       <p className="muted full">Digunakan untuk private trip biasa yang tidak memiliki pilihan paket.</p>
-                      <label className="full">Atur harga sampai berapa peserta?
-                        <input required type="number" min="1" max={Math.max(1, Number(form.maxParticipants) || 1)} value={form.maxCustomPax} onChange={(e) => updatePriceTierCount(e.target.value)} />
+                      <label className="full"><span className="trip-field-label">Atur harga sampai berapa peserta? <span className="trip-required-marker" aria-hidden="true">*</span></span><input required type="number" min="1" max={Math.max(1, Number(form.maxParticipants) || 1)} value={form.maxCustomPax} onChange={(e) => updatePriceTierCount(e.target.value)} />
                         <small>Peserta di atas batas ini menggunakan tier harga terakhir.</small>
                       </label>
                       {Array.from({ length: Math.max(1, Number(form.maxCustomPax) || 1) }, (_, index) => index + 1).map((pax) => (
-                        <label key={pax}>Jika {pax} peserta, harga per orang
-                          <input required type="number" min="1" value={form.pricePerPersonTiers?.[pax] ?? ''} onChange={(e) => updatePriceTier(pax, e.target.value)} />
+                        <label key={pax}><span className="trip-field-label">Jika {pax} peserta, harga per orang <span className="trip-required-marker" aria-hidden="true">*</span></span><input required type="number" min="1" value={form.pricePerPersonTiers?.[pax] ?? ''} onChange={(e) => updatePriceTier(pax, e.target.value)} />
                         </label>
                       ))}
                     </div>
@@ -1593,27 +1660,25 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
                       {(form.privatePackages || []).map((item, index) => (
                         <div className="admin-nested-fields admin-private-package-card" key={item.id || item.packageCode || index}>
                           <h4>Paket {index + 1}</h4>
-                          <label>Nama paket<input required value={item.name} onChange={(e) => updatePrivatePackage(index, 'name', e.target.value)} /></label>
+                          <label><span className="trip-field-label">Nama paket <span className="trip-required-marker" aria-hidden="true">*</span></span><input required value={item.name} onChange={(e) => updatePrivatePackage(index, 'name', e.target.value)} /></label>
                           <label>Status paket<select value={item.status} onChange={(e) => updatePrivatePackage(index, 'status', e.target.value)}><option value="active">Active</option><option value="inactive">Inactive</option></select></label>
-                          <label>Atur harga sampai berapa peserta?
-                            <input required type="number" min="1" max={Math.max(1, Number(form.maxParticipants) || 1)} value={item.maxCustomPax} onChange={(e) => updatePackageTierCount(index, e.target.value)} />
+                          <label><span className="trip-field-label">Atur harga sampai berapa peserta? <span className="trip-required-marker" aria-hidden="true">*</span></span><input required type="number" min="1" max={Math.max(1, Number(form.maxParticipants) || 1)} value={item.maxCustomPax} onChange={(e) => updatePackageTierCount(index, e.target.value)} />
                           </label>
                           <div className="package-tier-grid full">
                             {Array.from({ length: Math.max(1, Number(item.maxCustomPax) || 1) }, (_, tierIndex) => tierIndex + 1).map((pax) => (
-                              <label key={pax}>Jika {pax} peserta, harga per orang
-                                <input required type="number" min="1" value={item.pricePerPersonTiers?.[pax] ?? ''} onChange={(e) => updatePackageTier(index, pax, e.target.value)} />
+                              <label key={pax}><span className="trip-field-label">Jika {pax} peserta, harga per orang <span className="trip-required-marker" aria-hidden="true">*</span></span><input required type="number" min="1" value={item.pricePerPersonTiers?.[pax] ?? ''} onChange={(e) => updatePackageTier(index, pax, e.target.value)} />
                               </label>
                             ))}
                           </div>
-                          <label className="full">Daftar destinasi / aktivitas<textarea required placeholder="Satu destinasi atau aktivitas per baris." value={item.destinationsText} onChange={(e) => updatePrivatePackage(index, 'destinationsText', e.target.value)} /></label>
+                          <label className="full"><span className="trip-field-label">Daftar destinasi / aktivitas <span className="trip-required-marker" aria-hidden="true">*</span></span><textarea required placeholder="Satu destinasi atau aktivitas per baris." value={item.destinationsText} onChange={(e) => updatePrivatePackage(index, 'destinationsText', e.target.value)} /></label>
                           <label className="full">Deskripsi singkat (opsional)<textarea value={item.description} onChange={(e) => updatePrivatePackage(index, 'description', e.target.value)} /></label>
                           <button className="outline-btn danger-btn" type="button" onClick={() => removePrivatePackage(index)}>Hapus paket</button>
                         </div>
                       ))}
                     </div>
                   </div>
-                  <label>Private trip bisa dipesan dari tanggal<input required type="date" value={form.availableStartDate} onChange={(e) => setForm({ ...form, availableStartDate: e.target.value })} /></label>
-                  <label>Sampai tanggal<input required type="date" min={form.availableStartDate || undefined} value={form.availableEndDate} onChange={(e) => setForm({ ...form, availableEndDate: e.target.value })} /></label>
+                  <label><span className="trip-field-label">Private trip bisa dipesan dari tanggal <span className="trip-required-marker" aria-hidden="true">*</span></span><input required type="date" value={form.availableStartDate} onChange={(e) => setForm({ ...form, availableStartDate: e.target.value })} /></label>
+                  <label><span className="trip-field-label">Sampai tanggal <span className="trip-required-marker" aria-hidden="true">*</span></span><input required type="date" min={form.availableStartDate || undefined} value={form.availableEndDate} onChange={(e) => setForm({ ...form, availableEndDate: e.target.value })} /></label>
                   <label className="full">Aturan kapasitas booking
                     <select value={form.privateBookingMode} onChange={(event) => setForm({ ...form, privateBookingMode: event.target.value })}>
                       <option value="exclusive">Eksklusif — satu booking per sesi pada tanggal yang sama</option>
@@ -1631,15 +1696,15 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
                         <h4>Sesi Private Trip</h4>
                         <p>Sesi hanya menentukan pilihan waktu atau jam trip dan tetap terpisah dari paket.</p>
                       </div>
-                      <label>Jumlah sesi<input required type="number" min="1" value={form.sessions.length} onChange={(e) => updateSessionCount(e.target.value)} /></label>
+                      <label><span className="trip-field-label">Jumlah sesi <span className="trip-required-marker" aria-hidden="true">*</span></span><input required type="number" min="1" value={form.sessions.length} onChange={(e) => updateSessionCount(e.target.value)} /></label>
                     </div>
                     <div className="admin-private-package-list">
                       {form.sessions.map((session, index) => (
                         <div className="admin-nested-fields full" key={session.id}>
                           <h4>Sesi {index + 1}</h4>
-                          <label>Nama sesi<input required value={session.name} onChange={(e) => updateSession(index, 'name', e.target.value)} /></label>
-                          <label>Jam mulai<input required type="time" value={session.startTime} onChange={(e) => updateSession(index, 'startTime', e.target.value)} /></label>
-                          <label>Jam selesai<input required type="time" value={session.endTime} onChange={(e) => updateSession(index, 'endTime', e.target.value)} /></label>
+                          <label><span className="trip-field-label">Nama sesi <span className="trip-required-marker" aria-hidden="true">*</span></span><input required value={session.name} onChange={(e) => updateSession(index, 'name', e.target.value)} /></label>
+                          <label><span className="trip-field-label">Jam mulai <span className="trip-required-marker" aria-hidden="true">*</span></span><input required type="time" value={session.startTime} onChange={(e) => updateSession(index, 'startTime', e.target.value)} /></label>
+                          <label><span className="trip-field-label">Jam selesai <span className="trip-required-marker" aria-hidden="true">*</span></span><input required type="time" value={session.endTime} onChange={(e) => updateSession(index, 'endTime', e.target.value)} /></label>
                           <label>Status sesi<select value={session.status} onChange={(e) => updateSession(index, 'status', e.target.value)}><option value="active">Active</option><option value="inactive">Inactive</option></select></label>
                           {form.includeDriveLink && <label className="full">Link drive dokumentasi trip<input type="url" placeholder="https://drive.google.com/..." value={session.driveLinkUrl || ''} onChange={(e) => updateSession(index, 'driveLinkUrl', e.target.value)} /></label>}
                         </div>
@@ -1651,17 +1716,18 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
             </div>
           </section>
 
-          <section className="form-section-card">
+          <section className="form-section-card" data-trip-step="2" hidden={activeStep !== 2} aria-labelledby="trip-step-2-title">
             <div className="form-section-title">
               <span>3</span>
-              <div><h3>Add-on Trip</h3><p>Add-on hanya tersedia pada paket ini dan dapat memiliki aturan hasil kerja yang berbeda.</p></div>
+              <div><h3 id="trip-step-2-title" tabIndex={-1}>Add-on trip <span className="trip-optional-badge">Opsional</span></h3><p>Tambahkan layanan pilihan seperti transportasi atau dokumentasi.</p></div>
             </div>
             <div className="data-form section-fields">
+              {!form.addons?.length && <div className="trip-step-empty full"><span className="trip-empty-symbol" aria-hidden="true">+</span><h4>Ada layanan tambahan?</h4><p>Buat add-on agar customer bisa melengkapi trip sesuai kebutuhan. Kamu juga bisa langsung lanjut.</p></div>}
               {(form.addons || []).map((addon, index) => (
                 <div className="admin-nested-fields full" key={addon.id || `new-addon-${index}`}>
                   <h4>Add-on {index + 1}</h4>
-                  <label>Nama add-on<input required value={addon.name} onChange={(event) => updateTripAddon(index, 'name', event.target.value)} /></label>
-                  <label>Harga add-on<input required type="number" min="0" value={addon.price} onChange={(event) => updateTripAddon(index, 'price', event.target.value)} /></label>
+                  <label><span className="trip-field-label">Nama add-on <span className="trip-required-marker" aria-hidden="true">*</span></span><input required value={addon.name} onChange={(event) => updateTripAddon(index, 'name', event.target.value)} /></label>
+                  <label><span className="trip-field-label">Harga add-on <span className="trip-required-marker" aria-hidden="true">*</span></span><input required type="number" min="0" value={addon.price} onChange={(event) => updateTripAddon(index, 'price', event.target.value)} /></label>
                   <label>Status add-on<select value={addon.status === 'inactive' ? 'inactive' : 'active'} onChange={(event) => updateTripAddon(index, 'status', event.target.value)}>
                     <option value="active">Aktif</option>
                     <option value="inactive">Nonaktif</option>
@@ -1678,13 +1744,13 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
             </div>
           </section>
 
-          <section className="form-section-card">
+          <section className="form-section-card" data-trip-step="3" hidden={activeStep !== 3} aria-labelledby="trip-step-3-title">
             <div className="form-section-title">
               <span>4</span>
-              <div><h3>Media</h3><p>Upload satu atau beberapa gambar untuk ditampilkan pada katalog dan detail trip.</p></div>
+              <div><h3 id="trip-step-3-title" tabIndex={-1}>Foto trip <span className="trip-optional-badge">Opsional</span></h3><p>Tampilkan pengalaman trip melalui foto. Pilih satu foto sebagai gambar depan.</p></div>
             </div>
             <div className="data-form section-fields">
-              <label className="full">Upload gambar trip
+              <label className="full trip-image-upload">Upload gambar trip
                 <input disabled={isSaving} type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" multiple onChange={handleImageSelection} />
                 <small>Maksimal 10MB per file. Format JPG, PNG, atau WebP. Orientasi foto akan dipertahankan seperti file asli.</small>
               </label>
@@ -1732,26 +1798,24 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
             </div>
           </section>
 
-          <section className="form-section-card">
+          <section className="form-section-card" data-trip-step="4" hidden={activeStep !== 4} aria-labelledby="trip-step-4-title">
             <div className="form-section-title">
               <span>5</span>
-              <div><h3>Detail Trip</h3><p>Isi narasi dan fasilitas yang membantu customer memahami pengalaman trip.</p></div>
+              <div><h3 id="trip-step-4-title" tabIndex={-1}>Detail trip</h3><p>Ceritakan pengalaman, aktivitas, dan fasilitas yang akan didapat customer.</p></div>
             </div>
             <div className="data-form section-fields">
-              <label className="full">Deskripsi Indonesia<textarea required value={form.descriptionId} onChange={(e) => setForm({ ...form, descriptionId: e.target.value })} /></label>
-              <label className="full">Deskripsi English<textarea value={form.descriptionEn} onChange={(e) => setForm({ ...form, descriptionEn: e.target.value })} /></label>
-              <label className="full">Aktivitas Indonesia<textarea required placeholder={getExperienceType(form) === 'custom' ? 'Contoh: briefing, aktivitas utama, istirahat, sesi dokumentasi, dan kembali ke meeting point.' : 'Contoh: briefing keselamatan, eksplor lorong goa, cave tubing, sesi foto, dan kembali ke meeting point.'} value={form.activitiesId} onChange={(e) => setForm({ ...form, activitiesId: e.target.value })} /></label>
-              <label className="full">Aktivitas English<textarea placeholder="One activity per line." value={form.activitiesEn} onChange={(e) => setForm({ ...form, activitiesEn: e.target.value })} /></label>
-              <label className="full">Fasilitas Indonesia<textarea required value={form.facilitiesId} onChange={(e) => setForm({ ...form, facilitiesId: e.target.value })} /></label>
-              <label className="full">Fasilitas English<textarea value={form.facilitiesEn} onChange={(e) => setForm({ ...form, facilitiesEn: e.target.value })} /></label>
+              <label className="full"><span className="trip-field-label">Deskripsi Indonesia <span className="trip-required-marker" aria-hidden="true">*</span></span><textarea required value={form.descriptionId} onChange={(e) => setForm({ ...form, descriptionId: e.target.value })} /></label>
+              <label className="full"><span className="trip-field-label">Aktivitas Indonesia <span className="trip-required-marker" aria-hidden="true">*</span></span><textarea required placeholder={getExperienceType(form) === 'custom' ? 'Contoh: briefing, aktivitas utama, istirahat, sesi dokumentasi, dan kembali ke meeting point.' : 'Contoh: briefing keselamatan, eksplor lorong goa, cave tubing, sesi foto, dan kembali ke meeting point.'} value={form.activitiesId} onChange={(e) => setForm({ ...form, activitiesId: e.target.value })} /></label>
+              <label className="full"><span className="trip-field-label">Fasilitas Indonesia <span className="trip-required-marker" aria-hidden="true">*</span></span><textarea required value={form.facilitiesId} onChange={(e) => setForm({ ...form, facilitiesId: e.target.value })} /></label>
               {isPrivateTrip && <label className="full">Catatan khusus private trip<textarea placeholder="Contoh: itinerary bisa menyesuaikan request keluarga/perusahaan." value={form.privateNotes} onChange={(e) => setForm({ ...form, privateNotes: e.target.value })} /></label>}
+              <details className="trip-translation-fields full"><summary>Tambahkan versi English <span>Opsional</span></summary><div><label>Deskripsi English<textarea value={form.descriptionEn} onChange={(e) => setForm({ ...form, descriptionEn: e.target.value })} /></label><label>Aktivitas English<textarea placeholder="One activity per line." value={form.activitiesEn} onChange={(e) => setForm({ ...form, activitiesEn: e.target.value })} /></label><label>Fasilitas English<textarea value={form.facilitiesEn} onChange={(e) => setForm({ ...form, facilitiesEn: e.target.value })} /></label></div></details>
             </div>
           </section>
 
-          <section className="form-section-card">
+          <section className="form-section-card" data-trip-step="5" hidden={activeStep !== 5} aria-labelledby="trip-step-5-title">
             <div className="form-section-title">
               <span>6</span>
-              <div><h3>Email Pengingat H-7</h3><p>Pesan ini dikirim otomatis tujuh hari sebelum tanggal trip kepada booking yang sudah disetujui.</p></div>
+              <div><h3 id="trip-step-5-title" tabIndex={-1}>Email pengingat H-7 <span className="trip-optional-badge">Opsional</span></h3><p>Pesan dikirim tujuh hari sebelum trip untuk booking yang disetujui. Kosongkan jika ingin memakai pesan bawaan.</p></div>
             </div>
             <div className="data-form section-fields h7-reminder-fields">
               <label className="full">Subject Email Pengingat H-7
@@ -1780,14 +1844,15 @@ export function TripForm({ tripId, trips, saveTrip, navigate, ...props }) {
                 </div>
               </div>
             </div>
+            <div className="trip-save-summary"><span className="trip-summary-check" aria-hidden="true">✓</span><div><strong>Paket siap disimpan</strong><p>{form.name || 'Paket trip'} · {isPrivateTrip ? 'Private Trip' : 'Open Trip'} · {isPrivateTrip ? `${form.sessions.length} sesi waktu` : `${form.schedules.length} jadwal keberangkatan`}</p><small>Periksa kembali lewat langkah di atas jika ada yang ingin diubah.</small></div></div>
           </section>
 
-          <div className="form-sticky-actions">
-            <button className="outline-btn" disabled={isSaving} type="button" onClick={() => navigate('/admin/open-trip')}>Batal</button>
-            <button className="primary-btn trip-save-btn" disabled={isSaving} type="submit" aria-busy={isSaving}>
-              {isSaving && <span className="button-spinner" aria-hidden="true" />}
-              {isSaving ? 'Menyimpan trip...' : 'Simpan paket trip'}
-            </button>
+          <div className="trip-wizard-actions">
+            <div className="trip-wizard-action-note"><strong>Langkah {activeStep + 1} dari {tripFormSteps.length}</strong><span>{activeStep < tripFormSteps.length - 1 ? `Selanjutnya: ${tripFormSteps[activeStep + 1].label}` : 'Simpan setelah semua informasi sesuai.'}</span></div>
+            <div className="trip-wizard-action-buttons">
+              {activeStep > 0 ? <button className="outline-btn" disabled={isSaving} type="button" onClick={() => moveToStep(activeStep - 1)}><span aria-hidden="true">←</span> Sebelumnya</button> : <button className="outline-btn" disabled={isSaving} type="button" onClick={() => navigate('/admin/open-trip')}>Batal</button>}
+              {activeStep < tripFormSteps.length - 1 ? <button className="primary-btn trip-save-btn" type="submit">Berikutnya <span aria-hidden="true">→</span></button> : <button className="primary-btn trip-save-btn" disabled={isSaving} type="submit" aria-busy={isSaving}>{isSaving && <span className="button-spinner" aria-hidden="true" />}{isSaving ? 'Menyimpan trip...' : 'Simpan paket trip'}</button>}
+            </div>
           </div>
         </form>
       </section>
