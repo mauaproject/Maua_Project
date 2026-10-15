@@ -34,6 +34,40 @@ function blogImagePath(string $url): string
     return $url;
 }
 
+function blogKeywords(mixed $value): array
+{
+    if ($value === null || $value === '') return [];
+    if (is_string($value)) $value = explode(',', $value);
+    if (!is_array($value) || array_values($value) !== $value) throw new InvalidArgumentException('Keyword harus berupa daftar frasa yang dipisahkan koma.');
+    $keywords = [];
+    $seen = [];
+    foreach ($value as $phrase) {
+        if (!is_string($phrase) || preg_match('/[<>\x00-\x1f\x7f,]/u', $phrase)) throw new InvalidArgumentException('Keyword hanya boleh berisi teks. Pisahkan setiap frasa dengan koma.');
+        $phrase = trim((string) preg_replace('/\s+/u', ' ', $phrase));
+        if ($phrase === '') continue;
+        if (mb_strlen($phrase) > 80) throw new InvalidArgumentException('Setiap keyword maksimal 80 karakter.');
+        $key = mb_strtolower($phrase, 'UTF-8');
+        if (isset($seen[$key])) continue;
+        $seen[$key] = true;
+        $keywords[] = $phrase;
+        if (count($keywords) > 10) throw new InvalidArgumentException('Maksimal 10 keyword per artikel.');
+    }
+    return $keywords;
+}
+
+function blogHasKeywords(PDO $pdo): bool
+{
+    static $cache = null;
+    $cache ??= new WeakMap();
+    if (isset($cache[$pdo])) return $cache[$pdo];
+    try { $pdo->query('SELECT post_id FROM blog_post_keywords LIMIT 0'); }
+    catch (PDOException $error) {
+        if ($error->getCode() === '42S02') return $cache[$pdo] = false;
+        throw $error;
+    }
+    return $cache[$pdo] = true;
+}
+
 function blogHtml(string $html): string
 {
     if (strlen($html) > 1000000) throw new InvalidArgumentException('Isi artikel terlalu panjang (maksimal 1 MB per bahasa).');
@@ -145,6 +179,41 @@ function blogSelect(): string
     return 'SELECT p.*, m.thumbnail_url AS cover_thumbnail_url FROM blog_posts p LEFT JOIN blog_media m ON m.image_url=p.cover_url';
 }
 
+function mapBlogPosts(PDO $pdo, array $rows, bool $summary = false): array
+{
+    $keywords = [];
+    if ($rows && blogHasKeywords($pdo)) {
+        $ids = array_column($rows, 'id');
+        $query = $pdo->prepare('SELECT post_id,keyword FROM blog_post_keywords WHERE post_id IN (' . implode(',', array_fill(0, count($ids), '?')) . ') ORDER BY post_id,sort_order');
+        $query->execute($ids);
+        foreach ($query->fetchAll() as $row) $keywords[(string) $row['post_id']][] = $row['keyword'];
+    }
+    return array_map(fn(array $row): array => mapBlogPost([...$row, 'keywords' => $keywords[(string) $row['id']] ?? []], $summary), $rows);
+}
+
+function blogRelatedPosts(PDO $pdo, array $source, int $limit = 3): array
+{
+    $where = "p.status='published' AND p.published_at<=CURRENT_TIMESTAMP AND p.id<>?";
+    $params = [(int) $source['id']];
+    $order = '';
+    if (blogHasKeywords($pdo) && !empty($source['keywords'])) {
+        $shared = 'SELECT COUNT(DISTINCT target.keyword) FROM blog_post_keywords target JOIN blog_post_keywords source ON source.keyword=target.keyword WHERE target.post_id=p.id AND source.post_id=?';
+        $where .= ' AND (p.category=? OR (' . $shared . ')>0)';
+        array_push($params, $source['category'], (int) $source['id']);
+        $order = '(' . $shared . ') DESC, ';
+        $params[] = (int) $source['id'];
+    } else {
+        $where .= ' AND p.category=?';
+        $params[] = $source['category'];
+    }
+    $params[] = $source['category'];
+    $query = $pdo->prepare(blogSelect() . ' WHERE ' . $where . ' ORDER BY ' . $order . '(p.category=?) DESC,p.published_at DESC,p.id DESC LIMIT ?');
+    foreach ($params as $index => $value) $query->bindValue($index + 1, $value);
+    $query->bindValue(count($params) + 1, max(1, min(24, $limit)), PDO::PARAM_INT);
+    $query->execute();
+    return mapBlogPosts($pdo, $query->fetchAll(), true);
+}
+
 function blogDate(?string $value): ?string
 {
     if (!$value) return null;
@@ -159,6 +228,7 @@ function mapBlogPost(array $row, bool $summary = false): array
         'coverWidth' => (int) $row['cover_width'], 'coverAlign' => $row['cover_align'], 'version' => (int) $row['version'],
         'createdAt' => blogDate($row['created_at']), 'updatedAt' => blogDate($row['updated_at']), 'publishedAt' => blogDate($row['published_at']),
         'hasEnglish' => trim($row['title_en']) !== '' && trim(strip_tags($row['body_en'])) !== '',
+        'keywords' => $row['keywords'] ?? [],
     ];
     foreach (['id','en'] as $language) $post[$language . 'Content'] = [
         'title' => $row['title_' . $language], 'excerpt' => $row['excerpt_' . $language], 'body' => $summary ? '' : $row['body_' . $language],
@@ -172,5 +242,5 @@ function blogPostById(PDO $pdo, int $id): ?array
     $query = $pdo->prepare(blogSelect() . ' WHERE p.id=?');
     $query->execute([$id]);
     $row = $query->fetch();
-    return $row ? mapBlogPost($row) : null;
+    return $row ? mapBlogPosts($pdo, [$row])[0] : null;
 }

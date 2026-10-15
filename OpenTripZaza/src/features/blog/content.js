@@ -8,7 +8,7 @@ export const categoryLabel = (id, lang = 'id') => categories.find((item) => item
 export const escapeHtml = (text) => String(text || '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character])
 
 export const emptyPost = () => ({
-  id: crypto.randomUUID(), slug: '', category: 'berita', author: 'Tim MAUA', status: 'draft',
+  id: crypto.randomUUID(), slug: '', category: 'berita', author: 'Tim MAUA', status: 'draft', keywords: [],
   cover: '', coverAlt: '', coverWidth: 100, coverAlign: 'center', createdAt: new Date().toISOString(), publishedAt: null, updatedAt: null,
   idContent: { title: '', excerpt: '', body: '', seoTitle: '', seoDescription: '' },
   enContent: { title: '', excerpt: '', body: '', seoTitle: '', seoDescription: '' },
@@ -21,8 +21,34 @@ export const readingMinutes = (body) => Math.max(1, Math.ceil(plainText(body).sp
 export const dateLabel = (date, lang = 'id') => date ? new Intl.DateTimeFormat(lang === 'en' ? 'en-GB' : 'id-ID', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' }).format(new Date(date)) : '—'
 export const matchesSearch = (post, query, lang = 'id') => {
   const content = contentFor(post, lang)
-  const text = [content.title, content.excerpt, plainText(content.body), post.author, categoryLabel(post.category, lang)].join(' ').toLocaleLowerCase()
+  const text = [content.title, content.excerpt, plainText(content.body), post.author, categoryLabel(post.category, lang), ...keywordList(post.keywords)].join(' ').toLocaleLowerCase()
   return query.trim().toLocaleLowerCase().split(/\s+/).every((word) => text.includes(word))
+}
+
+export function keywordList(value) {
+  const phrases = Array.isArray(value) ? value : String(value || '').split(',')
+  const seen = new Set()
+  return phrases.map((phrase) => String(phrase).replace(/\s+/gu, ' ').trim()).filter((phrase) => {
+    const key = phrase.toLocaleLowerCase()
+    if (!phrase || seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
+export function keywordError(value) {
+  const phrases = keywordList(value)
+  if (phrases.some((phrase) => /[<>\u0000-\u001f\u007f,]/u.test(phrase))) return 'Keyword hanya boleh berisi teks. Pisahkan setiap frasa dengan koma.'
+  if (phrases.some((phrase) => [...phrase].length > 80)) return 'Setiap keyword maksimal 80 karakter.'
+  return phrases.length > 10 ? 'Maksimal 10 keyword per artikel.' : ''
+}
+
+export function relatedPosts(posts, post) {
+  const keywords = new Set(keywordList(post.keywords).map((phrase) => phrase.toLocaleLowerCase()))
+  const shared = (item) => keywordList(item.keywords).filter((phrase) => keywords.has(phrase.toLocaleLowerCase())).length
+  return posts.filter((item) => item.status === 'published' && String(item.id) !== String(post.id) && (shared(item) || item.category === post.category))
+    .sort((a, b) => shared(b) - shared(a) || Number(b.category === post.category) - Number(a.category === post.category) || new Date(b.publishedAt) - new Date(a.publishedAt))
+    .slice(0, 3)
 }
 
 // Only keep the formatting supported by the local editor. Never render pasted HTML directly.

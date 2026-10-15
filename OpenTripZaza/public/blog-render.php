@@ -7,7 +7,7 @@ require_once $blogHelper;
 
 function seoBlogPosts(PDO $pdo): array
 {
-    return array_map(fn(array $row): array => mapBlogPost($row, true), $pdo->query(blogSelect() . " WHERE p.status='published' AND p.published_at<=CURRENT_TIMESTAMP ORDER BY p.published_at DESC,p.id DESC LIMIT 8")->fetchAll());
+    return mapBlogPosts($pdo, $pdo->query(blogSelect() . " WHERE p.status='published' AND p.published_at<=CURRENT_TIMESTAMP ORDER BY p.published_at DESC,p.id DESC LIMIT 8")->fetchAll(), true);
 }
 
 function seoBlogArticle(PDO $pdo, string $slug): ?array
@@ -15,7 +15,7 @@ function seoBlogArticle(PDO $pdo, string $slug): ?array
     $query = $pdo->prepare(blogSelect() . " WHERE p.slug=? AND p.status='published' AND p.published_at<=CURRENT_TIMESTAMP LIMIT 1");
     $query->execute([$slug]);
     $row = $query->fetch();
-    return $row ? mapBlogPost($row) : null;
+    return $row ? mapBlogPosts($pdo, [$row])[0] : null;
 }
 
 function seoBlogHtml(array $posts, ?array $article = null): string
@@ -37,7 +37,18 @@ function seoBlogHtml(array $posts, ?array $article = null): string
         $html .= '<p>' . seoEscape($article['author']) . ' · <time datetime="' . seoEscape($article['publishedAt']) . '">' . seoEscape(substr($article['publishedAt'], 0, 10)) . '</time></p>';
         if ($article['cover']) $html .= '<img class="seo-hero-image" src="' . seoEscape(seoAbsoluteImage($article['cover'])) . '" alt="' . seoEscape($article['coverAlt']) . '">';
         if ($contents) $html .= '<nav aria-label="Daftar isi"><h2>Daftar isi</h2><ul>' . implode('', $contents) . '</ul></nav>';
-        return $html . '<div class="seo-blog-body">' . $body . '</div></article></main>';
+        $html .= '<div class="seo-blog-body">' . $body . '</div>';
+        if (!empty($article['keywords'])) {
+            $html .= '<nav aria-label="Topik artikel"><h2>Topik</h2><ul>';
+            foreach ($article['keywords'] as $keyword) $html .= '<li><a rel="tag" href="/blog?search=' . rawurlencode($keyword) . '">' . seoEscape($keyword) . '</a></li>';
+            $html .= '</ul></nav>';
+        }
+        if ($posts) {
+            $html .= '<section><h2>Cerita lainnya untukmu</h2><ul>';
+            foreach ($posts as $related) $html .= '<li><a href="/blog/' . seoEscape($related['slug']) . '">' . seoEscape($related['idContent']['title']) . '</a></li>';
+            $html .= '</ul></section>';
+        }
+        return $html . '</article></main>';
     }
     $html = '<main><section class="seo-hero"><p class="seo-kicker">MAUA Journal</p><h1>Blog dan Cerita Perjalanan</h1><p class="seo-lead">Inspirasi perjalanan, panduan destinasi, dan kabar terbaru dari MAUA Project.</p></section>';
     if (!$posts) return $html . '<section class="seo-section"><h2>Cerita baru sedang disiapkan</h2><p>Cerita perjalanan dan informasi terbaru akan hadir di sini.</p></section></main>';

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { AdminShell } from '../../pages/AdminPage'
 import { AppModal, Metric } from '../../pages/shared'
-import { articleDocument, categories, categoryLabel, dateLabel, emptyPost, matchesSearch, plainText, sanitizeHtml, slugify } from './content'
+import { articleDocument, categories, categoryLabel, dateLabel, emptyPost, keywordError, keywordList, matchesSearch, plainText, sanitizeHtml, slugify } from './content'
 import { useBlogRuntime } from './BlogRuntime'
 import { BlogIcon, BlogLink } from './PublicBlog'
 import RichEditor from './RichEditor'
@@ -50,6 +50,7 @@ export function AdminBlogList({ posts, navigate, updatePosts, onStatusChange, no
 export function AdminBlogEditor({ initialPost, initialDirty = false, posts = [], navigate, onSave, onPreview, onDirtyChange = () => {}, shellProps = {} }) {
   const { uploadImage, logout } = useBlogRuntime()
   const [post, setPost] = useState(() => initialPost || emptyPost())
+  const [keywordInput, setKeywordInput] = useState(() => keywordList(initialPost?.keywords).join(', '))
   const [language, setLanguage] = useState('id')
   const [error, setError] = useState('')
   const [uploading, setUploading] = useState(false)
@@ -68,6 +69,7 @@ export function AdminBlogEditor({ initialPost, initialDirty = false, posts = [],
     onDirtyChange(true)
   }
   const validate = (status) => {
+    if (keywordError(keywordInput)) return keywordError(keywordInput)
     if (!post.idContent.title.trim()) return 'Isi judul artikel dalam Bahasa Indonesia terlebih dahulu.'
     if (!post.slug || post.slug !== slugify(post.slug)) return 'Isi URL artikel menggunakan huruf kecil, angka, dan tanda hubung.'
     if (posts.some((item) => item.id !== post.id && item.slug === post.slug)) return 'URL artikel sudah digunakan. Pilih URL yang berbeda.'
@@ -87,9 +89,11 @@ export function AdminBlogEditor({ initialPost, initialDirty = false, posts = [],
     setSaving(true)
     try {
       const now = new Date().toISOString()
+      const keywords = keywordList(keywordInput)
       const next = { ...post, coverWidth: Math.min(100, Math.max(10, Number(post.coverWidth) || 100)), coverAlign: ['left', 'center', 'right'].includes(post.coverAlign) ? post.coverAlign : 'center', author: post.author.trim(), status, updatedAt: now, publishedAt: status === 'published' ? post.publishedAt || now : post.publishedAt, idContent: { ...post.idContent, title: post.idContent.title.trim(), body: sanitizeHtml(post.idContent.body) }, enContent: { ...post.enContent, body: sanitizeHtml(post.enContent.body) } }
-      const savedPost = await onSave(next)
-      setPost(savedPost || next)
+      const savedPost = await onSave({ ...next, keywords })
+      setPost(savedPost || { ...next, keywords })
+      setKeywordInput(keywordList(savedPost?.keywords ?? keywords).join(', '))
       setSaved(true)
       onDirtyChange(false)
       setError('')
@@ -107,6 +111,9 @@ export function AdminBlogEditor({ initialPost, initialDirty = false, posts = [],
     finally { setUploading(false); event.target.value = '' }
   }
   const sections = articleDocument(content.body).contents
+  const keywords = keywordList(keywordInput)
+  const articleText = `${content.title} ${plainText(content.body)}`.replace(/\s+/gu, ' ').toLocaleLowerCase()
+  const missingKeywords = keywords.filter((phrase) => !articleText.includes(phrase.toLocaleLowerCase()))
   return <AdminShell {...shellProps} title={initialPost ? 'Edit Artikel' : 'Tulis Artikel'} navigate={navigate} path="/admin/blog/editor" extraLinks={extraLinks} logout={logout}>
     <div className="bp-admin bp-editor-page">
       <div className="bp-editor-top"><button type="button" className="bp-back-link" onClick={() => navigate('/admin/blog')}><BlogIcon name="back" size={18} />Kembali ke daftar artikel</button><span className="bp-save-indicator" role="status"><span className={saved ? 'is-saved' : ''} />{saved ? (post.updatedAt ? 'Perubahan tersimpan' : 'Artikel baru') : 'Ada perubahan belum disimpan'}</span></div>
@@ -121,6 +128,15 @@ export function AdminBlogEditor({ initialPost, initialDirty = false, posts = [],
             <div className="bp-cover-preview"><div className="bp-cover-display"><img src={post.cover} alt={post.coverAlt || 'Pratinjau sampul'} style={{ width: `${post.coverWidth || 100}%` }} data-align={post.coverAlign || 'center'} /></div><div className="bp-cover-buttons"><label className="outline-btn">Ganti gambar<input type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={chooseCover} disabled={uploading} /></label><button type="button" className="outline-btn" onClick={() => update({ cover: '' })}>Hapus</button></div></div>
             <div className="bp-cover-sizing"><div className="bp-image-size-label"><label htmlFor="bp-cover-width">Lebar sampul di halaman artikel</label><span>{post.coverWidth || 100}%</span></div><input id="bp-cover-width" aria-label="Lebar gambar sampul" type="range" min="10" max="100" step="5" value={post.coverWidth || 100} onChange={(event) => update({ coverWidth: Number(event.target.value) })} /><div className="bp-image-presets" role="group" aria-label="Ukuran sampul cepat">{[25, 50, 75, 100].map((width) => <button type="button" key={width} aria-pressed={(post.coverWidth || 100) === width} onClick={() => update({ coverWidth: width })}>{width}%</button>)}</div><div className="bp-image-position"><span>Posisi sampul</span><div role="group" aria-label="Posisi sampul">{[['left', 'Kiri'], ['center', 'Tengah'], ['right', 'Kanan']].map(([align, label]) => <button type="button" key={align} aria-label={`Sampul rata ${label.toLowerCase()}`} title={label} aria-pressed={(post.coverAlign || 'center') === align} onClick={() => update({ coverAlign: align })}><BlogIcon name={align} size={17} /></button>)}</div></div><p>Ukuran di halaman artikel mengikuti pengaturan ini. Thumbnail pada card tetap seragam.</p></div>
           </> : <label className="bp-upload-box"><BlogIcon name="image" size={34} /><strong>{uploading ? 'Menyiapkan gambar...' : 'Pilih gambar sampul'}</strong><span>Gunakan foto landscape untuk hasil terbaik.</span><input type="file" aria-label="Upload gambar sampul" accept="image/jpeg,image/png,image/webp" hidden onChange={chooseCover} disabled={uploading} /></label>}<label className="bp-cover-alt">Deskripsi gambar<input type="text" maxLength={200} value={post.coverAlt} onChange={(event) => update({ coverAlt: event.target.value })} placeholder="Contoh: Cahaya matahari masuk ke Goa Jomblang" /><small>Membantu pembaca yang memakai pembaca layar.</small></label></div></section>
+          <section className="bp-form-panel bp-keyword-panel" aria-labelledby="bp-keyword-title">
+            <div className="bp-panel-top"><h3 id="bp-keyword-title">Keyword</h3><span>opsional</span></div>
+            <div className="bp-fields">
+              <label htmlFor="bp-keywords">Keyword<input id="bp-keywords" type="text" maxLength={1800} value={keywordInput} aria-describedby="bp-keyword-help" placeholder="Wisata Goa Jomblang, Vertical Caving Jogja" onChange={(event) => { setKeywordInput(event.target.value); update({ keywords: keywordList(event.target.value) }) }} /></label>
+              <small id="bp-keyword-help">Pisahkan setiap frasa dengan koma. Maksimal 10 keyword, masing-masing 80 karakter. Keyword menjadi tag artikel dan membantu pencarian cerita terkait.</small>
+              {keywords.length > 0 && <div className="bp-keyword-guidance" aria-live="polite"><p>{missingKeywords.length ? `Belum disebut dalam judul atau isi versi bahasa ini: ${missingKeywords.join(', ')}.` : 'Keyword sudah disebut dalam judul atau isi versi bahasa ini.'}</p><small>Gunakan frasa yang relevan secara alami dalam tulisan. Petunjuk ini memeriksa frasa persis; variasi kata tetap boleh dipakai dan tidak menghalangi publish.</small></div>}
+              {keywordError(keywordInput) && <p className="form-error" role="alert">{keywordError(keywordInput)}</p>}
+            </div>
+          </section>
         </div>
         <aside className="bp-editor-sidebar">
           <section className="bp-form-panel"><div className="bp-panel-top"><h3>Pengaturan artikel</h3></div><div className="bp-fields"><div className="bp-setting-status"><span>Status</span><Status status={post.status} /></div><label>Kategori<select aria-label="Kategori artikel" value={post.category} onChange={(event) => update({ category: event.target.value })}>{categories.map((item) => <option key={item.id} value={item.id}>{item.idLabel}</option>)}</select></label><label>Penulis<input value={post.author} maxLength={100} onChange={(event) => update({ author: event.target.value })} /></label><label>URL artikel<input aria-label="URL artikel" value={post.slug} maxLength={180} placeholder="judul-artikel" onChange={(event) => { setSlugEdited(true); update({ slug: event.target.value }) }} onBlur={() => update({ slug: slugify(post.slug) })} /><small>/blog/{post.slug || 'judul-artikel'}</small></label></div></section>

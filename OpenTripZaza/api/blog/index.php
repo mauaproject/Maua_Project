@@ -12,7 +12,15 @@ runEndpoint(function (PDO $pdo): void {
         throw $error;
     }
     if ($admin) {
-        jsonSuccess(array_map('mapBlogPost', $pdo->query(blogSelect() . ' ORDER BY p.updated_at DESC,p.id DESC')->fetchAll()));
+        jsonSuccess(mapBlogPosts($pdo, $pdo->query(blogSelect() . ' ORDER BY p.updated_at DESC,p.id DESC')->fetchAll()));
+    }
+    if (isset($_GET['related'])) {
+        $relatedId = blogText($_GET['related'], 20, 'Artikel terkait');
+        if (!ctype_digit($relatedId)) throw new InvalidArgumentException('ID artikel terkait tidak valid.');
+        $source = blogPostById($pdo, (int) $relatedId);
+        if (!$source || $source['status'] !== 'published' || strtotime($source['publishedAt']) > time()) jsonSuccess(['items' => [], 'total' => 0, 'page' => 1, 'hasMore' => false]);
+        $items = blogRelatedPosts($pdo, $source, (int) ($_GET['limit'] ?? 3));
+        jsonSuccess(['items' => $items, 'total' => count($items), 'page' => 1, 'hasMore' => false]);
     }
     $where = ["p.status='published'", 'p.published_at <= CURRENT_TIMESTAMP'];
     $params = [];
@@ -20,8 +28,10 @@ runEndpoint(function (PDO $pdo): void {
     if ($category !== '' && $category !== 'all') { $where[] = 'p.category=?'; $params[] = $category; }
     $search = blogText($_GET['search'] ?? '', 200, 'Kata kunci');
     foreach (array_filter(preg_split('/\s+/u', $search) ?: []) as $word) {
-        $where[] = "LOCATE(?, CONCAT_WS(' ',p.title_id,p.excerpt_id,p.body_id,p.title_en,p.excerpt_en,p.body_en,p.author)) > 0";
+        $keywordMatch = blogHasKeywords($pdo) ? ' OR EXISTS(SELECT 1 FROM blog_post_keywords k WHERE k.post_id=p.id AND LOCATE(?,k.keyword)>0)' : '';
+        $where[] = "(LOCATE(?, CONCAT_WS(' ',p.title_id,p.excerpt_id,p.body_id,p.title_en,p.excerpt_en,p.body_en,p.author)) > 0" . $keywordMatch . ')';
         $params[] = $word;
+        if ($keywordMatch !== '') $params[] = $word;
     }
     $conditions = implode(' AND ', $where);
     $count = $pdo->prepare('SELECT COUNT(*) FROM blog_posts p WHERE ' . $conditions);
@@ -34,5 +44,5 @@ runEndpoint(function (PDO $pdo): void {
     $query->bindValue(count($params) + 1, $limit, PDO::PARAM_INT);
     $query->bindValue(count($params) + 2, ($page - 1) * $limit, PDO::PARAM_INT);
     $query->execute();
-    jsonSuccess(['items' => array_map(fn(array $row): array => mapBlogPost($row, true), $query->fetchAll()), 'total' => $total, 'page' => $page, 'hasMore' => $page * $limit < $total]);
+    jsonSuccess(['items' => mapBlogPosts($pdo, $query->fetchAll(), true), 'total' => $total, 'page' => $page, 'hasMore' => $page * $limit < $total]);
 });

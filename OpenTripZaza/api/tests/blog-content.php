@@ -27,4 +27,12 @@ rejectsBlog(fn() => blogInput([...$draft, 'slug' => '../admin']), 'URL artikel m
 rejectsBlog(fn() => blogInput([...$draft, 'status' => 'trashed']), 'Pindah sampah memakai endpoint status tersendiri');
 $published = [...$draft, 'status' => 'published', 'cover' => $image, 'coverAlt' => 'Cahaya goa', 'coverWidth' => 500, 'coverAlign' => 'right', 'idContent' => [...$draft['idContent'], 'excerpt' => 'Cerita pertama bersama MAUA.']];
 checkBlog(blogInput($published)['cover_width'] === 100, 'Ukuran sampul dibatasi ke lebar artikel');
+checkBlog(blogKeywords(' Wisata Goa Jomblang, Vertical   Caving Jogja, wisata goa jomblang, ,') === ['Wisata Goa Jomblang', 'Vertical Caving Jogja'], 'Keyword dipisah koma, dirapikan, dan dideduplikasi tanpa membedakan kapital');
+checkBlog(blogKeywords([]) === [] && blogKeywords(null) === [], 'Keyword opsional untuk artikel lama');
+checkBlog(blogKeywords(['Petualangan & alam', 'Cahaya "surga"', str_repeat('旅', 80)])[2] === str_repeat('旅', 80), 'Keyword mendukung teks Unicode dan tanda baca');
+rejectsBlog(fn() => blogKeywords(['<script>alert(1)</script>']), 'Keyword menolak HTML aktif');
+rejectsBlog(fn() => blogKeywords([['invalid']]), 'Keyword menolak tipe data selain teks');
+rejectsBlog(fn() => blogKeywords(array_map(fn(int $index): string => 'Topik ' . $index, range(1, 11))), 'Keyword dibatasi 10 frasa');
+rejectsBlog(fn() => blogKeywords(str_repeat('a', 81)), 'Panjang setiap keyword dibatasi');
+
 echo "Blog content checks passed.\n";

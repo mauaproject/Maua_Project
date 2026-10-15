@@ -26,6 +26,7 @@ memeriksa Bearer token serta peran admin di API.
 
 - Judul, ringkasan, HTML yang sudah dibersihkan, kategori, penulis, bahasa ID/EN,
   pengaturan SEO, ukuran/posisi sampul, versi, dan status disimpan di `blog_posts`.
+- Keyword disimpan terurut di `blog_post_keywords`, terpisah dari HTML tulisan.
 - JPG/PNG/WebP maksimal 10 MB dan 16 megapiksel diunggah ke `api/blog/upload.php`.
   Server memeriksa isi file, mengubahnya menjadi WebP maksimal sisi 1600 px, dan
   membuat thumbnail maksimal 480 px. Nama file memakai ID acak.
@@ -50,6 +51,42 @@ Pencarian, kategori, dan pagination daftar publik berjalan di server. Tampilan
 tetap memakai sidebar, navbar, font, dan tema aplikasi. Daftar isi dibentuk dari
 H2/H3. Preview gambar pada dialog ukurannya tetap; perubahan ukuran diterapkan
 pada artikel setelah admin menekan tombol konfirmasi.
+
+## Keyword artikel
+
+Untuk hosting yang sudah menggunakan blog, backup database lalu jalankan
+`api/migrations/2026-10-15-blog-keywords.sql` **sebelum push/deploy** pembaruan ini.
+Untuk instalasi baru, jalankan setelah migrasi blog 14 Oktober. Migrasi tambahan
+hanya membuat tabel `blog_post_keywords`, dapat dijalankan ulang, dan tidak
+menghapus atau mengubah artikel lama maupun tabel fitur lain.
+
+Kolom **Keyword** berada di bawah bagian gambar sampul. Isi frasa dipisahkan
+koma, misalnya `Wisata Goa Jomblang, Vertical Caving Jogja`. Opsional, maksimal
+10 frasa dengan panjang masing-masing 80 karakter. Spasi berlebih dan keyword
+duplikat dengan perbedaan kapital dirapikan saat disimpan. Daftar keyword berlaku
+untuk satu artikel, termasuk ketika bahasa konten diganti.
+
+Keyword ikut pencarian publik/admin, tampil sebagai tag bertaut pada halaman
+artikel, dan dipakai untuk memilih artikel terkait dari seluruh artikel terbit.
+Kesamaan keyword didahulukan, lalu kategori dan tanggal. Draft dan sampah tidak
+masuk hasil publik. Tag, link artikel terkait, dan properti `keywords` pada
+structured data Article/NewsArticle/BlogPosting juga dirender PHP agar tersedia
+tanpa JavaScript. Keyword bukan meta-keywords dan tidak disisipkan otomatis ke
+judul, deskripsi, teks alternatif gambar, atau isi tulisan.
+
+Petunjuk editor hanya memeriksa apakah frasa persis sudah disebut di judul/isi
+bahasa yang sedang diedit. Petunjuk tidak menjadi syarat publish atau skor SEO.
+Pilih keyword yang sesuai dengan topik dan tulis secara alami. Penambahan kolom
+atau properti schema tidak menjamin kenaikan peringkat Google. Rujukan:
+[Google Search Essentials](https://developers.google.com/search/docs/essentials),
+[Schema.org keywords](https://schema.org/keywords), dan
+[meta tag yang didukung Google](https://developers.google.com/search/docs/crawling-indexing/special-tags).
+
+Sebelum migrasi tambahan dijalankan, membaca dan menyimpan artikel tanpa keyword
+tetap berfungsi; menyimpan keyword akan menampilkan pesan migrasi kepada admin.
+Klien lama yang tidak mengirim properti keyword tidak menghapus keyword yang
+sudah tersimpan. Mengosongkan kolom pada editor baru menghapus hanya keyword
+artikel tersebut. Pindah sampah/pulihkan mempertahankan keyword.
 
 ## Pemeriksaan
 

@@ -8,6 +8,9 @@ runEndpoint(function (PDO $pdo): void {
     requireBlogSchema($pdo);
     $data = jsonInput();
     $values = blogInput($data);
+    $keywords = blogKeywords($data['keywords'] ?? []);
+    $hasKeywords = blogHasKeywords($pdo);
+    if ($keywords && !$hasKeywords) throw new InvalidArgumentException('Jalankan migrasi 2026-10-15-blog-keywords.sql sebelum menyimpan keyword.');
     $rawId = $data['id'] ?? '';
     if (!is_string($rawId) && !is_int($rawId)) throw new InvalidArgumentException('ID artikel tidak valid.');
     $id = ctype_digit((string) $rawId) ? (int) $rawId : 0;
@@ -37,6 +40,11 @@ runEndpoint(function (PDO $pdo): void {
         $pdo->prepare('DELETE FROM blog_post_media WHERE post_id=?')->execute([$id]);
         $reference = $pdo->prepare('INSERT INTO blog_post_media (post_id,media_id) VALUES (?,?)');
         foreach ($mediaIds as $mediaId) $reference->execute([$id, $mediaId]);
+        if ($hasKeywords && ($creating || array_key_exists('keywords', $data))) {
+            $pdo->prepare('DELETE FROM blog_post_keywords WHERE post_id=?')->execute([$id]);
+            $keywordQuery = $pdo->prepare('INSERT INTO blog_post_keywords (post_id,sort_order,keyword) VALUES (?,?,?)');
+            foreach ($keywords as $position => $keyword) $keywordQuery->execute([$id, $position, $keyword]);
+        }
         $pdo->commit();
     } catch (Throwable $error) {
         if ($pdo->inTransaction()) $pdo->rollBack();

@@ -17,6 +17,9 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS user_sessions (id BIGINT UNSIGNED AUTO_IN
 $migration = (string) file_get_contents(dirname(__DIR__) . '/migrations/2026-10-14-blog.sql');
 $pdo->exec($migration);
 $pdo->exec($migration);
+$keywordMigration = (string) file_get_contents(dirname(__DIR__) . '/migrations/2026-10-15-blog-keywords.sql');
+$pdo->exec($keywordMigration);
+$pdo->exec($keywordMigration);
 if (in_array('--setup', $argv, true)) {
     if ((int) $pdo->query('SELECT COUNT(*) FROM blog_posts')->fetchColumn() !== 0) throw new RuntimeException('Test database is not empty. Use a fresh isolated database.');
     $pdo->exec("INSERT IGNORE INTO users (id,name,email,role,password_hash) VALUES (1,'Test Admin','blog-test@example.invalid','admin',''),(2,'Test Worker','worker-test@example.invalid','worker',''),(3,'Test Customer','customer-test@example.invalid','customer','')");
@@ -58,6 +61,9 @@ try {
     $result = blogRequest('/api/blog/save.php', 'POST', $draft, $admin);
     expectBlog($result['status'] === 201 && $result['json']['success'], 'Admin dapat membuat draft');
     $post = $result['json']['data']; $created[] = $post['id'];
+    expectBlog($post['keywords'] === [], 'Artikel tanpa keyword tetap dapat dibuat dan dibaca');
+    expectBlog(blogRequest('/api/blog/save.php', 'POST', [...$post, 'keywords' => ['<script>alert(1)</script>']], $admin)['status'] === 422, 'API menolak HTML pada keyword');
+    expectBlog(blogRequest('/api/blog/index.php?related=' . $post['id'])['json']['data']['items'] === [], 'Artikel terkait tidak membocorkan draft');
     expectBlog(blogRequest('/api/blog/detail.php?slug=' . $post['slug'])['status'] === 404, 'Draft tidak dapat dibaca lewat URL publik');
     expectBlog(blogRequest('/api/blog/index.php')['json']['data']['total'] === 0, 'Draft tidak masuk daftar publik');
     expectBlog(blogRequest('/api/blog/detail.php?id=' . $post['id'] . '&admin=1', 'GET', null, $admin)['json']['data']['id'] === $post['id'], 'Admin dapat membaca draft');
@@ -71,16 +77,23 @@ try {
     file_put_contents($temporaryImage, '<?php echo "unsafe";');
     expectBlog(blogRequest('/api/blog/upload.php', 'POST', ['image' => new CURLFile($temporaryImage, 'image/jpeg', 'fake.jpg')], $admin, true)['status'] === 422, 'File palsu ditolak berdasarkan isi, bukan ekstensi');
     expectBlog(str_starts_with($asset['url'], '/uploads/blog/') && is_file($root . $asset['url']) && is_file($root . $asset['thumbnailUrl']), 'Gambar disimpan hanya di folder blog');
-    $published = [...$post, 'status' => 'published', 'cover' => $asset['url'], 'coverAlt' => 'Foto uji', 'coverWidth' => 50, 'coverAlign' => 'right', 'idContent' => [...$post['idContent'], 'body' => $post['idContent']['body'] . '<figure><img src="' . $asset['url'] . '" style="width:37%" data-align="center" alt="Foto"></figure><script>alert(1)</script>']];
+    $published = [...$post, 'keywords' => ' Wisata Goa Jomblang, Vertical Caving Jogja, wisata goa jomblang, ', 'status' => 'published', 'cover' => $asset['url'], 'coverAlt' => 'Foto uji', 'coverWidth' => 50, 'coverAlign' => 'right', 'idContent' => [...$post['idContent'], 'body' => $post['idContent']['body'] . '<figure><img src="' . $asset['url'] . '" style="width:37%" data-align="center" alt="Foto"></figure><script>alert(1)</script>']];
     $saved = blogRequest('/api/blog/save.php', 'POST', $published, $admin);
     expectBlog($saved['status'] === 200 && $saved['json']['data']['status'] === 'published', 'Draft dapat diterbitkan');
     $published = $saved['json']['data'];
+    expectBlog($published['keywords'] === ['Wisata Goa Jomblang', 'Vertical Caving Jogja'], 'Keyword tersimpan terurut dan duplikat kapital dibuang');
+    expectBlog(blogRequest('/api/blog/index.php?search=Vertical%20Caving')['json']['data']['total'] === 1, 'Pencarian menemukan frasa keyword yang tidak ada dalam judul atau isi');
+    expectBlog(blogRequest('/api/blog/detail.php?slug=' . $published['slug'])['json']['data']['keywords'] === $published['keywords'], 'Keyword tetap tersedia setelah artikel dimuat ulang');
+    $unicodeKeywords = array_map(fn(int $number): string => $number . str_repeat('旅', 78), range(1, 10));
+    $unicodePost = blogRequest('/api/blog/save.php', 'POST', [...$draft, 'id' => 'new', 'slug' => 'blog-integration-unicode', 'keywords' => $unicodeKeywords], $admin);
+    expectBlog($unicodePost['status'] === 201 && $unicodePost['json']['data']['keywords'] === $unicodeKeywords, 'Seluruh keyword Unicode panjang tersimpan tanpa pemotongan');
+    $created[] = $unicodePost['json']['data']['id'];
     expectBlog(str_contains($published['idContent']['body'], 'width: 37%') && str_contains($published['idContent']['body'], 'text-align: justify') && !str_contains($published['idContent']['body'], '<script'), 'Format tersimpan dan XSS dibuang pada server');
     expectBlog((int) $pdo->query('SELECT COUNT(*) FROM blog_post_media')->fetchColumn() === 1, 'Gambar sampul dan isi dicatat tanpa relasi ganda');
     expectBlog(blogRequest('/api/blog/index.php?search=pencarian&category=berita')['json']['data']['total'] === 1, 'Pencarian isi dan kategori bekerja di server');
     expectBlog(blogRequest('/api/blog/index.php?search=tidak-ada')['json']['data']['total'] === 0, 'Pencarian tanpa hasil mengembalikan daftar kosong');
     foreach ([1, 2] as $number) {
-        $copy = [...$published, 'id' => 'new-client-id', 'slug' => 'blog-integration-extra-' . $number, 'enContent' => ['title' => 'English article ' . $number, 'excerpt' => 'English summary.', 'body' => '<h2>English heading</h2><p>English content.</p>']];
+        $copy = [...$published, 'id' => 'new-client-id', 'slug' => 'blog-integration-extra-' . $number, 'category' => $number === 1 ? 'destinasi' : 'berita', 'keywords' => $number === 1 ? ['vertical caving jogja'] : [], 'enContent' => ['title' => 'English article ' . $number, 'excerpt' => 'English summary.', 'body' => '<h2>English heading</h2><p>English content.</p>']];
         $extra = blogRequest('/api/blog/save.php', 'POST', $copy, $admin);
         expectBlog($extra['status'] === 201, 'Artikel tambahan untuk pagination dibuat lewat API admin');
         $created[] = $extra['json']['data']['id'];
@@ -92,11 +105,15 @@ try {
     expectBlog($firstPage['items'][0]['hasEnglish'] && $firstPage['items'][0]['enContent']['body'] === '', 'Ringkasan daftar mendukung bahasa Inggris tanpa mengirim seluruh isi');
     $public = blogRequest('/api/blog/detail.php?slug=' . $published['slug']);
     expectBlog($public['status'] === 200 && $public['json']['data']['coverWidth'] === 50, 'Detail publik memakai artikel dan pengaturan gambar tersimpan');
+    $related = blogRequest('/api/blog/index.php?related=' . $published['id'])['json']['data']['items'];
+    expectBlog(count($related) === 2 && $related[0]['slug'] === 'blog-integration-extra-1', 'Artikel dengan keyword sama diprioritaskan walaupun kategorinya berbeda');
     expectBlog(blogRequest('/api/blog/save.php', 'POST', [...$published, 'version' => 1], $admin)['status'] === 409, 'Versi lama tidak dapat menimpa edit yang lebih baru');
     expectBlog(blogRequest('/api/blog/save.php', 'POST', [...$draft, 'id' => 'new', 'slug' => $published['slug']], $admin)['status'] === 409, 'URL artikel wajib unik');
     expectBlog(blogRequest('/api/blog/save.php', 'POST', [...$published, 'cover' => '/uploads/blog/' . str_repeat('f', 32) . '.webp'], $admin)['status'] === 422, 'Referensi gambar yang tidak terdaftar ditolak');
     $seo = blogRequest('/blog/' . $published['slug']);
     expectBlog($seo['status'] === 200 && str_contains($seo['body'], 'Artikel Uji Pertama') && str_contains($seo['body'], 'NewsArticle') && str_contains($seo['body'], 'Daftar isi'), 'Server merender artikel, daftar isi, dan metadata');
+    expectBlog(str_contains($seo['body'], 'Topik artikel') && str_contains($seo['body'], '/blog?search=Wisata%20Goa%20Jomblang') && str_contains($seo['body'], '"keywords"'), 'Tag bertaut dan keyword schema tersedia dalam HTML server tanpa JavaScript');
+    expectBlog(str_contains($seo['body'], '/blog/blog-integration-extra-1'), 'Link artikel terkait dirender server untuk navigasi dan crawling');
     expectBlog(str_contains(blogRequest('/sitemap.xml')['body'], '/blog/' . $published['slug']), 'Sitemap hanya memuat artikel terbit');
     $trashed = blogRequest('/api/blog/status.php', 'POST', ['id' => $published['id'], 'status' => 'trashed', 'version' => $published['version']], $admin)['json']['data'];
     expectBlog(blogRequest('/api/blog/status.php', 'POST', ['id' => $published['id'], 'status' => 'draft', 'version' => $published['version']], $admin)['status'] === 409, 'Status juga menolak versi artikel yang sudah lama');
@@ -104,6 +121,20 @@ try {
     expectBlog(!str_contains(blogRequest('/sitemap.xml')['body'], '/blog/' . $published['slug']), 'Artikel di sampah dihapus dari sitemap');
     $restored = blogRequest('/api/blog/status.php', 'POST', ['id' => $trashed['id'], 'status' => 'draft', 'version' => $trashed['version']], $admin);
     expectBlog($restored['json']['data']['status'] === 'draft' && is_file($root . $asset['url']), 'Pulihkan sebagai draft tetap mempertahankan gambar');
+    expectBlog($restored['json']['data']['keywords'] === $published['keywords'], 'Pindah sampah dan pulihkan tetap mempertahankan keyword');
+    $legacyEdit = $restored['json']['data'];
+    unset($legacyEdit['keywords']);
+    $legacySaved = blogRequest('/api/blog/save.php', 'POST', $legacyEdit, $admin)['json']['data'];
+    expectBlog($legacySaved['keywords'] === $published['keywords'], 'Klien lama tanpa properti keyword tidak menghapus keyword yang sudah ada');
+    $cleared = blogRequest('/api/blog/save.php', 'POST', [...$legacySaved, 'keywords' => []], $admin)['json']['data'];
+    expectBlog($cleared['keywords'] === [] && blogRequest('/api/blog/detail.php?id=' . $cleared['id'] . '&admin=1', 'GET', null, $admin)['json']['data']['keywords'] === [], 'Admin dapat mengosongkan keyword dan hasilnya tersimpan');
+    $pdo->exec('RENAME TABLE blog_post_keywords TO blog_post_keywords_before_migration_test');
+    try {
+        expectBlog(blogRequest('/api/blog/index.php')['status'] === 200 && blogRequest('/api/blog/detail.php?id=' . $cleared['id'] . '&admin=1', 'GET', null, $admin)['json']['data']['keywords'] === [], 'Database sebelum migrasi keyword tetap dapat membaca artikel lama');
+        expectBlog(blogRequest('/api/blog/save.php', 'POST', [...$cleared, 'keywords' => ['Topik baru']], $admin)['status'] === 422, 'Keyword memberi pesan migrasi bila tabel baru belum tersedia');
+        expectBlog(blogRequest('/api/blog/save.php', 'POST', $cleared, $admin)['status'] === 200, 'Artikel tanpa keyword tetap dapat diedit sebelum migrasi baru');
+        expectBlog(blogRequest('/blog/blog-integration-extra-1')['status'] === 200, 'Renderer SEO tetap berfungsi sebelum migrasi keyword');
+    } finally { $pdo->exec('RENAME TABLE blog_post_keywords_before_migration_test TO blog_post_keywords'); }
     expectBlog(blogRequest('/api/users/session.php', 'GET', null, $admin)['json']['data']['role'] === 'admin', 'Session admin yang sudah ada tetap berfungsi');
     $login = blogRequest('/api/users/login.php', 'POST', ['email' => 'blog-test@example.invalid', 'password' => 'local-test-password', 'role' => 'admin']);
     expectBlog($login['status'] === 200 && !empty($login['json']['data']['token']), 'Login admin lama tetap berfungsi');

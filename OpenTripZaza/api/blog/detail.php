@@ -20,5 +20,5 @@ runEndpoint(function (PDO $pdo): void {
     $query->execute([$id > 0 ? $id : $slug]);
     $row = $query->fetch();
     if (!$row) jsonError('Artikel tidak ditemukan.', 404);
-    jsonSuccess(mapBlogPost($row));
+    jsonSuccess(mapBlogPosts($pdo, [$row])[0]);
 });

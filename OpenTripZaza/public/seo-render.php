@@ -356,6 +356,7 @@ try {
         $blogPosts = seoBlogPosts($pdo);
     } elseif ($isBlogArticle) {
         $blogArticle = seoBlogArticle($pdo, $blogMatch[1]);
+        if ($blogArticle) $blogPosts = blogRelatedPosts($pdo, $blogArticle);
     } elseif ($isTripPage) {
         $tripId = array_search($tripMatch[1], tripSlugMap($pdo), true);
         $trip = $tripId !== false ? seoTrip($pdo, (int) $tripId) : null;
@@ -448,6 +449,7 @@ if ($blogArticle !== null) {
         'datePublished' => $blogArticle['publishedAt'], 'dateModified' => $blogArticle['updatedAt'],
         'mainEntityOfPage' => $canonical, 'author' => ['@type' => 'Person', 'name' => $blogArticle['author']],
         'publisher' => ['@id' => SEO_SITE_URL . '/#organization'],
+        ...(!empty($blogArticle['keywords']) ? ['keywords' => implode(', ', $blogArticle['keywords'])] : []),
     ];
 }
 

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import * as api from '../../services/api'
 import { BlogArticle, BlogCatalog, BlogIcon, BlogLink, PublicBlogFrame } from './PublicBlog'
 import { BlogRuntimeProvider } from './BlogRuntime'
-import { contentFor } from './content'
+import { contentFor, keywordList } from './content'
 import './Blog.css'
 
 const siteUrl = (import.meta.env.VITE_SITE_URL || 'https://mauaproject.com').replace(/\/$/, '')
@@ -29,7 +29,7 @@ function useArticleMetadata(post, language, loading) {
     link.href = canonical
     let schema = document.getElementById('maua-structured-data')
     if (!schema) { schema = document.createElement('script'); schema.id = 'maua-structured-data'; schema.type = 'application/ld+json'; document.head.appendChild(schema) }
-    schema.textContent = JSON.stringify(post ? { '@context': 'https://schema.org', '@type': post.category === 'berita' ? 'NewsArticle' : 'BlogPosting', headline: content.title, description, image, datePublished: post.publishedAt, dateModified: post.updatedAt, mainEntityOfPage: canonical, author: { '@type': 'Person', name: post.author }, publisher: { '@type': 'Organization', name: 'MAUA Project', logo: { '@type': 'ImageObject', url: `${siteUrl}/favicon.svg` } } } : { '@context': 'https://schema.org', '@type': 'WebPage', name: title })
+    schema.textContent = JSON.stringify(post ? { '@context': 'https://schema.org', '@type': post.category === 'berita' ? 'NewsArticle' : 'BlogPosting', headline: content.title, description, image, ...(keywordList(post.keywords).length ? { keywords: keywordList(post.keywords).join(', ') } : {}), datePublished: post.publishedAt, dateModified: post.updatedAt, mainEntityOfPage: canonical, author: { '@type': 'Person', name: post.author }, publisher: { '@type': 'Organization', name: 'MAUA Project', logo: { '@type': 'ImageObject', url: `${siteUrl}/favicon.svg` } } } : { '@context': 'https://schema.org', '@type': 'WebPage', name: title })
   }, [post, language, loading])
 }
 
@@ -63,13 +63,17 @@ function ArticlePage({ slug, navigate, showToast }) {
   useEffect(() => {
     const controller = new AbortController()
     setData({ post: null, related: [], loading: true, missing: false, error: '' })
-    Promise.all([api.getBlogPost({ slug, signal: controller.signal }), api.getBlogPosts({ limit: 4, signal: controller.signal }).catch(() => ({ items: [] }))]).then(([post, related]) => {
-      if (!controller.signal.aborted) setData({ post, related: related.items, loading: false, missing: false, error: '' })
+    api.getBlogPost({ slug, signal: controller.signal }).then((post) => {
+      if (controller.signal.aborted) return
+      setData({ post, related: [], loading: false, missing: false, error: '' })
+      return api.getBlogPosts({ related: post.id, limit: 3, signal: controller.signal }).then((related) => {
+        if (!controller.signal.aborted) setData((current) => ({ ...current, related: related.items }))
+      }).catch(() => {})
     }).catch((error) => { if (!controller.signal.aborted) setData({ post: null, related: [], loading: false, missing: error.status === 404, error: error.message }) })
     return () => controller.abort()
   }, [slug, revision])
   useArticleMetadata(data.post, lang, data.loading)
-  if (data.post) return <BlogArticle post={data.post} posts={data.related} navigate={navigate} notify={showToast} />
+  if (data.post) return <BlogArticle post={data.post} suggestedPosts={data.related} navigate={navigate} notify={showToast} />
   return <PublicBlogFrame navigate={navigate}><main className="bp-container bp-empty bp-not-found"><BlogIcon name="article" size={36} /><h1>{data.loading ? 'Memuat artikel...' : data.missing ? 'Artikel tidak ditemukan' : 'Artikel belum dapat dimuat'}</h1>{!data.loading && <><p>{data.missing ? 'Artikel belum diterbitkan atau sudah tidak tersedia.' : data.error}</p>{!data.missing && <button className="outline-btn" onClick={() => setRevision(revision + 1)}>Coba lagi</button>}<BlogLink className="outline-btn" to="/blog" navigate={navigate}>Kembali ke blog</BlogLink></>}</main></PublicBlogFrame>
 }
 

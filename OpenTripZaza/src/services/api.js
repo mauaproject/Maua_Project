@@ -32,9 +32,10 @@ const jsonPost = (path, data) => request(path, {
   body: JSON.stringify(data),
 })
 
-export const getBlogPosts = ({ all = false, search = '', category = 'all', page = 1, limit = 8, signal } = {}) => {
+export const getBlogPosts = ({ all = false, search = '', category = 'all', related = '', page = 1, limit = 8, signal } = {}) => {
   const params = new URLSearchParams({ search, category, page: String(page), limit: String(limit) })
   if (all) params.set('all', '1')
+  if (related) params.set('related', String(related))
   return request(`blog/index.php?${params}`, { signal })
 }
 export const getBlogPost = ({ id, slug, admin = false, signal }) => {

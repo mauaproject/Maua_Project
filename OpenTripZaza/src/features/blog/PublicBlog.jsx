@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { PublicFooter, PublicNav } from '../../pages/UserPage'
-import { articleDocument, categories, categoryLabel, contentFor, dateLabel, matchesSearch, readingMinutes } from './content'
+import { articleDocument, categories, categoryLabel, contentFor, dateLabel, keywordList, matchesSearch, readingMinutes, relatedPosts } from './content'
 import { useBlogRuntime } from './BlogRuntime'
 
 export function BlogIcon({ name, size = 20 }) {
@@ -117,7 +117,7 @@ export function BlogCatalog({ posts = [], navigate, initialSearch = '', remote =
   </PublicBlogFrame>
 }
 
-export function BlogArticle({ post, posts = [], navigate, isPreview = false, onReturn, notify }) {
+export function BlogArticle({ post, posts = [], suggestedPosts = null, navigate, isPreview = false, onReturn, notify }) {
   const { i18n } = useTranslation()
   const lang = i18n.language.startsWith('en') ? 'en' : 'id'
   const english = lang === 'en'
@@ -125,7 +125,8 @@ export function BlogArticle({ post, posts = [], navigate, isPreview = false, onR
   const document = useMemo(() => articleDocument(content.body), [content.body])
   const [activeSection, setActiveSection] = useState('')
   const [search, setSearch] = useState('')
-  const related = posts.filter((item) => item.status === 'published' && item.id !== post.id).sort((a, b) => Number(b.category === post.category) - Number(a.category === post.category) || new Date(b.publishedAt) - new Date(a.publishedAt)).slice(0, 3)
+  const related = suggestedPosts ?? relatedPosts(posts, post)
+  const keywords = keywordList(post.keywords)
   useEffect(() => {
     if (typeof window.IntersectionObserver !== 'function') return undefined
     const observer = new window.IntersectionObserver((entries) => entries.forEach((entry) => { if (entry.isIntersecting) setActiveSection(entry.target.id) }), { rootMargin: '-110px 0px -65% 0px' })
@@ -149,6 +150,7 @@ export function BlogArticle({ post, posts = [], navigate, isPreview = false, onR
         </aside>
         <div className="bp-article-main"><article className="bp-prose" lang={lang === 'en' && content === post.idContent ? 'id' : lang} dangerouslySetInnerHTML={{ __html: document.html }} />{post.updatedAt && post.publishedAt && new Date(post.updatedAt) - new Date(post.publishedAt) > 60000 && <p className="bp-updated">{english ? 'Last updated' : 'Terakhir diperbarui'}: {dateLabel(post.updatedAt, lang)}</p>}<div className="bp-article-end"><span>MAUA JOURNAL</span><BlogLink to="/blog" navigate={navigate}>{english ? 'More stories' : 'Jelajahi cerita lainnya'} <BlogIcon name="arrow" size={18} /></BlogLink></div></div>
       </div>
+      {keywords.length > 0 && <nav className="bp-article-keywords" aria-label={english ? 'Article topics' : 'Topik artikel'}><span>{english ? 'Topics' : 'Topik'}</span>{keywords.map((phrase) => <BlogLink key={phrase.toLocaleLowerCase()} to={`/blog?search=${encodeURIComponent(phrase)}`} navigate={navigate} rel="tag">{phrase}</BlogLink>)}</nav>}
       {!isPreview && related.length > 0 && <section className="bp-related"><div className="bp-section-top"><h2>{english ? 'More to explore' : 'Cerita lainnya untukmu'}</h2></div><div className="bp-story-grid">{related.map((item) => <ArticleCard key={item.id} post={item} lang={lang} navigate={navigate} />)}</div></section>}
     </main>
   </PublicBlogFrame>
