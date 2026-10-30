@@ -48,6 +48,7 @@ const WorkerJobDetail = lazyNamed(loadWorkerPage, 'WorkerJobDetail')
 const WorkerJobs = lazyNamed(loadWorkerPage, 'WorkerJobs')
 const BlogPage = lazy(() => import('./pages/BlogPage'))
 const AdminBlogPage = lazy(() => import('./features/blog/AdminBlogPage'))
+const AdminTripTemplates = lazy(() => import('./pages/AdminTripTemplates'))
 
 const canonicalPath = (target) => {
   if (/^\/open-trip-jogja\/?(?=[?#]|$)/.test(target)) return target.replace(/^\/open-trip-jogja\/?/, '/blog')
@@ -1046,6 +1047,7 @@ function RouteRenderer(props) {
   if (/^\/admin\/blog(?:\/(?:new|edit\/\d+))?$/.test(path)) return <AdminBlogPage {...props} />
   if (path === '/admin/reschedule') return <AdminReschedules {...props} />
   if (path === '/admin/open-trip') return <AdminTrips {...props} />
+  if (/^\/admin\/open-trip\/template(?:\/(?:tambah|edit\/\d+))?$/.test(path)) return <AdminTripTemplates key={path} {...props} />
   if (path === '/admin/arsip-trip') return <AdminTripArchive {...props} />
   if (path === '/admin/open-trip/tambah') return <TripForm {...props} />
   if (parts[0] === 'admin' && parts[1] === 'open-trip' && parts[2] === 'edit') {

@@ -11,6 +11,8 @@ import { getPrivateDateRange, getRegistrationDate, getTripSchedules, getTripSess
 import { isTripAddonActive } from '../utils/addons'
 import { AppModal, Badge, DataPanel, Metric, Sidebar } from './shared'
 import '../trip-wizard.css'
+import TripTemplatePatternEditor from './TripTemplatePatternEditor'
+import { getTemplateRulesError, newTemplateRule } from '../utils/tripTemplates'
 
 const parseImageUrls = (value) => String(value || '')
   .split(/\r?\n|,/)
@@ -618,11 +620,12 @@ function TripCreationModal({ isOpen, navigate, loadTemplates, generateTrip, onCl
         </div>
 
         {mode === 'choice' ? (
+          <>
           <div className="trip-generator-choice-grid">
             <button className="trip-generator-choice is-open" type="button" onClick={() => setMode('open')}>
               <span>01</span>
               <strong>Open Trip</strong>
-              <small>Pilih template, bulan, dan tahun. Tanggal serta sesi dibuat otomatis mengikuti pola SQL.</small>
+              <small>Pilih template, bulan, dan tahun. Tanggal serta sesi dibuat otomatis mengikuti pola template.</small>
             </button>
             <button className="trip-generator-choice is-private" type="button" onClick={() => setMode('private')}>
               <span>02</span>
@@ -635,6 +638,11 @@ function TripCreationModal({ isOpen, navigate, loadTemplates, generateTrip, onCl
               <small>Buka form lengkap untuk membuat destinasi atau paket secara manual seperti sebelumnya.</small>
             </button>
           </div>
+          <div className="trip-generator-manage">
+            <p>Atur informasi trip yang bisa digunakan kembali.</p>
+            <button className="outline-btn" type="button" onClick={() => { resetAndClose(); navigate('/admin/open-trip/template') }}>Kelola Template</button>
+          </div>
+          </>
         ) : (
           <div className="trip-generator-body">
             <div className="trip-generator-fields">
@@ -1133,9 +1141,14 @@ const tripFormSteps = [
   { label: 'Pengingat', hint: 'Opsional', optional: true },
 ]
 
-export function TripForm({ tripId, trips, saveTrip, navigate, initialValues, children, ...props }) {
-  const selected = trips.find((item) => item.id === tripId)
-  const [form, setForm] = useState(() => normalizeTripForm(selected || initialValues))
+export function TripForm({ tripId, trips, saveTrip, navigate, initialValues, children, formMode = 'trip', ...props }) {
+  const isTemplateForm = formMode === 'template'
+  const returnPath = isTemplateForm ? '/admin/open-trip/template' : '/admin/open-trip'
+  const selected = isTemplateForm ? initialValues : trips.find((item) => item.id === tripId)
+  const [form, setForm] = useState(() => ({
+    ...normalizeTripForm(selected || initialValues),
+    ...(isTemplateForm ? { scheduleRules: initialValues?.scheduleRules || [newTemplateRule()] } : {}),
+  }))
   const [imageFiles, setImageFiles] = useState([])
   const [primaryImage, setPrimaryImage] = useState(() => getInitialPrimaryImage(selected || initialValues))
   const [formError, setFormError] = useState('')
@@ -1372,6 +1385,7 @@ export function TripForm({ tripId, trips, saveTrip, navigate, initialValues, chi
   }
 
   const getStepError = (index) => {
+    if (index === 1 && !isPrivateTrip && isTemplateForm) return getTemplateRulesError(form.scheduleRules)
     if (index === 1 && !isPrivateTrip) {
       const invalidSchedule = !form.schedules.length || form.schedules.some((schedule) => (
         !schedule.name.trim()
@@ -1412,7 +1426,8 @@ export function TripForm({ tripId, trips, saveTrip, navigate, initialValues, chi
       if (invalidSession) {
         return 'Private trip minimal punya 1 sesi. Jam selesai harus lebih besar dari jam mulai.'
       }
-      if (!form.availableStartDate || !form.availableEndDate || form.availableEndDate < form.availableStartDate) {
+      if (isTemplateForm && form.sessions.every((session) => session.status === 'inactive')) return 'Private Trip memerlukan minimal satu sesi aktif.'
+      if (!isTemplateForm && (!form.availableStartDate || !form.availableEndDate || form.availableEndDate < form.availableStartDate)) {
         return 'Isi rentang tanggal private trip dengan benar. Tanggal selesai tidak boleh lebih awal dari tanggal mulai.'
       }
     }
@@ -1532,7 +1547,7 @@ export function TripForm({ tripId, trips, saveTrip, navigate, initialValues, chi
         availableEndDate: isPrivateTrip ? form.availableEndDate : '',
         flexibleSchedule: isPrivateTrip,
         isPrivateTrip,
-        schedules: isPrivateTrip ? [] : form.schedules.map((schedule, index) => newSchedule(index, schedule)),
+        schedules: isPrivateTrip || isTemplateForm ? [] : form.schedules.map((schedule, index) => newSchedule(index, schedule)),
         sessions: isPrivateTrip ? form.sessions.map((session, index) => newSession(index, session)) : [],
         privatePackages: isPrivateTrip ? normalizedPrivatePackages : [],
         imageUrl: orderedImageUrls[0] || '',
@@ -1549,7 +1564,7 @@ export function TripForm({ tripId, trips, saveTrip, navigate, initialValues, chi
       })
       setIsSaving(false)
     } catch (error) {
-      setFormError(error.message || 'Trip gagal disimpan. Silakan coba kembali.')
+      setFormError(error.message || (isTemplateForm ? 'Template gagal disimpan. Silakan coba kembali.' : 'Trip gagal disimpan. Silakan coba kembali.'))
       setIsSaving(false)
     }
   }
@@ -1565,11 +1580,11 @@ export function TripForm({ tripId, trips, saveTrip, navigate, initialValues, chi
         {children}
         <div className="trip-form-heading">
           <div>
-            <p className="trip-form-breadcrumb">Paket Trip <span aria-hidden="true">/</span> {selected ? 'Edit paket' : 'Paket baru'}</p>
-            <h1>{selected ? 'Edit paket trip' : 'Tambah paket trip'}</h1>
-            <p className="muted">Lengkapi paket selangkah demi selangkah. Kamu bisa kembali untuk mengubah isian.</p>
+            <p className="trip-form-breadcrumb">{isTemplateForm ? 'Kelola Template' : 'Paket Trip'} <span aria-hidden="true">/</span> {isTemplateForm ? (selected ? 'Edit template' : 'Template baru') : (selected ? 'Edit paket' : 'Paket baru')}</p>
+            <h1>{isTemplateForm ? (selected ? 'Edit template trip' : 'Tambah template trip') : (selected ? 'Edit paket trip' : 'Tambah paket trip')}</h1>
+            <p className="muted">{isTemplateForm ? 'Simpan informasi dasar untuk paket berikutnya. Paket yang sudah dibuat tetap memiliki datanya sendiri.' : 'Lengkapi paket selangkah demi selangkah. Kamu bisa kembali untuk mengubah isian.'}</p>
           </div>
-          <button className="outline-btn" type="button" disabled={isSaving} onClick={() => navigate('/admin/open-trip')}><span aria-hidden="true">←</span> Kembali ke paket</button>
+          <button className="outline-btn" type="button" disabled={isSaving} onClick={() => navigate(returnPath)}><span aria-hidden="true">←</span> {isTemplateForm ? 'Kembali ke template' : 'Kembali ke paket'}</button>
         </div>
         <nav className="trip-wizard-nav" aria-label="Tahapan pengisian trip" ref={stepHeadingRef}>
           <ol>
@@ -1589,15 +1604,15 @@ export function TripForm({ tripId, trips, saveTrip, navigate, initialValues, chi
           <section className="form-section-card" data-trip-step="0" hidden={activeStep !== 0} aria-labelledby="trip-step-0-title">
             <div className="form-section-title">
               <span>1</span>
-              <div><h3 id="trip-step-0-title" tabIndex={-1}>Informasi dasar</h3><p>Mulai dari identitas paket yang akan dilihat customer.</p></div>
+              <div><h3 id="trip-step-0-title" tabIndex={-1}>Informasi dasar</h3><p>{isTemplateForm ? 'Tentukan identitas template tanpa bulan dan tahun.' : 'Mulai dari identitas paket yang akan dilihat customer.'}</p></div>
             </div>
             <p className="trip-required-note">Isian bertanda <span>*</span> wajib dilengkapi.</p>
             <div className="data-form section-fields">
-              <label><span className="trip-field-label">{isPrivateTrip ? 'Nama private trip' : 'Nama trip'} <span className="trip-required-marker" aria-hidden="true">*</span></span><input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
+              <label><span className="trip-field-label">{isTemplateForm ? 'Nama template' : isPrivateTrip ? 'Nama private trip' : 'Nama trip'} <span className="trip-required-marker" aria-hidden="true">*</span></span><input required maxLength={isTemplateForm ? 170 : undefined} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></label>
               <label>Jenis trip<select value={isPrivateTrip ? 'private' : 'open'} onChange={(e) => setForm({ ...form, isPrivateTrip: e.target.value === 'private' })}><option value="open">Open Trip</option><option value="private">Private Trip</option></select><small>{isPrivateTrip ? 'Private Trip menerima request tanggal dari customer.' : 'Open Trip memakai tanggal keberangkatan tetap.'}</small></label>
               <label>Kategori paket<select value={getExperienceType(form)} onChange={(e) => setForm({ ...form, experienceType: e.target.value })}><option value="cave">Wisata Goa</option><option value="custom">Wisata / Kegiatan (Non-Goa)</option></select><small>Paket custom memakai isi dan alur pemesanan yang sama, tetapi dapat digunakan untuk wisata atau kegiatan selain goa.</small></label>
               <label><span className="trip-field-label">Destinasi Indonesia <span className="trip-required-marker" aria-hidden="true">*</span></span><input required value={form.destinationId} onChange={(e) => setForm({ ...form, destinationId: e.target.value })} /></label>
-              <label>Status<select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>{tripStatuses.map((status) => <option key={status}>{status}</option>)}</select></label>
+              {!isTemplateForm && <label>Status<select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>{tripStatuses.map((status) => <option key={status}>{status}</option>)}</select></label>}
               <label>Dokumentasi bawaan<select value={form.includeDriveLink ? 'include' : 'none'} onChange={(e) => setForm({ ...form, includeDriveLink: e.target.value === 'include' })}>
                 <option value="include">Include link drive</option>
                 <option value="none">Tidak include link drive</option>
@@ -1609,12 +1624,13 @@ export function TripForm({ tripId, trips, saveTrip, navigate, initialValues, chi
           <section className="form-section-card" data-trip-step="1" hidden={activeStep !== 1} aria-labelledby="trip-step-1-title">
             <div className="form-section-title">
               <span>2</span>
-              <div><h3 id="trip-step-1-title" tabIndex={-1}>Harga & jadwal</h3><p>{isPrivateTrip ? 'Atur harga, batas peserta, dan pilihan waktu. Customer memilih tanggal dalam rentang yang kamu sediakan.' : 'Tentukan harga per orang, tanggal keberangkatan, dan kuota setiap sesi.'}</p></div>
+              <div><h3 id="trip-step-1-title" tabIndex={-1}>Harga & jadwal</h3><p>{isTemplateForm ? (isPrivateTrip ? 'Atur harga, peserta, dan sesi. Periode satu bulan ditentukan saat membuat paket.' : 'Tentukan harga per orang dan pola keberangkatan yang akan berulang setiap bulan.') : (isPrivateTrip ? 'Atur harga, batas peserta, dan pilihan waktu. Customer memilih tanggal dalam rentang yang kamu sediakan.' : 'Tentukan harga per orang, tanggal keberangkatan, dan kuota setiap sesi.')}</p></div>
             </div>
             <div className="data-form section-fields">
               {!isPrivateTrip ? (
                 <>
-                  <label><span className="trip-field-label">Harga per orang <span className="trip-required-marker" aria-hidden="true">*</span></span><input required type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} /></label>
+                  <label><span className="trip-field-label">Harga per orang <span className="trip-required-marker" aria-hidden="true">*</span></span><input required type="number" min={isTemplateForm ? 1 : undefined} value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} /></label>
+                  {isTemplateForm ? <TripTemplatePatternEditor rules={form.scheduleRules} onChange={(scheduleRules) => setForm({ ...form, scheduleRules })} disabled={isSaving} /> : <>
                   <label><span className="trip-field-label">Jumlah sesi/jadwal <span className="trip-required-marker" aria-hidden="true">*</span></span><input required type="number" min="1" value={form.schedules.length} onChange={(e) => updateScheduleCount(e.target.value)} /><small>Default 1 sesi. Tambahkan baris dengan tanggal yang sama jika satu tanggal memiliki beberapa sesi.</small></label>
                   {form.schedules.map((schedule, index) => (
                     <div className="admin-nested-fields full" key={schedule.id}>
@@ -1629,6 +1645,7 @@ export function TripForm({ tripId, trips, saveTrip, navigate, initialValues, chi
                       {Number(schedule.bookedCount) > 0 && <small>Sudah ada {schedule.bookedCount} peserta disetujui pada sesi ini.</small>}
                     </div>
                   ))}
+                  </>}
                 </>
               ) : (
                 <>
@@ -1677,8 +1694,10 @@ export function TripForm({ tripId, trips, saveTrip, navigate, initialValues, chi
                       ))}
                     </div>
                   </div>
+                  {isTemplateForm ? <p className="template-manager-note full">Tersedia satu bulan penuh. Tanggal pertama dan terakhir mengikuti bulan serta tahun saat paket dibuat dari template.</p> : <>
                   <label><span className="trip-field-label">Private trip bisa dipesan dari tanggal <span className="trip-required-marker" aria-hidden="true">*</span></span><input required type="date" value={form.availableStartDate} onChange={(e) => setForm({ ...form, availableStartDate: e.target.value })} /></label>
                   <label><span className="trip-field-label">Sampai tanggal <span className="trip-required-marker" aria-hidden="true">*</span></span><input required type="date" min={form.availableStartDate || undefined} value={form.availableEndDate} onChange={(e) => setForm({ ...form, availableEndDate: e.target.value })} /></label>
+                  </>}
                   <label className="full">Aturan kapasitas booking
                     <select value={form.privateBookingMode} onChange={(event) => setForm({ ...form, privateBookingMode: event.target.value })}>
                       <option value="exclusive">Eksklusif — satu booking per sesi pada tanggal yang sama</option>
@@ -1706,7 +1725,7 @@ export function TripForm({ tripId, trips, saveTrip, navigate, initialValues, chi
                           <label><span className="trip-field-label">Jam mulai <span className="trip-required-marker" aria-hidden="true">*</span></span><input required type="time" value={session.startTime} onChange={(e) => updateSession(index, 'startTime', e.target.value)} /></label>
                           <label><span className="trip-field-label">Jam selesai <span className="trip-required-marker" aria-hidden="true">*</span></span><input required type="time" value={session.endTime} onChange={(e) => updateSession(index, 'endTime', e.target.value)} /></label>
                           <label>Status sesi<select value={session.status} onChange={(e) => updateSession(index, 'status', e.target.value)}><option value="active">Active</option><option value="inactive">Inactive</option></select></label>
-                          {form.includeDriveLink && <label className="full">Link drive dokumentasi trip<input type="url" placeholder="https://drive.google.com/..." value={session.driveLinkUrl || ''} onChange={(e) => updateSession(index, 'driveLinkUrl', e.target.value)} /></label>}
+                          {form.includeDriveLink && !isTemplateForm && <label className="full">Link drive dokumentasi trip<input type="url" placeholder="https://drive.google.com/..." value={session.driveLinkUrl || ''} onChange={(e) => updateSession(index, 'driveLinkUrl', e.target.value)} /></label>}
                         </div>
                       ))}
                     </div>
@@ -1844,14 +1863,14 @@ export function TripForm({ tripId, trips, saveTrip, navigate, initialValues, chi
                 </div>
               </div>
             </div>
-            <div className="trip-save-summary"><span className="trip-summary-check" aria-hidden="true">✓</span><div><strong>Paket siap disimpan</strong><p>{form.name || 'Paket trip'} · {isPrivateTrip ? 'Private Trip' : 'Open Trip'} · {isPrivateTrip ? `${form.sessions.length} sesi waktu` : `${form.schedules.length} jadwal keberangkatan`}</p><small>Periksa kembali lewat langkah di atas jika ada yang ingin diubah.</small></div></div>
+            <div className="trip-save-summary"><span className="trip-summary-check" aria-hidden="true">✓</span><div><strong>{isTemplateForm ? 'Template siap disimpan' : 'Paket siap disimpan'}</strong><p>{form.name || (isTemplateForm ? 'Template trip' : 'Paket trip')} · {isPrivateTrip ? 'Private Trip' : 'Open Trip'} · {isPrivateTrip ? `${form.sessions.length} sesi waktu` : isTemplateForm ? `${form.scheduleRules.length} aturan jadwal` : `${form.schedules.length} jadwal keberangkatan`}</p><small>Periksa kembali lewat langkah di atas jika ada yang ingin diubah.</small></div></div>
           </section>
 
           <div className="trip-wizard-actions">
             <div className="trip-wizard-action-note"><strong>Langkah {activeStep + 1} dari {tripFormSteps.length}</strong><span>{activeStep < tripFormSteps.length - 1 ? `Selanjutnya: ${tripFormSteps[activeStep + 1].label}` : 'Simpan setelah semua informasi sesuai.'}</span></div>
             <div className="trip-wizard-action-buttons">
-              {activeStep > 0 ? <button className="outline-btn" disabled={isSaving} type="button" onClick={() => moveToStep(activeStep - 1)}><span aria-hidden="true">←</span> Sebelumnya</button> : <button className="outline-btn" disabled={isSaving} type="button" onClick={() => navigate('/admin/open-trip')}>Batal</button>}
-              {activeStep < tripFormSteps.length - 1 ? <button className="primary-btn trip-save-btn" type="submit">Berikutnya <span aria-hidden="true">→</span></button> : <button className="primary-btn trip-save-btn" disabled={isSaving} type="submit" aria-busy={isSaving}>{isSaving && <span className="button-spinner" aria-hidden="true" />}{isSaving ? 'Menyimpan trip...' : 'Simpan paket trip'}</button>}
+              {activeStep > 0 ? <button className="outline-btn" disabled={isSaving} type="button" onClick={() => moveToStep(activeStep - 1)}><span aria-hidden="true">←</span> Sebelumnya</button> : <button className="outline-btn" disabled={isSaving} type="button" onClick={() => navigate(returnPath)}>Batal</button>}
+              {activeStep < tripFormSteps.length - 1 ? <button className="primary-btn trip-save-btn" type="submit">Berikutnya <span aria-hidden="true">→</span></button> : <button className="primary-btn trip-save-btn" disabled={isSaving} type="submit" aria-busy={isSaving}>{isSaving && <span className="button-spinner" aria-hidden="true" />}{isSaving ? (isTemplateForm ? 'Menyimpan template...' : 'Menyimpan trip...') : (isTemplateForm ? 'Simpan template' : 'Simpan paket trip')}</button>}
             </div>
           </div>
         </form>

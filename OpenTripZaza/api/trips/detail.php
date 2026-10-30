@@ -14,7 +14,7 @@ runEndpoint(function (PDO $pdo): void {
     $statement = $pdo->prepare('SELECT * FROM trips WHERE id = ? LIMIT 1');
     $statement->execute([$id]);
     $trip = $statement->fetch();
-    if (!$trip) {
+    if (!$trip || !empty($trip['is_template_source'])) {
         jsonError('Trip tidak ditemukan.', 404);
     }
     $adminView = ($_GET['all'] ?? '') === '1';

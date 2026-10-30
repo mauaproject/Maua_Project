@@ -14,8 +14,10 @@ runEndpoint(function (PDO $pdo): void {
                   available_start_date, available_end_date, private_booking_mode
            FROM trips t'
         : 'SELECT t.* FROM trips t';
+    $sourceFilter = tableHasColumn($pdo, 'trips', 'is_template_source') ? 't.is_template_source = 0' : '1 = 1';
+    $sql .= ' WHERE ' . $sourceFilter;
     if ($customerView) {
-        $sql .= " WHERE t.status = 'Tersedia'
+        $sql .= " AND t.status = 'Tersedia'
           AND (
             (
               t.trip_type = 'open'

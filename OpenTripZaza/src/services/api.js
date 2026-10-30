@@ -66,6 +66,21 @@ export const getTripGenerationTemplates = ({ type = 'open', year, month } = {}) 
   `trip-templates/index.php?type=${encodeURIComponent(type)}&year=${encodeURIComponent(year)}&month=${encodeURIComponent(month)}`,
 )
 export const generateTripFromTemplate = (data) => jsonPost('trip-templates/generate.php', data)
+export const getManagedTripTemplates = (signal) => request('trip-templates/manage.php', { signal })
+export const getTripTemplateDetail = (id, signal) => request(`trip-templates/manage.php?id=${encodeURIComponent(id)}`, { signal })
+export const saveTripTemplate = (data) => jsonPost('trip-templates/save.php', data)
+export const previewTripTemplate = (data, signal) => request('trip-templates/preview.php', {
+  method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), signal,
+})
+export const deleteTripTemplate = (id, expectedSourceTripId) => jsonPost('trip-templates/delete.php', { id, expectedSourceTripId })
+export const uploadTripTemplateImage = (file, templateId, sourceTripId, isPrimary = false) => {
+  const form = new FormData()
+  form.append('image', file)
+  form.append('template_id', templateId)
+  form.append('expected_source_trip_id', sourceTripId)
+  form.append('is_primary', isPrimary ? '1' : '0')
+  return request('trip-templates/image.php', { method: 'POST', body: form })
+}
 
 export const createBooking = (data, paymentProof = null) => {
   if (paymentProof instanceof File) {
