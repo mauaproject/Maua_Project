@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { getBookingReminders, resendBookingReminder } from '../services/api'
 import { addonOptions, registrationStatuses, tripStatuses } from '../config/constants'
 import { formatCurrency, formatDate, tripName } from '../utils/formatters'
 import { getCustomerJobStatusLabel, getJobAddonLabel, getJobCompletedAt, getJobResultLink, getJobWorkerName, getRegistrationResultJobs } from '../utils/jobResults'
@@ -2173,6 +2174,7 @@ function AdminPrivateScheduleDetail({ registration, trips, jobs, setRegistration
   const tripJobs = jobs.filter((job) => Number(job.registrationId) === Number(registration.id))
   const assignedJobs = tripJobs.filter((job) => job.worker)
   const [driveLinkDraft, setDriveLinkDraft] = useState(registration.tripDriveLinkUrl || '')
+  const [isReminderModalOpen, setIsReminderModalOpen] = useState(false)
   const participantDetails = Array.isArray(registration.participantDetails) && registration.participantDetails.length
     ? registration.participantDetails
     : [{ name: registration.name, email: registration.email, whatsapp: registration.whatsapp, address: registration.address, age: registration.age, gender: registration.gender, healthNotes: registration.healthNotes, bloodType: registration.bloodType, heightCm: registration.heightCm, weightKg: registration.weightKg, shoeSize: registration.shoeSize }]
@@ -2188,6 +2190,7 @@ function AdminPrivateScheduleDetail({ registration, trips, jobs, setRegistration
             <p className="muted">{adminText(trip?.destination)} - {formatDate(registrationDate)} - {registration.sessionName ? `${registration.sessionName} ` : ''}{registration.startTime && registration.endTime ? `(${registration.startTime} - ${registration.endTime}) - ` : ''}{registration.name}</p>
           </div>
           <div className="registration-management-actions">
+            <button className="outline-btn" type="button" onClick={() => setIsReminderModalOpen(true)}>Notifikasi</button>
             <button className="outline-btn" onClick={() => navigate(archivedView ? '/admin/arsip-trip' : '/admin/jadwal')}>{archivedView ? 'Kembali ke arsip' : 'Kembali ke jadwal'}</button>
           </div>
         </div>
@@ -2257,6 +2260,15 @@ function AdminPrivateScheduleDetail({ registration, trips, jobs, setRegistration
           )}
         </section>
 
+        {isReminderModalOpen && trip && (
+          <ReminderStatusModal
+            trip={trip}
+            selectedSchedule={null}
+            sessionDatabaseId={registration.sessionDatabaseId || ''}
+            subtitle={`${formatDate(registrationDate)}${registration.sessionName ? ` · ${registration.sessionName}` : ''}`}
+            onClose={() => setIsReminderModalOpen(false)}
+          />
+        )}
       </section>
     </AdminShell>
   )
@@ -2290,6 +2302,7 @@ function AdminPrivateTripScheduleDetail({ trip, registrations, jobs, setRegistra
     .filter((item) => item.isPrivateTrip || item.isPrivateTour || item.tripType === 'private')
     .sort((a, b) => String(getRegistrationDate(a)).localeCompare(String(getRegistrationDate(b))) || String(a.sessionName || '').localeCompare(String(b.sessionName || '')))
   const pendingRegistrations = tripRegistrations.filter(isPendingRegistration)
+  const [isReminderModalOpen, setIsReminderModalOpen] = useState(false)
   const relatedJobs = jobs.filter((job) => Number(job.tripId) === Number(trip.id) && (!job.registrationId || tripRegistrations.some((registration) => Number(registration.id) === Number(job.registrationId))))
   const assignedJobs = relatedJobs.filter((job) => job.worker)
   const range = getPrivateDateRange(trip)
@@ -2304,7 +2317,10 @@ function AdminPrivateTripScheduleDetail({ trip, registrations, jobs, setRegistra
             <h2>{trip.name}</h2>
             <p className="muted">{adminText(trip.destination)} - {range.startDate ? formatDate(range.startDate) : '-'} sampai {range.endDate ? formatDate(range.endDate) : '-'}</p>
           </div>
-          <button className="outline-btn" onClick={() => navigate(archivedView ? '/admin/arsip-trip' : '/admin/jadwal')}>{archivedView ? 'Kembali ke arsip' : 'Kembali ke jadwal'}</button>
+          <div className="registration-management-actions">
+            <button className="outline-btn" type="button" onClick={() => setIsReminderModalOpen(true)}>Notifikasi</button>
+            <button className="outline-btn" onClick={() => navigate(archivedView ? '/admin/arsip-trip' : '/admin/jadwal')}>{archivedView ? 'Kembali ke arsip' : 'Kembali ke jadwal'}</button>
+          </div>
         </div>
 
         <section className="stat-grid dashboard-stats">
@@ -2333,6 +2349,14 @@ function AdminPrivateTripScheduleDetail({ trip, registrations, jobs, setRegistra
             </div>
           </DataPanel>
         </section>
+
+        {isReminderModalOpen && (
+          <ReminderStatusModal
+            trip={trip}
+            selectedSchedule={null}
+            onClose={() => setIsReminderModalOpen(false)}
+          />
+        )}
       </section>
     </AdminShell>
   )
@@ -2548,6 +2572,7 @@ function AdminScheduleDetail({ trip, scheduleId, registrations, jobs, setRegistr
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
   const [selectedRegistration, setSelectedRegistration] = useState(null)
+  const [isReminderModalOpen, setIsReminderModalOpen] = useState(false)
   const statusTabs = [
     ['Menunggu Approval', waitingRegistrations.length],
     ['Disetujui', approvedParticipants.length],
@@ -2584,6 +2609,7 @@ function AdminScheduleDetail({ trip, scheduleId, registrations, jobs, setRegistr
             <p className="muted">{trip.name} - {adminText(trip.destination)} - {selectedSchedule ? `${selectedSchedule.name} · ${formatDate(selectedSchedule.date)}${selectedSchedule.startTime && selectedSchedule.endTime ? `, ${selectedSchedule.startTime} - ${selectedSchedule.endTime} WIB` : ''}` : `${tripSchedules.length} sesi/jadwal`}</p>
           </div>
           <div className="registration-management-actions">
+            <button className="outline-btn" type="button" onClick={() => setIsReminderModalOpen(true)}>Notifikasi</button>
             <button className="outline-btn" onClick={() => navigate(archivedView ? '/admin/arsip-trip' : '/admin/jadwal')}>{archivedView ? 'Kembali ke arsip' : 'Kembali ke jadwal'}</button>
           </div>
         </div>
@@ -2693,8 +2719,125 @@ function AdminScheduleDetail({ trip, scheduleId, registrations, jobs, setRegistr
             onClose={() => setSelectedRegistration(null)}
           />
         )}
+
+        {isReminderModalOpen && (
+          <ReminderStatusModal
+            trip={trip}
+            selectedSchedule={selectedSchedule}
+            onClose={() => setIsReminderModalOpen(false)}
+          />
+        )}
       </section>
     </AdminShell>
+  )
+}
+
+const reminderStateMeta = {
+  success: { label: 'Terkirim', className: 'is-success' },
+  failed: { label: 'Gagal', className: 'is-failed' },
+  processing: { label: 'Sedang dikirim', className: 'is-pending' },
+  upcoming: { label: 'Belum waktunya', className: 'is-upcoming' },
+  pending: { label: 'Menunggu cron', className: 'is-upcoming' },
+  missed: { label: 'Tidak terkirim', className: 'is-missed' },
+}
+
+const formatReminderDateTime = (value) => {
+  if (!value) return ''
+  const parsed = new Date(String(value).replace(' ', 'T'))
+  if (Number.isNaN(parsed.getTime())) return String(value)
+  return parsed.toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+}
+
+function ReminderStatusModal({ trip, selectedSchedule, sessionDatabaseId = '', subtitle = '', onClose }) {
+  const [state, setState] = useState({ loading: true, error: '', items: [] })
+  const [resending, setResending] = useState('')
+  const [notice, setNotice] = useState('')
+
+  const loadReminders = async () => {
+    try {
+      const data = await getBookingReminders({
+        tripId: trip.id,
+        scheduleId: selectedSchedule?.databaseId || '',
+        sessionId: sessionDatabaseId || '',
+      })
+      setState({ loading: false, error: '', items: data.items || [] })
+    } catch (error) {
+      setState({ loading: false, error: error.message || 'Gagal memuat status reminder.', items: [] })
+    }
+  }
+
+  useEffect(() => { loadReminders() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const resend = async (bookingId, type) => {
+    const key = `${bookingId}:${type}`
+    setResending(key)
+    setNotice('')
+    try {
+      const result = await resendBookingReminder(bookingId, type)
+      setNotice(result.message || 'Reminder berhasil dikirim ulang.')
+      await loadReminders()
+    } catch (error) {
+      setNotice(error.message || 'Gagal mengirim ulang reminder.')
+    } finally {
+      setResending('')
+    }
+  }
+
+  return (
+    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+      <section className="modal-panel reminder-status-modal" role="dialog" aria-modal="true" aria-labelledby="reminder-status-title" onClick={(event) => event.stopPropagation()}>
+        <div className="modal-head">
+          <div>
+            <p className="eyebrow">Status pengiriman email</p>
+            <h2 id="reminder-status-title">Notifikasi Reminder</h2>
+            <p className="muted">{trip.name}{selectedSchedule ? ` - ${selectedSchedule.name} · ${formatDate(selectedSchedule.date)}` : ''}{subtitle ? ` - ${subtitle}` : ''}</p>
+          </div>
+          <button className="outline-btn" type="button" onClick={onClose}>Tutup</button>
+        </div>
+
+        {notice && <p className="reminder-modal-notice">{notice}</p>}
+        {state.loading && <p className="muted">Memuat status reminder...</p>}
+        {!state.loading && state.error && <p className="form-error">{state.error}</p>}
+        {!state.loading && !state.error && !state.items.length && (
+          <p className="empty-column">Belum ada peserta yang disetujui pada jadwal ini.</p>
+        )}
+        {!state.loading && !state.error && state.items.length > 0 && (
+          <div className="reminder-status-list">
+            {state.items.map((item) => (
+              <article className="reminder-status-row" key={item.id}>
+                <div className="reminder-status-person">
+                  <strong>{item.name}</strong>
+                  <span>{item.email || 'Tanpa email'}</span>
+                </div>
+                <div className="reminder-status-badges">
+                  {item.reminders.map((reminder) => {
+                    const meta = reminderStateMeta[reminder.state] || reminderStateMeta.missed
+                    const sentText = reminder.log?.sentAt ? ` · ${formatReminderDateTime(reminder.log.sentAt)}` : ''
+                    const errorText = reminder.state === 'failed' && reminder.log?.error ? ` — ${reminder.log.error}` : ''
+                    const resendKey = `${item.id}:${reminder.type}`
+                    return (
+                      <span className={`reminder-status-badge ${meta.className}`} key={reminder.type} title={errorText || undefined}>
+                        {reminder.label}: {meta.label}{sentText}{errorText}
+                        {['failed', 'missed', 'success'].includes(reminder.state) && (
+                          <button
+                            className="reminder-resend-btn"
+                            type="button"
+                            disabled={resending === resendKey || !item.email}
+                            onClick={() => resend(item.id, reminder.type)}
+                          >
+                            {resending === resendKey ? 'Mengirim...' : 'Kirim ulang'}
+                          </button>
+                        )}
+                      </span>
+                    )
+                  })}
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
   )
 }
 

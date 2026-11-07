@@ -95,6 +95,13 @@ export const getBookings = (view = 'active') => request(`bookings/index.php?view
 export const getUserBookings = (email, view = 'active') => request(`bookings/user.php?email=${encodeURIComponent(email)}&view=${encodeURIComponent(view)}`)
 export const getPrivateBookingAvailability = (tripId) => request(`bookings/availability.php?trip_id=${encodeURIComponent(tripId)}`)
 export const updateBookingStatus = (id, status) => jsonPost('bookings/update-status.php', { id, status })
+export const getBookingReminders = ({ tripId, scheduleId = '', sessionId = '' }) => {
+  const params = new URLSearchParams({ trip_id: String(tripId) })
+  if (scheduleId) params.set('schedule_id', String(scheduleId))
+  if (sessionId) params.set('session_id', String(sessionId))
+  return request(`bookings/reminders.php?${params}`)
+}
+export const resendBookingReminder = (bookingId, type) => jsonPost('bookings/reminders.php', { bookingId, type })
 
 export const getRescheduleRequests = () => request('reschedules/index.php')
 export const getRescheduleOptions = (bookingId) => request(`reschedules/options.php?booking_id=${encodeURIComponent(bookingId)}`)
