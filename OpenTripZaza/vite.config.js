@@ -1,9 +1,23 @@
+import { readFileSync } from 'node:fs'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    {
+      name: 'payment-account-php',
+      apply: 'build',
+      generateBundle() {
+        this.emitFile({
+          type: 'asset',
+          fileName: 'payment-account.php',
+          source: readFileSync(new URL('./payment-account.php', import.meta.url), 'utf8'),
+        })
+      },
+    },
+  ],
   build: {
     cssCodeSplit: true,
     sourcemap: false,

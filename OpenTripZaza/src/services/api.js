@@ -7,11 +7,7 @@ const saveSessionToken = (token) => {
   if (token) window.localStorage.setItem(SESSION_TOKEN_KEY, token)
 }
 
-const request = async (path, options = {}) => {
-  const token = getSessionToken()
-  const headers = new Headers(options.headers || {})
-  if (token && !headers.has('Authorization')) headers.set('Authorization', `Bearer ${token}`)
-  const response = await fetch(`${API_BASE_URL}/${path.replace(/^\//, '')}`, { ...options, headers })
+const readApiResponse = async (response) => {
   let payload
   try {
     payload = await response.json()
@@ -24,6 +20,24 @@ const request = async (path, options = {}) => {
     throw error
   }
   return payload.data
+}
+
+const request = async (path, options = {}) => {
+  const token = getSessionToken()
+  const headers = new Headers(options.headers || {})
+  if (token && !headers.has('Authorization')) headers.set('Authorization', `Bearer ${token}`)
+  const response = await fetch(`${API_BASE_URL}/${path.replace(/^\//, '')}`, { ...options, headers })
+  return readApiResponse(response)
+}
+
+export const getPaymentAccount = async (signal) => {
+  const apiDirectory = new URL(API_BASE_URL + '/', window.location.origin)
+  const response = await fetch(new URL('../payment-account.php', apiDirectory), { cache: 'no-store', signal })
+  const account = await readApiResponse(response)
+  if (!account?.accountNumber || !account?.accountName) {
+    throw new Error('Informasi rekening pembayaran sedang tidak tersedia.')
+  }
+  return account
 }
 
 const jsonPost = (path, data) => request(path, {

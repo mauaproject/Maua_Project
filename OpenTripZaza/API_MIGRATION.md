@@ -47,7 +47,7 @@ Jalankan file berikut satu kali melalui phpMyAdmin:
 
 `api/migrations/2026-06-19-booking-payments.sql`
 
-Tambahkan konfigurasi rekening publik ke `.env` sebelum menjalankan build frontend:
+Isi konfigurasi rekening di `.env` yang sejajar dengan `public_html` pada host PHP.
 
 ```env
 VITE_BCA_ACCOUNT_NUMBER=1234567890
@@ -57,7 +57,10 @@ VITE_BCA_ACCOUNT_NAME=MAUA PROJECT
 Flow pembayaran menyimpan jenis pembayaran DP/Lunas, nominal yang dibayar,
 status verifikasi, snapshot nomor rekening BCA, dan URL bukti pembayaran.
 Bukti pembayaran disimpan di `uploads/payment-proofs`, bukan sebagai nama file lokal.
-Jalankan `npm run build` kembali setiap kali nilai `VITE_...` frontend berubah.
+Checkout dan pembayaran reschedule membaca rekening dari `payment-account.php`
+saat halaman dibuka. `npm run build` menyertakan endpoint PHP tersebut di `dist`
+untuk deploy pertama. Untuk penggantian rekening berikutnya, simpan `.env` dan
+muat ulang halaman pembayaran.
 
 ## Migrasi Paket Private Trip
 

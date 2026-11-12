@@ -1858,6 +1858,50 @@ const paymentTerms = [
   'Keputusan Maua Project terkait operasional kegiatan, perubahan jadwal, dan biaya yang timbul bersifat final dan mengikat seluruh peserta.',
 ]
 
+function usePaymentAccount(enabled) {
+  const [result, setResult] = useState({ account: null, unavailable: false })
+  const [attempt, setAttempt] = useState(0)
+
+  useEffect(() => {
+    if (!enabled) return
+
+    const controller = new AbortController()
+    api.getPaymentAccount(controller.signal).then((account) => {
+      if (!controller.signal.aborted) setResult({ account, unavailable: false })
+    }).catch(() => {
+      if (!controller.signal.aborted) setResult({ account: null, unavailable: true })
+    })
+    return () => controller.abort()
+  }, [enabled, attempt])
+
+  const reload = () => {
+    setResult({ account: null, unavailable: false })
+    setAttempt((current) => current + 1)
+  }
+
+  return { ...result, reload }
+}
+
+function BankPaymentPanel({ account, unavailable, reload, children }) {
+  return (
+    <div className="bank-payment-panel">
+      <span>Transfer Bank BCA</span>
+      {account ? (
+        <>
+          <strong>{account.accountNumber}</strong>
+          <p>a.n. {account.accountName}</p>
+          {children}
+        </>
+      ) : unavailable ? (
+        <>
+          <p role="alert">Informasi rekening pembayaran sedang tidak tersedia.</p>
+          <div><button className="outline-btn" type="button" onClick={reload}>Coba lagi</button></div>
+        </>
+      ) : <p role="status">Memuat informasi rekening...</p>}
+    </div>
+  )
+}
+
 export function PaymentConfirmationPage({
   checkoutDraft,
   trips,
@@ -1879,8 +1923,7 @@ export function PaymentConfirmationPage({
   const selectedAddons = Array.isArray(checkoutDraft?.selectedAddonDetails)
     ? checkoutDraft.selectedAddonDetails
     : (trip?.addons || []).filter((addon) => checkoutDraft?.addons?.includes(addon.id))
-  const bcaAccountNumber = import.meta.env.VITE_BCA_ACCOUNT_NUMBER || '4561504789'
-  const bcaAccountName = import.meta.env.VITE_BCA_ACCOUNT_NAME || 'Zakkiatuz Zahrolazizah'
+  const paymentAccount = usePaymentAccount(Boolean(checkoutDraft))
 
   useEffect(() => () => {
     if (previewUrl) URL.revokeObjectURL(previewUrl)
@@ -1916,6 +1959,7 @@ export function PaymentConfirmationPage({
 
   const requestSubmit = (event) => {
     event.preventDefault()
+    if (!paymentAccount.account) return
     const validationError = validatePaymentProof(paymentProof)
     if (validationError) {
       setError(validationError)
@@ -1930,7 +1974,7 @@ export function PaymentConfirmationPage({
   }
 
   const confirmSubmit = async () => {
-    if (isSubmitting) return
+    if (isSubmitting || !paymentAccount.account) return
     setIsSubmitting(true)
     setError('')
     try {
@@ -1939,7 +1983,7 @@ export function PaymentConfirmationPage({
         paymentProof,
         requiredPaymentAmount,
         paidAmount: requiredPaymentAmount,
-        bcaAccountNumber,
+        bcaAccountNumber: paymentAccount.account.accountNumber,
       })
       if (!submitted) {
         setError('Pendaftaran gagal dikirim. Periksa kembali slot, jadwal, dan sesi trip.')
@@ -1996,12 +2040,9 @@ export function PaymentConfirmationPage({
             <section className="payment-card">
               <h2>Metode Pembayaran</h2>
               <div className="payment-method-grid">
-                <div className="bank-payment-panel">
-                  <span>Transfer Bank BCA</span>
-                  <strong>{bcaAccountNumber}</strong>
-                  <p>a.n. {bcaAccountName}</p>
+                <BankPaymentPanel {...paymentAccount}>
                   <small>Pastikan nominal transfer sesuai dengan nominal yang harus dibayar.</small>
-                </div>
+                </BankPaymentPanel>
               </div>
             </section>
 
@@ -2039,7 +2080,7 @@ export function PaymentConfirmationPage({
               </label>
             </section>
             {error && <p className="form-error payment-error">{error}</p>}
-            <button className="primary-btn payment-submit-btn" type="submit" disabled={!termsAccepted || !paymentProof || isSubmitting}>
+            <button className="primary-btn payment-submit-btn" type="submit" disabled={!paymentAccount.account || !termsAccepted || !paymentProof || isSubmitting}>
               {isSubmitting ? 'Mengirim...' : 'Kirim Pendaftaran'}
             </button>
           </aside>
@@ -2053,7 +2094,7 @@ export function PaymentConfirmationPage({
         confirmText={isSubmitting ? 'Mengirim...' : 'Ya, Kirim Pendaftaran'}
         cancelText="Periksa Lagi"
         variant="warning"
-        confirmDisabled={isSubmitting}
+        confirmDisabled={isSubmitting || !paymentAccount.account}
         cancelDisabled={isSubmitting}
         onConfirm={confirmSubmit}
         onCancel={() => setIsConfirmOpen(false)}
@@ -2160,6 +2201,7 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], reschedul
   const [reschedulePaymentPreview, setReschedulePaymentPreview] = useState('')
   const [reschedulePaymentError, setReschedulePaymentError] = useState('')
   const [reschedulePaymentSubmitting, setReschedulePaymentSubmitting] = useState(false)
+  const reschedulePaymentAccount = usePaymentAccount(Boolean(reschedulePaymentRequest))
   const [isProfileEditing, setIsProfileEditing] = useState(false)
   const [profileForm, setProfileForm] = useState(() => getCustomerProfileForm(customerProfile))
   const [profileError, setProfileError] = useState('')
@@ -2236,6 +2278,12 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], reschedul
     setRescheduleError('')
   }
 
+  const openReschedulePayment = (request) => {
+    reschedulePaymentAccount.reload()
+    setReschedulePaymentError('')
+    setReschedulePaymentRequest(request)
+  }
+
   const closeReschedulePayment = () => {
     if (reschedulePaymentSubmitting) return
     setReschedulePaymentRequest(null)
@@ -2261,6 +2309,7 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], reschedul
 
   const sendReschedulePayment = async (event) => {
     event.preventDefault()
+    if (!reschedulePaymentAccount.account || reschedulePaymentSubmitting) return
     const error = validatePaymentProof(reschedulePaymentProof)
     if (error) {
       setReschedulePaymentError(error)
@@ -2298,7 +2347,7 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], reschedul
       })
       setRescheduleSubmitting(false)
       closeRescheduleModal()
-      if (request.status === 'awaiting_payment') setReschedulePaymentRequest(request)
+      if (request.status === 'awaiting_payment') openReschedulePayment(request)
       return
     } catch (error) {
       setRescheduleError(error.message || 'Pengajuan reschedule gagal dikirim.')
@@ -2528,7 +2577,7 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], reschedul
                   {pendingReschedule && (
                     <>
                       {pendingReschedule.status === 'awaiting_payment' && (
-                        <button className="primary-btn" onClick={() => { setReschedulePaymentRequest(pendingReschedule); setReschedulePaymentError('') }} type="button">Bayar Reschedule</button>
+                        <button className="primary-btn" onClick={() => openReschedulePayment(pendingReschedule)} type="button">Bayar Reschedule</button>
                       )}
                       {(pendingReschedule.status === 'awaiting_payment' || pendingReschedule.feeAmount === 0) && (
                         <button className="text-link-btn danger-text" onClick={async () => {
@@ -2759,11 +2808,7 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], reschedul
                 <small>20% dari total booking {formatCurrency(reschedulePaymentRequest.feeBaseAmount)}. Transfer sesuai nominal di atas.</small>
                 <small>Slot jadwal baru ditahan sampai {formatDate(reschedulePaymentRequest.paymentExpiresAt, dateLocale)} {reschedulePaymentRequest.paymentExpiresAt?.slice(11, 16)} WIB.</small>
               </section>
-              <div className="bank-payment-panel">
-                <span>Transfer Bank BCA</span>
-                <strong>{import.meta.env.VITE_BCA_ACCOUNT_NUMBER || '4561504789'}</strong>
-                <p>a.n. {import.meta.env.VITE_BCA_ACCOUNT_NAME || 'Zakkiatuz Zahrolazizah'}</p>
-              </div>
+              <BankPaymentPanel {...reschedulePaymentAccount} />
               <label className="payment-proof-field">
                 <span>Unggah bukti transfer reschedule</span>
                 <input type="file" required accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" onChange={handleReschedulePaymentProof} />
@@ -2778,7 +2823,7 @@ export function CustomerAccountPage({ registrations, trips, jobs = [], reschedul
               {reschedulePaymentError && <p className="form-error">{reschedulePaymentError}</p>}
               <div className="reschedule-actions">
                 <button className="outline-btn" disabled={reschedulePaymentSubmitting} onClick={closeReschedulePayment} type="button">Nanti</button>
-                <button className="primary-btn" disabled={!reschedulePaymentProof || reschedulePaymentSubmitting} type="submit">{reschedulePaymentSubmitting ? 'Mengirim...' : 'Kirim Bukti Transfer'}</button>
+                <button className="primary-btn" disabled={!reschedulePaymentAccount.account || !reschedulePaymentProof || reschedulePaymentSubmitting} type="submit">{reschedulePaymentSubmitting ? 'Mengirim...' : 'Kirim Bukti Transfer'}</button>
               </div>
             </form>
           </section>
