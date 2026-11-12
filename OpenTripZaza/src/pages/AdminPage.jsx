@@ -11,6 +11,7 @@ import { ABOVE_MAX_PAX_RULE, normalizePricePerPersonTiers } from '../utils/prici
 import { getPrivateDateRange, getRegistrationDate, getTripSchedules, getTripSessions, hasScheduleRegistrations, isSameScheduleRegistration, isSlotHoldingRegistration, scheduleStatusLabel } from '../utils/schedules'
 import { isTripAddonActive } from '../utils/addons'
 import { AppModal, Badge, DataPanel, Metric, Sidebar } from './shared'
+import AdminDashboardOverview from './AdminDashboardOverview'
 import '../trip-wizard.css'
 import TripTemplatePatternEditor from './TripTemplatePatternEditor'
 import { getTemplateRulesError, newTemplateRule } from '../utils/tripTemplates'
@@ -386,33 +387,14 @@ export function AdminReschedules(props) {
 }
 
 export function AdminDashboard(props) {
-  const { trips, registrations, jobs } = props
-  const activeRegistrations = registrations.filter((item) => !item.isCompleted)
-  const stats = [
-    ['Total paket trip', trips.length],
-    ['Total pendaftar', registrations.length],
-    ['Menunggu approval', countParticipants(activeRegistrations.filter(isPendingRegistration))],
-    ['Disetujui', activeRegistrations.filter((item) => item.status === 'Disetujui').length],
-    ['Ditolak', activeRegistrations.filter((item) => item.status === 'Ditolak').length],
-    ['Job tersedia', jobs.filter((item) => item.status === 'Tersedia').length],
-    ['Job diambil', jobs.filter((item) => item.worker).length],
-  ]
+  const pending = props.registrations.filter((item) => !item.isCompleted && isPendingRegistration(item))
   return (
-    <AdminShell title="Dashboard Admin" {...props}>
-      <section className="admin-dashboard">
-        <div className="dashboard-hero">
-          <div>
-            <p className="eyebrow">Ringkasan operasional</p>
-            <h2>Kelola open trip goa, pendaftaran, dan pekerjaan tim dari menu admin.</h2>
-            <p className="muted">Gunakan dashboard ini sebagai pintu masuk cepat. Detail lengkap tetap ada di halaman masing-masing menu.</p>
-          </div>
-          <div className="dashboard-actions">
-            <button className="primary-btn" onClick={() => props.navigate('/admin/open-trip')}>Kelola paket trip</button>
-            <button className="outline-btn" onClick={() => props.navigate('/admin/jadwal')}>Lihat jadwal</button>
-          </div>
-        </div>
-        <section className="stat-grid dashboard-stats">{stats.map(([label, value]) => <Metric key={label} label={label} value={value} />)}</section>
-      </section>
+    <AdminShell {...props}>
+      <AdminDashboardOverview
+        {...props}
+        pendingBookings={pending.length}
+        pendingParticipants={countParticipants(pending)}
+      />
     </AdminShell>
   )
 }
